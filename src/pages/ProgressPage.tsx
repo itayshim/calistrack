@@ -14,8 +14,9 @@ import { useAppStore } from '../store/useAppStore';
 import { exercisePoints } from '../utils/stats';
 import { getRecommendation } from '../utils/recommendations';
 import { useI18n } from '../hooks/useI18n';
+import { getExerciseName } from '../utils/exerciseLocalization';
 export function ProgressPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const exercises = useAppStore((s) => s.exercises),
     sessions = useAppStore((s) => s.workoutSessions),
     theme = useAppStore((s) => s.settings.theme),
@@ -56,7 +57,7 @@ export function ProgressPage() {
         >
           {exercises.map((e) => (
             <option key={e.id} value={e.id}>
-              {e.nameEn}
+              {getExerciseName(e, language)}
             </option>
           ))}
         </select>
@@ -180,7 +181,10 @@ export function ProgressPage() {
               </p>
               {exercise?.harderExerciseId && recommendation.kind === 'progress' && (
                 <p className="mt-3 text-sm font-black text-brand">
-                  Try {exercises.find((e) => e.id === exercise.harderExerciseId)?.nameEn}
+                  {(() => {
+                    const harder = exercises.find((e) => e.id === exercise.harderExerciseId);
+                    return harder ? getExerciseName(harder, language) : '';
+                  })()}
                 </p>
               )}
             </div>

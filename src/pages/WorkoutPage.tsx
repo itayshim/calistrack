@@ -18,6 +18,8 @@ import { Badge, ProgressBar } from '../components/ui';
 import { useAppStore } from '../store/useAppStore';
 import { workoutSummary } from '../utils/stats';
 import { useI18n } from '../hooks/useI18n';
+import { ExerciseDemonstrationButton } from '../components/ExerciseDemonstration';
+import { getExerciseName } from '../utils/exerciseLocalization';
 
 export function WorkoutPage() {
   const { t, language } = useI18n();
@@ -170,9 +172,12 @@ export function WorkoutPage() {
             <bdi>{done}</bdi>/<bdi>{target?.targetSets ?? 0}</bdi> {t('sets')}
           </span>
         </div>
-        <h1 className="max-w-2xl text-[3rem] font-black leading-[.92] tracking-[-.06em] sm:text-6xl">
-          {exercise ? (language === 'he' ? exercise.nameHe : exercise.nameEn) : t('exerciseUnavailable')}
-        </h1>
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <h1 className="max-w-2xl text-[3rem] font-black leading-[.92] tracking-[-.06em] sm:text-6xl">
+            {exercise ? getExerciseName(exercise, language) : t('exerciseUnavailable')}
+          </h1>
+          {exercise && <ExerciseDemonstrationButton exercise={exercise} className="shrink-0" />}
+        </div>
         <p className="mt-4 text-lg font-bold text-slate-400">
           <span><bdi>{target?.targetSets}</bdi> {t('sets')}</span><span aria-hidden="true"> · </span><span><bdi>{target?.targetMin}–{target?.targetMax}</bdi> {exercise?.measurementType === 'time' ? t('seconds') : t('reps')}</span>
         </p>
@@ -304,7 +309,12 @@ export function WorkoutPage() {
               >
                 <span className="block text-xs font-black">
                   {n + 1}.{' '}
-                  {store.exercises.find((e) => e.id === item.exerciseId)?.[language === 'he' ? 'nameHe' : 'nameEn'] ?? t('exerciseUnavailable')}
+                  {(() => {
+                    const queuedExercise = store.exercises.find((e) => e.id === item.exerciseId);
+                    return queuedExercise
+                      ? getExerciseName(queuedExercise, language)
+                      : t('exerciseUnavailable');
+                  })()}
                 </span>
                 <span className="mt-1 block text-[10px] font-bold opacity-60">
                   {item.skipped ? t('skipped') : <><bdi>{item.sets.length}</bdi> {t('setsDone')}</>}

@@ -73,4 +73,14 @@ describe('remaining Hebrew localization and administrator entry', () => {
     const entry = screen.getByRole('link', { name: 'כניסת מנהל' });
     expect(entry).toHaveAttribute('href', '/admin/login');
   });
+
+  it('renders personal-best built-in names in English without changing user content', () => {
+    useAppStore.setState({
+      settings: { ...useAppStore.getState().settings, language: 'en' },
+    });
+    renderPage(<DashboardPage />);
+    expect(screen.getByText('Push-Up')).toBeInTheDocument();
+    expect(screen.queryByText('שכיבות סמיכה')).not.toBeInTheDocument();
+    expect(screen.getByText('try')).toBeInTheDocument();
+  });
 });

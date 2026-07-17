@@ -1,16 +1,22 @@
 import { ArrowLeft, CheckCircle2, Dumbbell, Lightbulb, TriangleAlert } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
-import { useState } from 'react';
 import { Badge, IconTile } from '../components/ui';
+import {
+  ExerciseDemonstrationButton,
+} from '../components/ExerciseDemonstration';
 import { useAppStore } from '../store/useAppStore';
 import { useI18n } from '../hooks/useI18n';
-import { getSupabasePublicUrl } from '../services/supabase';
-import { parseYouTubeVideoId, youtubeEmbedUrl } from '../utils/youtube';
+import {
+  getExerciseDescription,
+  getExerciseInstructions,
+  getExerciseMistakes,
+  getExerciseName,
+  hasExerciseDemonstration,
+} from '../utils/exerciseLocalization';
 export function ExerciseDetailPage() {
   const { id } = useParams(),
     exercise = useAppStore((s) => s.exercises.find((e) => e.id === id)),
-    { language, t } = useI18n(),
-    [showMedia, setShowMedia] = useState(false);
+    { language, t } = useI18n();
   if (!exercise) return <div className="card">{t('exerciseNoLongerAvailable')}</div>;
   return (
     <article className="mx-auto max-w-3xl">
@@ -30,10 +36,10 @@ export function ExerciseDetailPage() {
           <Dumbbell size={36} />
         </div>
         <h1 className="relative mt-6 text-5xl font-black leading-none tracking-[-.06em] sm:text-6xl">
-          {language === 'he' ? exercise.nameHe : exercise.nameEn}
+          {getExerciseName(exercise, language)}
         </h1>
         <p className="relative mt-4 max-w-xl text-lg font-semibold opacity-70">
-          {language === 'he' ? exercise.descriptionHe ?? exercise.description : exercise.description}
+          {getExerciseDescription(exercise, language)}
         </p>
       </section>
       <div className="mt-6 grid gap-5">
@@ -45,7 +51,7 @@ export function ExerciseDetailPage() {
             <h2 className="text-2xl font-black">{t('howToPerform')}</h2>
           </div>
           <ol className="space-y-4">
-            {(language === 'he' ? exercise.instructionsHe ?? exercise.instructions : exercise.instructions).map((instruction, index) => (
+            {getExerciseInstructions(exercise, language).map((instruction, index) => (
               <li key={instruction} className="flex gap-4">
                 <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand text-sm font-black text-ink">
                   {index + 1}
@@ -63,7 +69,7 @@ export function ExerciseDetailPage() {
             <h2 className="text-2xl font-black">{t('watchOutFor')}</h2>
           </div>
           <ul className="space-y-3">
-            {(language === 'he' ? exercise.commonMistakesHe ?? exercise.commonMistakes : exercise.commonMistakes).map((mistake) => (
+            {getExerciseMistakes(exercise, language).map((mistake) => (
               <li
                 key={mistake}
                 className="flex items-center gap-3 rounded-2xl bg-orange-500/[.07] p-4 font-semibold text-slate-300"
@@ -75,22 +81,10 @@ export function ExerciseDetailPage() {
           </ul>
         </section>
       </div>
-      {!!exercise.media?.filter((item) => item.isPublished).length && (
+      {hasExerciseDemonstration(exercise) && (
         <section className="card mt-5">
           <h2 className="text-2xl font-black">{t('demonstration')}</h2>
-          <button className="btn-primary mt-4" aria-pressed={showMedia} onClick={() => setShowMedia((value) => !value)}>
-            {showMedia ? t('hideDemonstration') : t('showDemonstration')}
-          </button>
-          {showMedia && <div className="mt-4 space-y-4">
-            {exercise.media.filter((item) => item.isPublished).map((item) => {
-              const videoId = item.externalUrl ? parseYouTubeVideoId(item.externalUrl) : null;
-              if (item.mediaType === 'youtube' && videoId) return <div key={item.id} className="aspect-video overflow-hidden rounded-2xl bg-black"><iframe loading="lazy" className="h-full w-full" src={youtubeEmbedUrl(videoId)} title={item.title ?? `${exercise.nameEn} demonstration`} allowFullScreen /></div>;
-              if (item.mediaType === 'external_link' && item.externalUrl) return <a key={item.id} className="btn-secondary" href={item.externalUrl} target="_blank" rel="noreferrer">{item.title ?? item.externalUrl}</a>;
-              if (item.mediaType === 'image' && item.storagePath) return <img key={item.id} className="w-full rounded-2xl object-cover" loading="lazy" src={getSupabasePublicUrl(item.storagePath)} alt={item.title ?? exercise.nameEn} />;
-              if (item.mediaType === 'uploaded_video' && item.storagePath) return <video key={item.id} className="aspect-video w-full rounded-2xl bg-black" controls preload="metadata" src={getSupabasePublicUrl(item.storagePath)} aria-label={item.title ?? `${exercise.nameEn} demonstration`} />;
-              return null;
-            })}
-          </div>}
+          <ExerciseDemonstrationButton exercise={exercise} className="mt-4 w-full sm:w-auto" />
         </section>
       )}
     </article>

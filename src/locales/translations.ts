@@ -20,6 +20,7 @@ const en = {
   demonstration: 'Demonstration',
   showDemonstration: 'Show demonstration',
   hideDemonstration: 'Hide demonstration',
+  openExternalMedia: 'Open demonstration',
   admin: 'Administrator',
   login: 'Admin login',
   logout: 'Log out',
@@ -323,6 +324,7 @@ const en = {
 } as const;
 
 const he: Record<keyof typeof en, string> = {
+  openExternalMedia: 'פתיחת ההדגמה',
   home: 'בית',
   program: 'תוכנית',
   workout: 'אימון',

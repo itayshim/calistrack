@@ -1,12 +1,13 @@
 import { createInitialData } from '../data/seed';
 import { builtInExercises } from '../data/exercises';
 import type { AppData, Exercise } from '../types';
+import { findExerciseByReference } from '../utils/exerciseLocalization';
 export const STORAGE_KEY = 'calistrack.app.v1';
 const valid = (v: unknown): v is AppData => {
   if (!v || typeof v !== 'object') return false;
   const d = v as Partial<AppData>;
   return (
-    (d.schemaVersion === 1 || d.schemaVersion === 2 || d.schemaVersion === 3) &&
+    [1, 2, 3, 4].includes(d.schemaVersion ?? 0) &&
     Array.isArray(d.exercises) &&
     Array.isArray(d.programs) &&
     Array.isArray(d.workoutSessions) &&
@@ -70,30 +71,44 @@ export function normalizeExercise(exercise: Exercise): Exercise {
 
 export function migrateAppData(data: AppData): AppData {
   const customExercises = data.exercises.filter((exercise) => exercise.isCustom).map(normalizeExercise);
+  const exercises = [...builtInExercises, ...customExercises];
+  const exerciseId = (reference: string) =>
+    findExerciseByReference(exercises, reference)?.id ?? reference;
+  const migrateSession = (session: AppData['workoutSessions'][number]) => ({
+    ...session,
+    workoutName: workoutNameTranslations[session.workoutName] ?? session.workoutName,
+    exercises: session.exercises.map((exercise) => ({
+      ...exercise,
+      exerciseId: exerciseId(exercise.exerciseId),
+      target: exercise.target
+        ? { ...exercise.target, exerciseId: exerciseId(exercise.target.exerciseId) }
+        : exercise.target,
+    })),
+  });
   return {
     ...data,
-    schemaVersion: 3,
+    schemaVersion: 4,
     settings: { ...data.settings, language: data.settings.language ?? 'en' },
-    exercises: [...builtInExercises, ...customExercises],
+    exercises,
     restTimer: data.restTimer ?? { endsAt: null, duration: 0, pausedRemaining: null },
     programs: data.programs.map((program) => ({
       ...program,
       workouts: program.workouts.map((workout) => ({
         ...workout,
         name: workoutNameTranslations[workout.name] ?? workout.name,
+        exercises: workout.exercises.map((exercise) => ({
+          ...exercise,
+          exerciseId: exerciseId(exercise.exerciseId),
+        })),
       })),
     })),
-    workoutSessions: data.workoutSessions.map((session) => ({
-      ...session,
-      workoutName: workoutNameTranslations[session.workoutName] ?? session.workoutName,
+    workoutSessions: data.workoutSessions.map(migrateSession),
+    goals: data.goals.map((goal) => ({
+      ...goal,
+      exerciseId: goal.exerciseId ? exerciseId(goal.exerciseId) : undefined,
     })),
     activeWorkout: data.activeWorkout
-      ? {
-          ...data.activeWorkout,
-          workoutName:
-            workoutNameTranslations[data.activeWorkout.workoutName] ??
-            data.activeWorkout.workoutName,
-        }
+      ? migrateSession(data.activeWorkout)
       : null,
   } as AppData;
 }

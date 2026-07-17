@@ -28,6 +28,7 @@ import {
   workoutSummary,
 } from '../utils/stats';
 import { useI18n } from '../hooks/useI18n';
+import { resolveExerciseName } from '../utils/exerciseLocalization';
 
 export function DashboardPage() {
   const { t, language } = useI18n();
@@ -186,7 +187,14 @@ export function DashboardPage() {
                 <div className="flex-1">
                   {topRecord ? (
                     <>
-                      <p className="text-sm font-bold text-slate-400">{topRecord.name}</p>
+                      <p className="text-sm font-bold text-slate-400">
+                        {resolveExerciseName(
+                          exercises,
+                          topRecord.exerciseId,
+                          language,
+                          t('exerciseUnavailable'),
+                        )}
+                      </p>
                       <p className="text-3xl font-black">
                         {topRecord.bestSet}{' '}
                         <span className="text-base text-slate-500">

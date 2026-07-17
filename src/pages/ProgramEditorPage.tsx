@@ -14,9 +14,11 @@ import type {
 import { createId } from '../utils/id';
 import { searchExercises } from '../utils/exerciseSearch';
 import { useI18n } from '../hooks/useI18n';
+import { ExerciseDemonstrationButton } from '../components/ExerciseDemonstration';
+import { getExerciseName } from '../utils/exerciseLocalization';
 const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 export function ProgramEditorPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const { id } = useParams(),
     existing = useAppStore((s) => s.programs.find((p) => p.id === id)),
     exercises = useAppStore((s) => s.exercises),
@@ -176,7 +178,15 @@ export function ProgramEditorPage() {
                   return (
                     <div key={we.id} className="rounded-xl border border-line p-3">
                       <div className="mb-3 flex items-center justify-between">
-                        <b>{e?.nameEn ?? 'Exercise unavailable'}</b>
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+                          <b>{e ? getExerciseName(e, language) : t('exerciseUnavailable')}</b>
+                          {e && (
+                            <ExerciseDemonstrationButton
+                              exercise={e}
+                              className="min-h-10 px-3 text-xs"
+                            />
+                          )}
+                        </div>
                         <div>
                           <button
                             aria-label="Move up"
@@ -263,7 +273,7 @@ function ExercisePicker({
   onSelect: (exerciseId: string) => void;
   onCreate: (exercise: Exercise) => void;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [query, setQuery] = useState('');
   const [family, setFamily] = useState('All');
   const [category, setCategory] = useState<'all' | ExerciseCategory>('all');
@@ -368,7 +378,7 @@ function ExercisePicker({
                     onClick={() => onSelect(exercise.id)}
                   >
                     <span>
-                      <strong className="block">{exercise.nameEn}</strong>
+                      <strong className="block">{getExerciseName(exercise, language)}</strong>
                       <small className="text-slate-500">
                         {exercise.movementFamily} · {exercise.difficulty}
                       </small>

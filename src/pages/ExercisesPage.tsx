@@ -7,6 +7,7 @@ import type { Difficulty, Exercise, ExerciseCategory, MeasurementType } from '..
 import { createId } from '../utils/id';
 import { searchExercises } from '../utils/exerciseSearch';
 import { useI18n } from '../hooks/useI18n';
+import { getExerciseName } from '../utils/exerciseLocalization';
 const categories: Record<string, string> = {
   all: 'All',
   push: 'Push',
@@ -115,20 +116,20 @@ export function ExercisesPage() {
               <span className="chip">{categories[e.category]}</span>
               {e.isCustom && (
                 <div className="flex gap-2">
-                  <button aria-label={`${t('editExerciseLabel')} ${e.nameEn}`} onClick={() => setEdit(e.id)}><Pencil size={18} /></button>
-                  <button aria-label={`${t('deleteExerciseLabel')} ${e.nameEn}`} onClick={() => setRemove(e.id)} className="text-red-400"><Trash2 size={18} /></button>
+                  <button aria-label={`${t('editExerciseLabel')} ${getExerciseName(e, language)}`} onClick={() => setEdit(e.id)}><Pencil size={18} /></button>
+                  <button aria-label={`${t('deleteExerciseLabel')} ${getExerciseName(e, language)}`} onClick={() => setRemove(e.id)} className="text-red-400"><Trash2 size={18} /></button>
                 </div>
               )}
             </div>
             <Link to={`/exercises/${e.id}`}>
               <div className="mb-5 mt-4 grid h-16 w-16 place-items-center rounded-3xl bg-brand/10 text-2xl font-black text-brand">
-                {e.nameEn.slice(0, 1)}
+                {getExerciseName(e, language).slice(0, 1)}
               </div>
               <h2 className="mt-3 text-xl font-black tracking-tight group-hover:text-brand">
-                {language === 'he' ? e.nameHe : e.nameEn}
+                {getExerciseName(e, language)}
               </h2>
               <p dir="ltr" className="text-left text-sm text-slate-400">
-                {e.nameEn}
+                {e.movementFamily}
               </p>
               <p className="mt-3 line-clamp-2">{e.description}</p>
               <div className="mt-3 flex gap-2 text-sm">

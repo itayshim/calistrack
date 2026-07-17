@@ -6,6 +6,7 @@ import type { GoalType } from '../types';
 import { createId } from '../utils/id';
 import { exercisePoints, weeklyCompleted } from '../utils/stats';
 import { useI18n } from '../hooks/useI18n';
+import { getExerciseName } from '../utils/exerciseLocalization';
 const icons = {
   'weekly-workouts': Dumbbell,
   'exercise-reps': Target,
@@ -13,7 +14,7 @@ const icons = {
   'first-skill': Trophy,
 };
 export function GoalsPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const store = useAppStore(),
     [open, setOpen] = useState(false),
     [title, setTitle] = useState(''),
@@ -169,7 +170,7 @@ export function GoalsPage() {
                   >
                     {store.exercises.map((e) => (
                       <option key={e.id} value={e.id}>
-                        {e.nameEn}
+                        {getExerciseName(e, language)}
                       </option>
                     ))}
                   </select>

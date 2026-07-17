@@ -57,7 +57,7 @@ export const beginnerProgram: Program = {
   ],
 };
 export const createInitialData = (): AppData => ({
-  schemaVersion: 3,
+  schemaVersion: 4,
   exercises: builtInExercises,
   programs: [],
   workoutSessions: [],

@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { useAppStore } from '../store/useAppStore';
 import { useI18n } from '../hooks/useI18n';
+import { getExerciseName } from '../utils/exerciseLocalization';
 export function HistoryDetailPage() {
   const { t, language } = useI18n();
   const { id } = useParams(),
@@ -36,7 +37,7 @@ export function HistoryDetailPage() {
           return (
             <section className="card" key={es.id}>
               <div className="flex justify-between">
-                <h2 className="text-xl font-black">{ex ? (language === 'he' ? ex.nameHe : ex.nameEn) : t('exerciseUnavailable')}</h2>
+                <h2 className="text-xl font-black">{ex ? getExerciseName(ex, language) : t('exerciseUnavailable')}</h2>
                 {es.skipped && <span>{t('skipped')}</span>}
               </div>
               <div className="mt-3 grid gap-2 sm:grid-cols-3">

@@ -31,7 +31,6 @@ export const personalRecords = (sessions: WorkoutSession[], exercises: Exercise[
     return [
       {
         exerciseId: e.id,
-        name: e.nameHe,
         measurementType: e.measurementType,
         bestSet: Math.max(...p.map((x) => x.best)),
         bestTotal: Math.max(...p.map((x) => x.total)),
