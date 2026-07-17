@@ -15,7 +15,6 @@ import { createId } from '../utils/id';
 interface Store extends AppData {
   hydrated: boolean;
   toast: string | null;
-  restTimer: RestTimerState;
   hydrate: () => void;
   persist: () => void;
   setToast: (v: string | null) => void;
@@ -27,6 +26,7 @@ interface Store extends AppData {
   adoptBeginner: () => void;
   startWorkout: (t: WorkoutTemplate) => boolean;
   completeSet: (exerciseIndex: number, value: number) => void;
+  addExtraSet: (exerciseIndex: number) => void;
   editSet: (exerciseIndex: number, setId: string, value: number) => void;
   deleteSet: (exerciseIndex: number, setId: string) => void;
   skipExercise: (exerciseIndex: number) => void;
@@ -51,7 +51,6 @@ export const useAppStore = create<Store>((set, get) => ({
   ...initial,
   hydrated: false,
   toast: null,
-  restTimer: { endsAt: null, duration: 0, pausedRemaining: null },
   hydrate: () => set({ ...storageService.loadAppData(), hydrated: true }),
   persist: () =>
     storageService.saveAppData({
@@ -62,6 +61,7 @@ export const useAppStore = create<Store>((set, get) => ({
       activeWorkout: get().activeWorkout,
       settings: get().settings,
       goals: get().goals,
+      restTimer: get().restTimer,
     }),
   setToast: (v) => set({ toast: v }),
   addExercise: (e) => {
@@ -73,6 +73,20 @@ export const useAppStore = create<Store>((set, get) => ({
     get().persist();
   },
   deleteExercise: (id) => {
+    const referenced =
+      get().programs.some((program) =>
+        program.workouts.some((workout) =>
+          workout.exercises.some((exercise) => exercise.exerciseId === id),
+        ),
+      ) ||
+      get().workoutSessions.some((session) =>
+        session.exercises.some((exercise) => exercise.exerciseId === id),
+      ) ||
+      get().activeWorkout?.exercises.some((exercise) => exercise.exerciseId === id);
+    if (referenced) {
+      set({ toast: 'This exercise is used by a program or workout and cannot be deleted' });
+      return;
+    }
     set((s) => ({ exercises: s.exercises.filter((e) => e.id !== id) }));
     get().persist();
   },
@@ -125,16 +139,27 @@ export const useAppStore = create<Store>((set, get) => ({
           target: { ...x },
           sets: [],
           skipped: false,
+          extraSetCount: 0,
         })),
+      completionReady: false,
     };
-    set({ activeWorkout: s });
+    set({ activeWorkout: s, restTimer: emptyTimer() });
     get().persist();
     return true;
   },
   completeSet: (i, value) => {
+    const currentTimer = get().restTimer;
+    const restActive =
+      (currentTimer.pausedRemaining !== null && currentTimer.pausedRemaining > 0) ||
+      (currentTimer.endsAt !== null && currentTimer.endsAt > Date.now());
+    if (restActive) return;
     const a = structuredClone(get().activeWorkout);
     if (!a) return;
     const ex = a.exercises[i];
+    if (!ex || ex.skipped) return;
+    const planned = ex.target?.targetSets ?? 0;
+    const allowed = planned + (ex.extraSetCount ?? 0);
+    if (ex.sets.filter((item) => item.completed).length >= allowed) return;
     ex.sets.push({
       id: createId(),
       setNumber: ex.sets.length + 1,
@@ -142,12 +167,32 @@ export const useAppStore = create<Store>((set, get) => ({
       completed: true,
       completedAt: new Date().toISOString(),
     });
+    const completed = ex.sets.filter((item) => item.completed).length;
+    const completedPlannedSets = completed >= planned;
+    const completedAllowedSets = completed >= allowed;
+    const isLastExercise = i === a.exercises.length - 1;
+    if (completedPlannedSets && completedAllowedSets) {
+      if (isLastExercise) a.completionReady = true;
+      else a.currentExerciseIndex = i + 1;
+    }
     const duration = ex.target?.restSeconds ?? get().settings.defaultRestSeconds;
+    const shouldRest = !completedAllowedSets;
     set({
       activeWorkout: a,
-      restTimer: { endsAt: Date.now() + duration * 1000, duration, pausedRemaining: null },
-      toast: 'Set completed and saved',
+      restTimer: shouldRest
+        ? { endsAt: Date.now() + duration * 1000, duration, pausedRemaining: null }
+        : emptyTimer(),
+      toast: completedAllowedSets ? 'Exercise completed' : 'Set completed and saved',
     });
+    get().persist();
+  },
+  addExtraSet: (i) => {
+    const a = structuredClone(get().activeWorkout);
+    if (!a?.exercises[i]) return;
+    a.exercises[i].extraSetCount = (a.exercises[i].extraSetCount ?? 0) + 1;
+    a.currentExerciseIndex = i;
+    a.completionReady = false;
+    set({ activeWorkout: a, restTimer: emptyTimer(), toast: 'Extra set added' });
     get().persist();
   },
   editSet: (i, id, value) => {
@@ -172,13 +217,14 @@ export const useAppStore = create<Store>((set, get) => ({
     if (!a) return;
     a.exercises[i].skipped = true;
     a.currentExerciseIndex = Math.min(i + 1, a.exercises.length - 1);
-    set({ activeWorkout: a });
+    set({ activeWorkout: a, restTimer: emptyTimer() });
     get().persist();
   },
   setCurrentExercise: (i) => {
     const a = structuredClone(get().activeWorkout);
     if (a) {
       a.currentExerciseIndex = i;
+      a.completionReady = false;
       set({ activeWorkout: a });
       get().persist();
     }
@@ -204,13 +250,13 @@ export const useAppStore = create<Store>((set, get) => ({
     set((s) => ({
       activeWorkout: null,
       workoutSessions: [a, ...s.workoutSessions],
-      restTimer: { endsAt: null, duration: 0, pausedRemaining: null },
+      restTimer: emptyTimer(),
       toast: 'Workout completed',
     }));
     get().persist();
   },
   cancelWorkout: () => {
-    set({ activeWorkout: null, restTimer: { endsAt: null, duration: 0, pausedRemaining: null } });
+    set({ activeWorkout: null, restTimer: emptyTimer() });
     get().persist();
   },
   updateSession: (s) => {
@@ -254,6 +300,7 @@ export const useAppStore = create<Store>((set, get) => ({
           pausedRemaining: Math.max(0, Math.ceil((r.endsAt - Date.now()) / 1000)),
         },
       });
+    get().persist();
   },
   resumeTimer: () => {
     const r = get().restTimer;
@@ -261,10 +308,17 @@ export const useAppStore = create<Store>((set, get) => ({
       set({
         restTimer: { ...r, endsAt: Date.now() + r.pausedRemaining * 1000, pausedRemaining: null },
       });
+    get().persist();
   },
   resetTimer: () => {
     const r = get().restTimer;
     set({ restTimer: { ...r, endsAt: Date.now() + r.duration * 1000, pausedRemaining: null } });
+    get().persist();
   },
-  skipTimer: () => set({ restTimer: { endsAt: null, duration: 0, pausedRemaining: null } }),
+  skipTimer: () => {
+    set({ restTimer: emptyTimer() });
+    get().persist();
+  },
 }));
+
+const emptyTimer = (): RestTimerState => ({ endsAt: null, duration: 0, pausedRemaining: null });

@@ -5,6 +5,7 @@ import {
   Clock3,
   Pause,
   Play,
+  Plus,
   RotateCcw,
   SkipForward,
   Trash2,
@@ -47,7 +48,7 @@ export function WorkoutPage() {
         </button>
       </div>
     );
-  if (finish)
+  if (finish || active.completionReady)
     return (
       <WorkoutFinish
         active={active}
@@ -57,7 +58,10 @@ export function WorkoutPage() {
         setDifficulty={setDifficulty}
         feeling={feeling}
         setFeeling={setFeeling}
-        onBack={() => setFinish(false)}
+        onBack={() => {
+          store.setCurrentExercise(active.currentExerciseIndex);
+          setFinish(false);
+        }}
         onSave={() => {
           store.finishWorkout(notes, difficulty, feeling);
           nav('/history');
@@ -77,6 +81,10 @@ export function WorkoutPage() {
     remaining =
       timer.pausedRemaining ??
       (timer.endsAt ? Math.max(0, Math.ceil((timer.endsAt - now) / 1000)) : 0),
+    restLocked = remaining > 0,
+    plannedSets = target?.targetSets ?? 0,
+    allowedSets = plannedSets + (sessionExercise.extraSetCount ?? 0),
+    canEnterSet = done < allowedSets,
     previous = store.workoutSessions
       .find(
         (s) =>
@@ -87,7 +95,7 @@ export function WorkoutPage() {
       ?.sets.filter((s) => s.completed)
       .map((s) => s.value);
   const complete = () => {
-    if (!value) return;
+    if (!value || restLocked || !canEnterSet) return;
     store.completeSet(i, +value);
     setValue('');
   };
@@ -147,6 +155,11 @@ export function WorkoutPage() {
             </button>
           </div>
         </section>
+      )}
+      {restLocked && (
+        <p role="status" className="-mt-3 mb-6 text-center text-sm font-bold text-slate-400">
+          Your next set unlocks when rest ends or you choose Skip rest.
+        </p>
       )}
       <main className="animate-rise">
         <div className="mb-5 flex items-center justify-between">
@@ -216,20 +229,31 @@ export function WorkoutPage() {
             type="number"
             min="0"
             value={value}
+            disabled={restLocked || !canEnterSet}
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && complete()}
             placeholder="0"
-            className="mx-auto block w-full bg-transparent text-center text-[6.5rem] font-black leading-none tabular-nums tracking-[-.08em] text-white outline-none placeholder:text-white/[.08] sm:text-9xl"
+            className="mx-auto block w-full bg-transparent text-center text-[6.5rem] font-black leading-none tabular-nums tracking-[-.08em] text-white outline-none placeholder:text-white/[.08] disabled:cursor-not-allowed disabled:opacity-30 sm:text-9xl"
           />
         </div>
-        <button
-          disabled={!value}
-          onClick={complete}
-          className="btn-primary mt-4 min-h-16 w-full text-lg"
-        >
-          <Check size={23} strokeWidth={3} />
-          Complete set
-        </button>
+        {canEnterSet ? (
+          <button
+            disabled={!value || restLocked}
+            onClick={complete}
+            className="btn-primary mt-4 min-h-16 w-full text-lg disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Check size={23} strokeWidth={3} />
+            {restLocked ? `Resting · ${remaining}s` : 'Complete set'}
+          </button>
+        ) : (
+          <div className="mt-4 rounded-3xl bg-emerald-500/10 p-4 text-center">
+            <p className="font-black text-emerald-300">Planned sets complete</p>
+            <button className="btn-secondary mt-3 w-full" onClick={() => store.addExtraSet(i)}>
+              <Plus size={20} />
+              Add extra set
+            </button>
+          </div>
+        )}
         {target?.notes && (
           <p className="mt-5 rounded-2xl bg-blue-500/10 p-4 text-sm font-semibold text-blue-200">
             {target.notes}

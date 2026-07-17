@@ -23,6 +23,7 @@ export function SettingsPage() {
           activeWorkout: store.activeWorkout,
           settings: store.settings,
           goals: store.goals,
+          restTimer: store.restTimer,
         }),
       ],
       { type: 'application/json' },

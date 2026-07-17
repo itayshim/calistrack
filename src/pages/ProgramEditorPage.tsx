@@ -1,14 +1,24 @@
-import { ArrowDown, ArrowUp, Copy, Plus, Save, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowDown, ArrowUp, Check, Copy, Plus, Search, Save, Trash2, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
-import type { Program, WorkoutExercise, WorkoutTemplate } from '../types';
+import type {
+  Difficulty,
+  Exercise,
+  ExerciseCategory,
+  MeasurementType,
+  Program,
+  WorkoutExercise,
+  WorkoutTemplate,
+} from '../types';
 import { createId } from '../utils/id';
+import { searchExercises } from '../utils/exerciseSearch';
 const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 export function ProgramEditorPage() {
   const { id } = useParams(),
     existing = useAppStore((s) => s.programs.find((p) => p.id === id)),
     exercises = useAppStore((s) => s.exercises),
+    addCustomExercise = useAppStore((s) => s.addExercise),
     save = useAppStore((s) => s.saveProgram),
     nav = useNavigate();
   const now = new Date().toISOString();
@@ -131,26 +141,29 @@ export function ProgramEditorPage() {
             <fieldset className="my-3">
               <legend className="label">Days of the week</legend>
               <div className="flex flex-wrap gap-2">
-                {dayNames.map((d, i) => (
-                  <label
+                {dayNames.map((d, i) => {
+                  const selected = w.scheduledDays.includes(i);
+                  return (
+                  <button
+                    type="button"
                     key={d}
-                    className={`chip cursor-pointer ${w.scheduledDays.includes(i) ? 'border-brand bg-brand/10' : ''}`}
+                    aria-pressed={selected}
+                    aria-label={`${selected ? 'Deselect' : 'Select'} ${d}`}
+                    className={`chip min-h-11 cursor-pointer gap-2 px-4 focus-visible:ring-2 focus-visible:ring-brand ${
+                      selected ? 'border-brand bg-brand text-ink' : 'border-white/10 bg-white/[.04]'
+                    }`}
+                    onClick={() =>
+                      updateWorkout(w.id, (x) => {
+                        x.scheduledDays = selected
+                          ? x.scheduledDays.filter((value) => value !== i)
+                          : [...x.scheduledDays, i].sort();
+                      })
+                    }
                   >
-                    <input
-                      className="sr-only"
-                      type="checkbox"
-                      checked={w.scheduledDays.includes(i)}
-                      onChange={() =>
-                        updateWorkout(w.id, (x) => {
-                          x.scheduledDays = x.scheduledDays.includes(i)
-                            ? x.scheduledDays.filter((v) => v !== i)
-                            : [...x.scheduledDays, i];
-                        })
-                      }
-                    />
+                    {selected && <Check aria-hidden="true" size={15} strokeWidth={3} />}
                     {d}
-                  </label>
-                ))}
+                  </button>
+                )})}
               </div>
             </fieldset>
             <div className="space-y-3">
@@ -211,29 +224,15 @@ export function ProgramEditorPage() {
               Add exercise
             </button>
             {chooser === w.id && (
-              <div className="mt-3 max-h-64 overflow-auto rounded-xl border border-line p-2">
-                <input
-                  className="field mb-2"
-                  placeholder="Search exercises"
-                  autoFocus
-                  onChange={(e) => {
-                    const q = e.target.value.toLowerCase();
-                    document
-                      .querySelectorAll<HTMLElement>('[data-ex-name]')
-                      .forEach((x) => (x.hidden = !x.dataset.exName?.includes(q)));
-                  }}
-                />
-                {exercises.map((e) => (
-                  <button
-                    data-ex-name={`${e.nameEn} ${e.nameEn.toLowerCase()}`}
-                    key={e.id}
-                    className="block w-full rounded-lg p-2 text-left hover:bg-brand/10"
-                    onClick={() => addExercise(w.id, e.id)}
-                  >
-                    {e.nameEn} <span className="text-sm text-slate-400">{e.nameEn}</span>
-                  </button>
-                ))}
-              </div>
+              <ExercisePicker
+                exercises={exercises}
+                onClose={() => setChooser(null)}
+                onSelect={(exerciseId) => addExercise(w.id, exerciseId)}
+                onCreate={(exercise) => {
+                  addCustomExercise(exercise);
+                  addExercise(w.id, exercise.id);
+                }}
+              />
             )}
           </section>
         ))}
@@ -248,6 +247,205 @@ export function ProgramEditorPage() {
         </p>
       )}
     </>
+  );
+}
+
+function ExercisePicker({
+  exercises,
+  onClose,
+  onSelect,
+  onCreate,
+}: {
+  exercises: Exercise[];
+  onClose: () => void;
+  onSelect: (exerciseId: string) => void;
+  onCreate: (exercise: Exercise) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const [family, setFamily] = useState('All');
+  const [category, setCategory] = useState<'all' | ExerciseCategory>('all');
+  const [difficulty, setDifficulty] = useState<'all' | Difficulty>('all');
+  const [customForm, setCustomForm] = useState(false);
+  const families = useMemo(
+    () => ['All', ...Array.from(new Set(exercises.map((exercise) => exercise.movementFamily ?? 'Other'))).sort()],
+    [exercises],
+  );
+  const results = useMemo(
+    () =>
+      searchExercises(exercises, query).filter(
+        (exercise) =>
+          (family === 'All' || exercise.movementFamily === family) &&
+          (category === 'all' || exercise.category === category) &&
+          (difficulty === 'all' || exercise.difficulty === difficulty),
+      ),
+    [category, difficulty, exercises, family, query],
+  );
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Choose exercise"
+      className="fixed inset-0 z-40 flex items-end bg-black/70 sm:items-center sm:justify-center sm:p-4"
+    >
+      <div className="max-h-[92dvh] w-full overflow-hidden rounded-t-[2rem] bg-[#121719] shadow-soft sm:max-w-2xl sm:rounded-[2rem]">
+        <div className="flex items-center justify-between border-b border-white/[.06] p-5">
+          <div>
+            <p className="eyebrow">EXERCISE LIBRARY</p>
+            <h2 className="text-2xl font-black">Add movement</h2>
+          </div>
+          <button aria-label="Close exercise picker" className="icon-button" onClick={onClose}>
+            <X />
+          </button>
+        </div>
+        {customForm ? (
+          <CustomExerciseForm
+            initialName={query}
+            onCancel={() => setCustomForm(false)}
+            onSave={onCreate}
+          />
+        ) : (
+          <>
+            <div className="space-y-3 p-4">
+              <label className="relative block">
+                <span className="sr-only">Search exercises</span>
+                <Search className="absolute left-4 top-3.5 text-slate-500" size={20} />
+                <input
+                  autoFocus
+                  className="field min-h-12 pl-12"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Search squats, dips, handstands..."
+                />
+              </label>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {families.map((item) => (
+                  <button
+                    type="button"
+                    key={item}
+                    aria-pressed={family === item}
+                    className={`chip min-h-10 shrink-0 ${family === item ? 'bg-brand text-ink' : ''}`}
+                    onClick={() => setFamily(item)}
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <select
+                  aria-label="Filter by category"
+                  className="field"
+                  value={category}
+                  onChange={(event) => setCategory(event.target.value as typeof category)}
+                >
+                  <option value="all">All categories</option>
+                  {['push', 'pull', 'legs', 'core', 'mobility', 'skill'].map((item) => (
+                    <option key={item} value={item}>{item}</option>
+                  ))}
+                </select>
+                <select
+                  aria-label="Filter by difficulty"
+                  className="field"
+                  value={difficulty}
+                  onChange={(event) => setDifficulty(event.target.value as typeof difficulty)}
+                >
+                  <option value="all">All levels</option>
+                  <option value="beginner">Beginner</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="advanced">Advanced</option>
+                </select>
+              </div>
+            </div>
+            <div className="max-h-[50dvh] overflow-y-auto px-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+              <p className="mb-2 text-xs font-bold text-slate-500">{results.length} MOVEMENTS</p>
+              <div className="space-y-2">
+                {results.map((exercise) => (
+                  <button
+                    key={exercise.id}
+                    className="flex min-h-16 w-full items-center justify-between rounded-2xl bg-white/[.045] p-4 text-left hover:bg-white/[.08]"
+                    onClick={() => onSelect(exercise.id)}
+                  >
+                    <span>
+                      <strong className="block">{exercise.nameEn}</strong>
+                      <small className="text-slate-500">
+                        {exercise.movementFamily} · {exercise.difficulty}
+                      </small>
+                    </span>
+                    {exercise.isCustom && <span className="chip">CUSTOM</span>}
+                  </button>
+                ))}
+              </div>
+              {query.trim() && (
+                <button className="btn-primary mt-3 w-full" onClick={() => setCustomForm(true)}>
+                  <Plus />
+                  Create custom exercise: “{query.trim()}”
+                </button>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CustomExerciseForm({
+  initialName,
+  onCancel,
+  onSave,
+}: {
+  initialName: string;
+  onCancel: () => void;
+  onSave: (exercise: Exercise) => void;
+}) {
+  const [name, setName] = useState(initialName);
+  const [measurementType, setMeasurementType] = useState<MeasurementType>('reps');
+  const [movementFamily, setMovementFamily] = useState('Custom');
+  const [category, setCategory] = useState<ExerciseCategory>('skill');
+  const [difficulty, setDifficulty] = useState<Difficulty>('beginner');
+  const [muscles, setMuscles] = useState('');
+  const [notes, setNotes] = useState('');
+  const save = () => {
+    if (!name.trim()) return;
+    const now = new Date().toISOString();
+    onSave({
+      id: createId(),
+      nameHe: name.trim(),
+      nameEn: name.trim(),
+      movementFamily: movementFamily.trim() || 'Custom',
+      category,
+      difficulty,
+      measurementType,
+      muscles: muscles.split(',').map((item) => item.trim()).filter(Boolean),
+      aliases: [],
+      keywords: [movementFamily, notes].filter(Boolean),
+      progressionOrder: 0,
+      description: notes || 'Custom exercise',
+      instructions: ['Perform with control through a comfortable range'],
+      commonMistakes: [],
+      isCustom: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+  };
+  return (
+    <div className="max-h-[75dvh] space-y-4 overflow-y-auto p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
+      <label className="block">
+        <span className="label">Exercise name</span>
+        <input className="field" value={name} onChange={(event) => setName(event.target.value)} />
+      </label>
+      <div className="grid grid-cols-2 gap-3">
+        <label><span className="label">Measurement</span><select className="field" value={measurementType} onChange={(event) => setMeasurementType(event.target.value as MeasurementType)}><option value="reps">Repetitions</option><option value="time">Time</option></select></label>
+        <label><span className="label">Difficulty</span><select className="field" value={difficulty} onChange={(event) => setDifficulty(event.target.value as Difficulty)}><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></label>
+      </div>
+      <label className="block"><span className="label">Movement family</span><input className="field" value={movementFamily} onChange={(event) => setMovementFamily(event.target.value)} /></label>
+      <label className="block"><span className="label">Category</span><select className="field" value={category} onChange={(event) => setCategory(event.target.value as ExerciseCategory)}>{['push', 'pull', 'legs', 'core', 'mobility', 'skill'].map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+      <label className="block"><span className="label">Target muscles (comma separated)</span><input className="field" value={muscles} onChange={(event) => setMuscles(event.target.value)} /></label>
+      <label className="block"><span className="label">Notes</span><textarea className="field" value={notes} onChange={(event) => setNotes(event.target.value)} /></label>
+      <div className="grid grid-cols-2 gap-3">
+        <button className="btn-secondary" onClick={onCancel}>Back</button>
+        <button className="btn-primary" disabled={!name.trim()} onClick={save}>Save and add</button>
+      </div>
+    </div>
   );
 }
 function TargetFields({

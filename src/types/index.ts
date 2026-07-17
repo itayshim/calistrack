@@ -5,9 +5,13 @@ export interface Exercise {
   id: string;
   nameHe: string;
   nameEn: string;
+  movementFamily?: string;
   category: ExerciseCategory;
   difficulty: Difficulty;
   muscles: string[];
+  aliases?: string[];
+  keywords?: string[];
+  progressionOrder?: number;
   measurementType: MeasurementType;
   description: string;
   instructions: string[];
@@ -60,6 +64,7 @@ export interface ExerciseSession {
   sets: WorkoutSet[];
   notes?: string;
   skipped: boolean;
+  extraSetCount?: number;
 }
 export interface WorkoutSession {
   id: string;
@@ -73,6 +78,7 @@ export interface WorkoutSession {
   difficultyRating?: number;
   feelingRating?: number;
   notes?: string;
+  completionReady?: boolean;
 }
 export interface UserSettings {
   weeklyWorkoutGoal: number;
@@ -99,6 +105,7 @@ export interface AppData {
   activeWorkout: WorkoutSession | null;
   settings: UserSettings;
   goals: UserGoal[];
+  restTimer: RestTimerState;
 }
 export interface RestTimerState {
   endsAt: number | null;

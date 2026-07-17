@@ -1,10 +1,11 @@
-import { Plus, Search, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { useAppStore } from '../store/useAppStore';
-import type { Difficulty, ExerciseCategory, MeasurementType } from '../types';
+import type { Difficulty, Exercise, ExerciseCategory, MeasurementType } from '../types';
 import { createId } from '../utils/id';
+import { searchExercises } from '../utils/exerciseSearch';
 const categories: Record<string, string> = {
   all: 'All',
   push: 'Push',
@@ -23,23 +24,36 @@ const difficulties: Record<string, string> = {
 export function ExercisesPage() {
   const exercises = useAppStore((s) => s.exercises),
     add = useAppStore((s) => s.addExercise),
+    update = useAppStore((s) => s.updateExercise),
     del = useAppStore((s) => s.deleteExercise);
   const [q, setQ] = useState(''),
     [cat, setCat] = useState('all'),
     [diff, setDiff] = useState('all'),
     [measure, setMeasure] = useState('all'),
     [form, setForm] = useState(false),
+    [edit, setEdit] = useState<string | null>(null),
     [remove, setRemove] = useState<string | null>(null);
   const list = useMemo(
     () =>
-      exercises.filter(
+      searchExercises(exercises, q).filter(
         (e) =>
-          (e.nameHe.includes(q) || e.nameEn.toLowerCase().includes(q.toLowerCase())) &&
           (cat === 'all' || e.category === cat) &&
           (diff === 'all' || e.difficulty === diff) &&
           (measure === 'all' || e.measurementType === measure),
       ),
     [exercises, q, cat, diff, measure],
+  );
+  const groups = useMemo(
+    () =>
+      Array.from(new Set(list.map((exercise) => exercise.movementFamily ?? 'Other'))).map(
+        (movementFamily) => ({
+          movementFamily,
+          exercises: list
+            .filter((exercise) => (exercise.movementFamily ?? 'Other') === movementFamily)
+            .sort((a, b) => (a.progressionOrder ?? 0) - (b.progressionOrder ?? 0)),
+        }),
+      ),
+    [list],
   );
   return (
     <>
@@ -77,8 +91,20 @@ export function ExercisesPage() {
         />
       </div>
       <p className="mb-3 text-sm text-slate-400">Found {list.length} exercises</p>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {list.map((e) => (
+      <div className="space-y-8">
+        {groups.map((group) => (
+          <section key={group.movementFamily}>
+            <div className="mb-3 flex items-end justify-between">
+              <div>
+                <p className="eyebrow">MOVEMENT FAMILY</p>
+                <h2 className="text-2xl font-black">{group.movementFamily}</h2>
+              </div>
+              <span className="text-xs font-bold text-slate-500">
+                {group.exercises.length} progressions
+              </span>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {group.exercises.map((e) => (
           <article
             key={e.id}
             className="card group overflow-hidden transition duration-200 hover:-translate-y-1 hover:shadow-glow"
@@ -86,13 +112,10 @@ export function ExercisesPage() {
             <div className="flex justify-between">
               <span className="chip">{categories[e.category]}</span>
               {e.isCustom && (
-                <button
-                  aria-label={`Delete ${e.nameEn}`}
-                  onClick={() => setRemove(e.id)}
-                  className="text-red-400"
-                >
-                  <Trash2 size={18} />
-                </button>
+                <div className="flex gap-2">
+                  <button aria-label={`Edit ${e.nameEn}`} onClick={() => setEdit(e.id)}><Pencil size={18} /></button>
+                  <button aria-label={`Delete ${e.nameEn}`} onClick={() => setRemove(e.id)} className="text-red-400"><Trash2 size={18} /></button>
+                </div>
               )}
             </div>
             <Link to={`/exercises/${e.id}`}>
@@ -114,6 +137,9 @@ export function ExercisesPage() {
             </Link>
           </article>
         ))}
+            </div>
+          </section>
+        ))}
       </div>
       {!list.length && (
         <div className="card py-10 text-center">No exercises found. Try changing the filters.</div>
@@ -124,6 +150,16 @@ export function ExercisesPage() {
           onSave={(x) => {
             add(x);
             setForm(false);
+          }}
+        />
+      )}
+      {edit && (
+        <ExerciseForm
+          initial={exercises.find((exercise) => exercise.id === edit)}
+          onClose={() => setEdit(null)}
+          onSave={(exercise) => {
+            update(exercise);
+            setEdit(null);
           }}
         />
       )}
@@ -164,22 +200,23 @@ function Filter({
 function ExerciseForm({
   onClose,
   onSave,
+  initial,
 }: {
   onClose: () => void;
-  onSave: (e: ReturnType<typeof makeExercise>) => void;
+  onSave: (e: Exercise) => void;
+  initial?: Exercise;
 }) {
-  const [nameHe, setHe] = useState(''),
-    [nameEn, setEn] = useState(''),
-    [category, setCat] = useState<ExerciseCategory>('push'),
-    [difficulty, setDiff] = useState<Difficulty>('beginner'),
-    [measurementType, setM] = useState<MeasurementType>('reps'),
+  const [nameEn, setEn] = useState(initial?.nameEn ?? ''),
+    [category, setCat] = useState<ExerciseCategory>(initial?.category ?? 'push'),
+    [difficulty, setDiff] = useState<Difficulty>(initial?.difficulty ?? 'beginner'),
+    [measurementType, setM] = useState<MeasurementType>(initial?.measurementType ?? 'reps'),
     [error, setError] = useState('');
   const save = () => {
-    if (!nameHe.trim() || !nameEn.trim()) {
+    if (!nameEn.trim()) {
       setError('Please enter an exercise name');
       return;
     }
-    onSave(makeExercise(nameHe, nameEn, category, difficulty, measurementType));
+    onSave(makeExercise(nameEn, category, difficulty, measurementType, initial));
   };
   return (
     <div
@@ -189,14 +226,10 @@ function ExerciseForm({
       className="fixed inset-0 z-40 grid place-items-center bg-black/70 p-4"
     >
       <div className="card w-full max-w-lg">
-        <h2 className="mb-4 text-xl font-black">New custom exercise</h2>
+        <h2 className="mb-4 text-xl font-black">{initial ? 'Edit custom exercise' : 'New custom exercise'}</h2>
         <div className="space-y-3">
           <label>
             <span className="label">Exercise name</span>
-            <input className="field" value={nameEn} onChange={(e) => setHe(e.target.value)} />
-          </label>
-          <label>
-            <span className="label">English name</span>
             <input
               dir="ltr"
               className="field"
@@ -241,23 +274,28 @@ function ExerciseForm({
   );
 }
 const makeExercise = (
-  nameHe: string,
   nameEn: string,
   category: ExerciseCategory,
   difficulty: Difficulty,
   measurementType: MeasurementType,
-) => ({
-  id: createId(),
-  nameHe,
+  initial?: Exercise,
+): Exercise => ({
+  ...initial,
+  id: initial?.id ?? createId(),
+  nameHe: nameEn,
   nameEn,
   category,
   difficulty,
   muscles: [category],
+  movementFamily: initial?.movementFamily ?? 'Custom',
+  aliases: initial?.aliases ?? [],
+  keywords: initial?.keywords ?? [category],
+  progressionOrder: initial?.progressionOrder ?? 0,
   measurementType,
   description: 'Custom exercise',
   instructions: ['Perform with control through a comfortable range'],
   commonMistakes: ['Moving too quickly'],
   isCustom: true,
-  createdAt: new Date().toISOString(),
+  createdAt: initial?.createdAt ?? new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 });

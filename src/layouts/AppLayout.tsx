@@ -6,8 +6,9 @@ import {
   Settings2,
   Sparkles,
 } from 'lucide-react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
+import { isTabActive } from '../utils/navigation';
 
 const tabs = [
   ['/', 'Home', Home],
@@ -18,7 +19,8 @@ const tabs = [
 ] as const;
 export function AppLayout() {
   const active = useAppStore((s) => s.activeWorkout),
-    nav = useNavigate();
+    nav = useNavigate(),
+    location = useLocation();
   const workoutPath = active ? `/workout/${active.id}` : '/program';
   return (
     <div className="min-h-screen md:flex">
@@ -36,20 +38,22 @@ export function AppLayout() {
           {tabs.map(([to, label, Icon]) => {
             const destination = to === '/workout' ? workoutPath : to;
             return (
-              <NavLink
+              <Link
                 key={to}
                 to={destination}
-                end={to === '/'}
-                className={({ isActive }) =>
-                  `flex min-h-14 items-center gap-4 rounded-2xl px-4 font-extrabold transition ${isActive || (to === '/workout' && active && location.pathname.startsWith('/workout')) ? 'bg-white/[.08] text-white' : 'text-slate-500 hover:bg-white/[.04] hover:text-white'}`
-                }
+                aria-current={isTabActive(to, location.pathname) ? 'page' : undefined}
+                className={`flex min-h-14 items-center gap-4 rounded-2xl px-4 font-extrabold transition ${
+                  isTabActive(to, location.pathname)
+                    ? 'bg-white/[.08] text-white'
+                    : 'text-slate-500 hover:bg-white/[.04] hover:text-white'
+                }`}
               >
                 <Icon size={21} />
                 {label}
                 {to === '/workout' && active && (
                   <span className="ml-auto h-2 w-2 rounded-full bg-brand shadow-[0_0_12px_#b7f36b]" />
                 )}
-              </NavLink>
+              </Link>
             );
           })}
         </nav>
@@ -94,21 +98,21 @@ export function AppLayout() {
         {tabs.map(([to, label, Icon]) => {
           const destination = to === '/workout' ? workoutPath : to;
           return (
-            <NavLink
+            <Link
               key={to}
               to={destination}
-              end={to === '/'}
               aria-label={label}
-              className={({ isActive }) =>
-                `relative flex min-h-[3.7rem] flex-col items-center justify-center gap-1 rounded-2xl text-[10px] font-extrabold transition ${isActive || (to === '/workout' && active && location.pathname.startsWith('/workout')) ? 'bg-white/[.07] text-brand' : 'text-slate-500'}`
-              }
+              aria-current={isTabActive(to, location.pathname) ? 'page' : undefined}
+              className={`relative flex min-h-[3.7rem] flex-col items-center justify-center gap-1 rounded-2xl text-[10px] font-extrabold transition ${
+                isTabActive(to, location.pathname) ? 'bg-white/[.07] text-brand' : 'text-slate-500'
+              }`}
             >
               <Icon size={to === '/workout' ? 24 : 21} strokeWidth={2.3} />
               {label}
               {to === '/workout' && active && (
                 <span className="absolute right-3 top-2 h-2 w-2 rounded-full bg-brand" />
               )}
-            </NavLink>
+            </Link>
           );
         })}
       </nav>

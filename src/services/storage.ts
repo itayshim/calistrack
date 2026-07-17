@@ -1,12 +1,12 @@
 import { createInitialData } from '../data/seed';
 import { builtInExercises } from '../data/exercises';
-import type { AppData } from '../types';
+import type { AppData, Exercise } from '../types';
 export const STORAGE_KEY = 'calistrack.app.v1';
 const valid = (v: unknown): v is AppData => {
   if (!v || typeof v !== 'object') return false;
   const d = v as Partial<AppData>;
   return (
-    d.schemaVersion === 1 &&
+    (d.schemaVersion === 1 || d.schemaVersion === 2) &&
     Array.isArray(d.exercises) &&
     Array.isArray(d.programs) &&
     Array.isArray(d.workoutSessions) &&
@@ -20,7 +20,7 @@ export class LocalStorageService {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return createInitialData();
       const parsed: unknown = JSON.parse(raw);
-      return valid(parsed) ? normalizeLanguageData(parsed) : createInitialData();
+      return valid(parsed) ? migrateAppData(parsed) : createInitialData();
     } catch {
       return createInitialData();
     }
@@ -43,7 +43,7 @@ export class LocalStorageService {
       throw new Error('Invalid JSON file');
     }
     if (!valid(parsed)) throw new Error('Unsupported data format');
-    return normalizeLanguageData(parsed);
+    return migrateAppData(parsed);
   }
   resetData() {
     localStorage.removeItem(STORAGE_KEY);
@@ -56,11 +56,25 @@ const workoutNameTranslations: Record<string, string> = {
   'אימון C – גוף מלא': 'Workout C – Full Body',
 };
 
-function normalizeLanguageData(data: AppData): AppData {
-  const customExercises = data.exercises.filter((exercise) => exercise.isCustom);
+export function normalizeExercise(exercise: Exercise): Exercise {
+  return {
+    ...exercise,
+    nameHe: exercise.nameHe || exercise.nameEn,
+    movementFamily: exercise.movementFamily || exercise.category || 'Other',
+    aliases: Array.isArray(exercise.aliases) ? exercise.aliases : [],
+    keywords: Array.isArray(exercise.keywords) ? exercise.keywords : [],
+    progressionOrder: Number.isFinite(exercise.progressionOrder) ? exercise.progressionOrder : 0,
+    muscles: Array.isArray(exercise.muscles) ? exercise.muscles : [],
+  };
+}
+
+export function migrateAppData(data: AppData): AppData {
+  const customExercises = data.exercises.filter((exercise) => exercise.isCustom).map(normalizeExercise);
   return {
     ...data,
+    schemaVersion: 2,
     exercises: [...builtInExercises, ...customExercises],
+    restTimer: data.restTimer ?? { endsAt: null, duration: 0, pausedRemaining: null },
     programs: data.programs.map((program) => ({
       ...program,
       workouts: program.workouts.map((workout) => ({
@@ -80,6 +94,6 @@ function normalizeLanguageData(data: AppData): AppData {
             data.activeWorkout.workoutName,
         }
       : null,
-  };
+  } as AppData;
 }
 export const storageService = new LocalStorageService();

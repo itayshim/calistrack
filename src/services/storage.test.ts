@@ -10,7 +10,39 @@ describe('storage', () => {
   it('rejects invalid imports', () => expect(() => service.importData('{"hello":1}')).toThrow());
   it('handles malformed local storage safely', () => {
     localStorage.setItem(STORAGE_KEY, 'broken');
-    expect(service.loadAppData().schemaVersion).toBe(1);
+    expect(service.loadAppData().schemaVersion).toBe(2);
+  });
+  it('migrates schema 1 exercises and preserves their IDs and saved data', () => {
+    const current = createInitialData();
+    const legacy = {
+      ...current,
+      schemaVersion: 1,
+      restTimer: undefined,
+      exercises: [
+        {
+          id: 'custom-legacy',
+          nameHe: 'Legacy move',
+          nameEn: 'Legacy move',
+          category: 'push',
+          difficulty: 'beginner',
+          muscles: [],
+          measurementType: 'reps',
+          description: '',
+          instructions: [],
+          commonMistakes: [],
+          isCustom: true,
+        },
+      ],
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(legacy));
+    const migrated = service.loadAppData();
+    expect(migrated.schemaVersion).toBe(2);
+    expect(migrated.exercises.find((exercise) => exercise.id === 'custom-legacy')).toMatchObject({
+      movementFamily: 'push',
+      aliases: [],
+      keywords: [],
+    });
+    expect(migrated.restTimer.endsAt).toBeNull();
   });
   it('resets application', () => {
     service.saveAppData(createInitialData());
