@@ -60,7 +60,10 @@ export function HistoryDetailPage() {
             <section className="card" key={es.id}>
               <div className="flex justify-between">
                 <h2 className="text-xl font-black">{ex ? getExerciseName(ex, language) : t('exerciseUnavailable')}</h2>
-                {es.skipped && <span>{t('skipped')}</span>}
+                <div className="text-end text-sm font-bold text-slate-500">
+                  {es.skipped && <span>{t('skipped')}</span>}
+                  {es.replacedDuringWorkout && <span className="block text-orange-500">{t('replacedDuringWorkout')}</span>}
+                </div>
               </div>
               <div className="mt-3 grid gap-2 sm:grid-cols-3">
                 {es.sets.map((st, si) => (

@@ -8,7 +8,7 @@ const valid = (v: unknown): v is AppData => {
   if (!v || typeof v !== 'object') return false;
   const d = v as Partial<AppData>;
   return (
-    [1, 2, 3, 4, 5].includes(d.schemaVersion ?? 0) &&
+    [1, 2, 3, 4, 5, 6].includes(d.schemaVersion ?? 0) &&
     Array.isArray(d.exercises) &&
     Array.isArray(d.programs) &&
     Array.isArray(d.workoutSessions) &&
@@ -118,7 +118,7 @@ export function migrateAppData(data: AppData): AppData {
   });
   return {
     ...data,
-    schemaVersion: 5,
+    schemaVersion: 6,
     settings: { ...data.settings, language: data.settings.language ?? 'en' },
     exercises,
     restTimer: data.restTimer ?? { endsAt: null, duration: 0, pausedRemaining: null },

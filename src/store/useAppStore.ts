@@ -9,6 +9,7 @@ import type {
   UserGoal,
   UserSettings,
   WorkoutSession,
+  MeasurementType,
   WorkoutSetInput,
   WorkoutTemplate,
 } from '../types';
@@ -40,6 +41,15 @@ interface Store extends AppData {
   skipExercise: (exerciseIndex: number) => void;
   setCurrentExercise: (i: number) => void;
   setExerciseNotes: (i: number, notes: string) => void;
+  replaceActiveExercise: (
+    i: number,
+    exerciseId: string,
+    options?: {
+      keepCompleted?: boolean;
+      updateProgram?: boolean;
+      targetConfiguration?: Partial<WorkoutTemplate['exercises'][number]>;
+    },
+  ) => void;
   finishWorkout: (notes?: string, difficulty?: number, feeling?: number) => void;
   cancelWorkout: () => void;
   updateSession: (s: WorkoutSession) => void;
@@ -266,6 +276,79 @@ export const useAppStore = create<Store>((set, get) => ({
       get().persist();
     }
   },
+  replaceActiveExercise: (i, exerciseId, options = {}) => {
+    const active = structuredClone(get().activeWorkout);
+    const replacement = get().exercises.find((exercise) => exercise.id === exerciseId);
+    const current = active?.exercises[i];
+    if (!active || !current || !replacement || current.exerciseId === exerciseId) return;
+    const previousType = normalizeMeasurementType(
+      current.measurementType ?? current.target?.measurementType,
+    );
+    const nextType = replacement.measurementType;
+    const completedSets = current.sets.filter((item) => item.completed);
+    const target = {
+      ...replacementTarget(current.target, exerciseId, nextType, previousType),
+      ...options.targetConfiguration,
+    };
+
+    if (options.keepCompleted && completedSets.length > 0) {
+      current.replacedDuringWorkout = true;
+      current.replacedByExerciseId = exerciseId;
+      current.target = current.target
+        ? { ...current.target, targetSets: completedSets.length }
+        : current.target;
+      current.extraSetCount = 0;
+      active.exercises.splice(i + 1, 0, {
+        id: createId(),
+        exerciseId,
+        target: { ...target, id: createId(), order: i + 1 },
+        sets: [],
+        skipped: false,
+        extraSetCount: 0,
+        measurementType: nextType,
+      });
+      active.currentExerciseIndex = i + 1;
+    } else {
+      Object.assign(current, {
+        exerciseId,
+        measurementType: nextType,
+        target,
+        sets: [],
+        skipped: false,
+        extraSetCount: 0,
+        replacedDuringWorkout: false,
+        replacedByExerciseId: undefined,
+      });
+      active.currentExerciseIndex = i;
+    }
+    active.completionReady = false;
+
+    let programs = get().programs;
+    if (options.updateProgram && active.workoutTemplateId && current.workoutExerciseId) {
+      programs = programs.map((program) => ({
+        ...program,
+        updatedAt: new Date().toISOString(),
+        workouts: program.workouts.map((workout) =>
+          workout.id !== active.workoutTemplateId
+            ? workout
+            : {
+                ...workout,
+                updatedAt: new Date().toISOString(),
+                exercises: workout.exercises.map((item) =>
+                  item.id === current.workoutExerciseId
+                    ? {
+                        ...replacementTarget(item, exerciseId, nextType, previousType),
+                        ...options.targetConfiguration,
+                      }
+                    : item,
+                ),
+              },
+        ),
+      }));
+    }
+    set({ activeWorkout: active, programs, restTimer: emptyTimer() });
+    get().persist();
+  },
   finishWorkout: (notes, difficultyRating, feelingRating) => {
     const a = structuredClone(get().activeWorkout);
     if (!a) return;
@@ -352,5 +435,27 @@ export const useAppStore = create<Store>((set, get) => ({
 }));
 
 const emptyTimer = (): RestTimerState => ({ endsAt: null, duration: 0, pausedRemaining: null });
+const replacementTarget = (
+  target: WorkoutTemplate['exercises'][number] | undefined,
+  exerciseId: string,
+  nextType: MeasurementType,
+  previousType: MeasurementType,
+): WorkoutTemplate['exercises'][number] => {
+  const compatible = nextType === previousType;
+  return {
+    id: target?.id ?? createId(),
+    exerciseId,
+    order: target?.order ?? 0,
+    targetSets: target?.targetSets ?? 3,
+    targetMin: compatible ? (target?.targetMin ?? 8) : nextType === 'duration' ? 20 : 5,
+    targetMax: compatible ? (target?.targetMax ?? 12) : nextType === 'duration' ? 30 : 8,
+    restSeconds: target?.restSeconds ?? 75,
+    notes: target?.notes,
+    measurementType: nextType,
+    ...(nextType === 'weighted_reps'
+      ? { targetAddedWeightKg: compatible ? target?.targetAddedWeightKg : 0 }
+      : {}),
+  };
+};
 const localized = (language: 'en' | 'he', key: TranslationKey) =>
   translations[language][key] ?? translations.en[key];

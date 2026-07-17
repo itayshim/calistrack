@@ -83,6 +83,8 @@ export interface ExerciseSession {
   skipped: boolean;
   extraSetCount?: number;
   measurementType?: MeasurementType;
+  replacedDuringWorkout?: boolean;
+  replacedByExerciseId?: string;
 }
 export interface WorkoutSession {
   id: string;
@@ -152,8 +154,8 @@ export interface ExerciseMedia {
   provider: 'youtube' | 'supabase_storage' | 'external';
   title?: string;
   description?: string;
-    externalUrl?: string;
-    youtubeVideoId?: string;
+  externalUrl?: string;
+  youtubeVideoId?: string;
   storagePath?: string;
   thumbnailUrl?: string;
   mimeType?: string;

@@ -164,4 +164,81 @@ describe('workout flow', () => {
     useAppStore.getState().completeSet(0, { reps: 5, addedWeightKg: -2.5 });
     expect(useAppStore.getState().activeWorkout?.exercises[0].sets).toHaveLength(0);
   });
+
+  it('replaces an exercise in place before any set is completed', () => {
+    useAppStore.getState().startWorkout(t);
+    const startedAt = useAppStore.getState().activeWorkout?.startedAt;
+    useAppStore.getState().replaceActiveExercise(0, 'builtin-chin-up');
+    const active = useAppStore.getState().activeWorkout;
+    expect(active?.exercises).toHaveLength(1);
+    expect(active?.exercises[0].exerciseId).toBe('builtin-chin-up');
+    expect(active?.startedAt).toBe(startedAt);
+  });
+
+  it('keeps completed original sets as a separate replaced history exercise', () => {
+    useAppStore.getState().startWorkout(t);
+    useAppStore.getState().completeSet(0, 10);
+    useAppStore.getState().replaceActiveExercise(0, 'builtin-chin-up', { keepCompleted: true });
+    const active = useAppStore.getState().activeWorkout;
+    expect(active?.exercises).toHaveLength(2);
+    expect(active?.exercises[0]).toMatchObject({
+      exerciseId: 'builtin-push-up',
+      replacedDuringWorkout: true,
+      replacedByExerciseId: 'builtin-chin-up',
+    });
+    expect(active?.exercises[0].sets).toHaveLength(1);
+    expect(active?.exercises[1].exerciseId).toBe('builtin-chin-up');
+    expect(active?.currentExerciseIndex).toBe(1);
+  });
+
+  it('discards completed values when replacing in place', () => {
+    useAppStore.getState().startWorkout(t);
+    useAppStore.getState().completeSet(0, 10);
+    useAppStore.getState().replaceActiveExercise(0, 'builtin-chin-up');
+    expect(useAppStore.getState().activeWorkout?.exercises[0]).toMatchObject({
+      exerciseId: 'builtin-chin-up',
+      sets: [],
+    });
+  });
+
+  it('clears incompatible metrics and safely resets the rest timer', () => {
+    useAppStore.getState().startWorkout(t);
+    useAppStore.getState().completeSet(0, 10);
+    expect(useAppStore.getState().restTimer.endsAt).not.toBeNull();
+    useAppStore.getState().replaceActiveExercise(0, 'builtin-plank');
+    const replacement = useAppStore.getState().activeWorkout?.exercises[0];
+    expect(replacement?.measurementType).toBe('duration');
+    expect(replacement?.sets).toEqual([]);
+    expect(replacement?.target).toMatchObject({ targetMin: 20, targetMax: 30 });
+    expect(useAppStore.getState().restTimer.endsAt).toBeNull();
+  });
+
+  it('updates the saved program only when explicitly requested', () => {
+    const program = {
+      id: 'program',
+      name: 'Program',
+      workouts: [t],
+      createdAt: 'x',
+      updatedAt: 'x',
+    };
+    useAppStore.setState({ programs: [program] });
+    useAppStore.getState().startWorkout(t);
+    useAppStore.getState().replaceActiveExercise(0, 'builtin-chin-up');
+    expect(useAppStore.getState().programs[0].workouts[0].exercises[0].exerciseId).toBe('builtin-push-up');
+    useAppStore.getState().replaceActiveExercise(0, 'builtin-pull-up', { updateProgram: true });
+    expect(useAppStore.getState().programs[0].workouts[0].exercises[0].exerciseId).toBe('builtin-pull-up');
+  });
+
+  it('keeps original and replacement metrics separated after workout completion', () => {
+    useAppStore.getState().startWorkout(t);
+    useAppStore.getState().completeSet(0, 10);
+    useAppStore.getState().replaceActiveExercise(0, 'builtin-chin-up', { keepCompleted: true });
+    useAppStore.getState().completeSet(1, 6);
+    useAppStore.getState().finishWorkout();
+    const history = useAppStore.getState().workoutSessions[0];
+    expect(history.exercises[0].exerciseId).toBe('builtin-push-up');
+    expect(history.exercises[0].sets[0].reps).toBe(10);
+    expect(history.exercises[1].exerciseId).toBe('builtin-chin-up');
+    expect(history.exercises[1].sets[0].reps).toBe(6);
+  });
 });

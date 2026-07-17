@@ -10,6 +10,8 @@ import {
   SkipForward,
   Trash2,
   X,
+  Copy,
+  RefreshCw,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -27,6 +29,12 @@ import {
   getSetReps,
   normalizeMeasurementType,
 } from '../utils/performance';
+import {
+  copySetInput,
+  getPreviousPerformance,
+  validEnteredSet,
+} from '../utils/workoutExperience';
+import { ExerciseReplacementSheet } from '../components/ExerciseReplacementSheet';
 
 export function WorkoutPage() {
   const { t, language } = useI18n();
@@ -34,9 +42,8 @@ export function WorkoutPage() {
     store = useAppStore(),
     nav = useNavigate(),
     [now, setNow] = useState(Date.now()),
-    [reps, setReps] = useState(''),
-    [duration, setDuration] = useState(''),
-    [addedWeight, setAddedWeight] = useState(''),
+    [drafts, setDrafts] = useState<Record<string, { reps: string; duration: string; addedWeight: string }>>({}),
+    [replaceOpen, setReplaceOpen] = useState(false),
     [finish, setFinish] = useState(false),
     [cancel, setCancel] = useState(false),
     [notes, setNotes] = useState(''),
@@ -99,15 +106,29 @@ export function WorkoutPage() {
     measurementType = normalizeMeasurementType(
       sessionExercise.measurementType ?? target?.measurementType ?? exercise?.measurementType,
     ),
-    previous = store.workoutSessions
-      .find(
-        (s) =>
-          s.status === 'completed' &&
-          s.exercises.some((e) => e.exerciseId === sessionExercise.exerciseId),
-      )
-      ?.exercises.find((e) => e.exerciseId === sessionExercise.exerciseId)
-      ?.sets.filter((s) => s.completed)
-      .map((set) => formatSetPerformance(set, measurementType, language));
+    historical = getPreviousPerformance(
+      store.workoutSessions,
+      sessionExercise.exerciseId,
+      active.startedAt,
+    ),
+    previousSet = historical?.sets[done],
+    currentPreviousSet = sessionExercise.sets[done - 1],
+    draft = drafts[sessionExercise.id] ?? { reps: '', duration: '', addedWeight: '' },
+    reps = draft.reps,
+    duration = draft.duration,
+    addedWeight = draft.addedWeight;
+  const updateDraft = (changes: Partial<typeof draft>) =>
+    setDrafts((current) => ({
+      ...current,
+      [sessionExercise.id]: { ...draft, ...changes },
+    }));
+  const applyInput = (input: ReturnType<typeof copySetInput>) => {
+    updateDraft({
+      reps: input.reps === undefined ? '' : String(input.reps),
+      duration: input.durationSeconds === undefined ? '' : String(input.durationSeconds),
+      addedWeight: input.addedWeightKg === undefined ? '' : String(input.addedWeightKg),
+    });
+  };
   const setInput =
     measurementType === 'duration'
       ? { durationSeconds: Number(duration) }
@@ -123,9 +144,10 @@ export function WorkoutPage() {
   const complete = () => {
     if (!validInput || restLocked || !canEnterSet) return;
     store.completeSet(i, setInput);
-    setReps('');
-    setDuration('');
-    setAddedWeight('');
+    setDrafts((current) => ({
+      ...current,
+      [sessionExercise.id]: { reps: '', duration: '', addedWeight: '' },
+    }));
   };
   return (
     <div className="mx-auto max-w-3xl pb-28 md:pb-0">
@@ -202,7 +224,15 @@ export function WorkoutPage() {
           <h1 className="max-w-2xl text-[3rem] font-black leading-[.92] tracking-[-.06em] sm:text-6xl">
             {exercise ? getExerciseName(exercise, language) : t('exerciseUnavailable')}
           </h1>
-          {exercise && <ExerciseDemonstrationButton exercise={exercise} className="shrink-0" />}
+          <div className="flex flex-wrap gap-2">
+            {exercise && <ExerciseDemonstrationButton exercise={exercise} className="shrink-0" />}
+            {exercise && (
+              <button className="btn-secondary min-h-11 px-3" onClick={() => setReplaceOpen(true)}>
+                <RefreshCw size={18} />
+                {t('replaceExercise')}
+              </button>
+            )}
+          </div>
         </div>
         <p className="mt-4 text-lg font-bold text-slate-400">
           <span><bdi>{target?.targetSets}</bdi> {t('sets')}</span><span aria-hidden="true"> · </span><span><bdi>{target?.targetMin}–{target?.targetMax}</bdi> {measurementType === 'duration' ? t('seconds') : t('reps')}</span>
@@ -210,16 +240,40 @@ export function WorkoutPage() {
             <><span aria-hidden="true"> · </span><span>{t('targetAddedWeight')}: <bdi>+{target.targetAddedWeightKg} kg</bdi></span></>
           )}
         </p>
-        {previous?.length ? (
-          <div className="surface-subtle mt-6 flex items-center justify-between rounded-2xl px-4 py-3">
+        <div className="surface-subtle mt-6 rounded-2xl px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
             <span className="text-xs font-black uppercase tracking-wider text-slate-500">
-              {t('lastTime')}
+              {historical
+                ? `${t('previous')} · ${new Intl.DateTimeFormat(language === 'he' ? 'he-IL' : 'en-US', { month: 'short', day: 'numeric' }).format(new Date(historical.completedAt))}`
+                : t('previous')}
             </span>
-            <span className="font-black text-slate-200">
-              <bdi>{previous.join(' · ')}</bdi>
+            <span className="font-black">
+              {previousSet ? (
+                <bdi>{formatSetPerformance(previousSet, measurementType, language)}</bdi>
+              ) : (
+                <span className="text-sm text-slate-500">{t('noPreviousPerformance')}</span>
+              )}
             </span>
           </div>
-        ) : null}
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button
+              className="btn-secondary min-h-11 px-2 text-xs"
+              disabled={!previousSet || restLocked}
+              onClick={() => previousSet && applyInput(copySetInput(previousSet, measurementType))}
+            >
+              <Copy size={16} />
+              {t('usePreviousWorkout')}
+            </button>
+            <button
+              className="btn-secondary min-h-11 px-2 text-xs"
+              disabled={!validEnteredSet(currentPreviousSet, measurementType) || restLocked}
+              onClick={() => currentPreviousSet && applyInput(copySetInput(currentPreviousSet, measurementType))}
+            >
+              <Copy size={16} />
+              {t('copyPreviousSet')}
+            </button>
+          </div>
+        </div>
         <section className="mt-7 space-y-3">
           {sessionExercise.sets.map((set) => (
             <div
@@ -286,7 +340,7 @@ export function WorkoutPage() {
             min="0"
             value={measurementType === 'duration' ? duration : reps}
             disabled={restLocked || !canEnterSet}
-            onChange={(e) => measurementType === 'duration' ? setDuration(e.target.value) : setReps(e.target.value)}
+            onChange={(e) => measurementType === 'duration' ? updateDraft({ duration: e.target.value }) : updateDraft({ reps: e.target.value })}
             onKeyDown={(e) => e.key === 'Enter' && complete()}
             placeholder="0"
             className="mx-auto block w-full bg-transparent text-center text-[6.5rem] font-black leading-none tabular-nums tracking-[-.08em] text-slate-950 outline-none placeholder:text-slate-300 disabled:cursor-not-allowed disabled:opacity-30 dark:text-white dark:placeholder:text-white/[.08] sm:text-9xl"
@@ -297,7 +351,7 @@ export function WorkoutPage() {
           {measurementType === 'duration' && (
             <div className="mt-3 flex justify-center gap-2">
               {[5, 10, 30].map((amount) => (
-                <button key={amount} type="button" className="chip" disabled={restLocked} onClick={() => setDuration(String(Number(duration || 0) + amount))}>+{amount}s</button>
+                <button key={amount} type="button" className="chip" disabled={restLocked} onClick={() => updateDraft({ duration: String(Number(duration || 0) + amount) })}>+{amount}s</button>
               ))}
             </div>
           )}
@@ -313,7 +367,7 @@ export function WorkoutPage() {
                 inputMode="decimal"
                 value={addedWeight}
                 disabled={restLocked || !canEnterSet}
-                onChange={(event) => setAddedWeight(event.target.value)}
+                onChange={(event) => updateDraft({ addedWeight: event.target.value })}
                 onKeyDown={(event) => event.key === 'Enter' && complete()}
                 placeholder="0"
               />
@@ -404,6 +458,21 @@ export function WorkoutPage() {
           </div>
         </section>
       </main>
+      {exercise && (
+        <ExerciseReplacementSheet
+          open={replaceOpen}
+          exerciseIndex={i}
+          current={exercise}
+          onClose={() => setReplaceOpen(false)}
+          onReplaced={() =>
+            setDrafts((current) => {
+              const next = { ...current };
+              delete next[sessionExercise.id];
+              return next;
+            })
+          }
+        />
+      )}
       <ConfirmDialog
         open={cancel}
         title={t('cancelWorkoutTitle')}
