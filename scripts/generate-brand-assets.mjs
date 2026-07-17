@@ -1,9 +1,12 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Buffer } from 'node:buffer';
+import { createRequire } from 'node:module';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
-import sharp from 'sharp';
+
+const require = createRequire(import.meta.url);
+const sharp = require('sharp');
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const publicDir = path.join(root, 'public');
