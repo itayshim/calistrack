@@ -12,3 +12,6 @@ outputs/
 .agents/
 .DS_Store
 Thumbs.db
+
+.supabase/
+supabase/.temp/
