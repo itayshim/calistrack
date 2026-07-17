@@ -1,0 +1,14 @@
+node_modules/
+dist/
+coverage/
+.vercel/
+.env*
+!.env.example
+*.log
+*.tsbuildinfo
+work/
+outputs/
+.codex/
+.agents/
+.DS_Store
+Thumbs.db
