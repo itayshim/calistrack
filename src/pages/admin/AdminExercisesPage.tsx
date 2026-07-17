@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useI18n } from '../../hooks/useI18n';
 import { getAdminSession, supabaseRequest } from '../../services/supabase';
 
 interface AdminExercise {
@@ -12,6 +13,7 @@ interface AdminExercise {
 }
 
 export function AdminExercisesPage() {
+  const { t } = useI18n();
   const [items, setItems] = useState<AdminExercise[]>([]);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
@@ -34,11 +36,11 @@ export function AdminExercisesPage() {
   }), [items, missing, query, status]);
   return (
     <main className="mx-auto max-w-5xl">
-      <h1 className="text-4xl font-black">Shared exercises</h1>
+      <h1 className="text-4xl font-black">{t('sharedExercises')}</h1>
       <div className="my-5 grid gap-2 sm:grid-cols-3">
-        <input aria-label="Search shared exercises" className="field" placeholder="Search" value={query} onChange={(event) => setQuery(event.target.value)} />
-        <select aria-label="Publication filter" className="field" value={status} onChange={(event) => setStatus(event.target.value)}><option value="all">Published and drafts</option><option value="published">Published</option><option value="draft">Drafts</option></select>
-        <select aria-label="Missing content filter" className="field" value={missing} onChange={(event) => setMissing(event.target.value)}><option value="all">All content</option><option value="video">Missing video</option><option value="hebrew">Missing Hebrew</option></select>
+        <input aria-label={t('searchSharedExercises')} className="field" placeholder={t('search')} value={query} onChange={(event) => setQuery(event.target.value)} />
+        <select aria-label={t('published')} className="field" value={status} onChange={(event) => setStatus(event.target.value)}><option value="all">{t('allPublicationStates')}</option><option value="published">{t('publishedOnly')}</option><option value="draft">{t('draftsOnly')}</option></select>
+        <select aria-label={t('missingHebrew')} className="field" value={missing} onChange={(event) => setMissing(event.target.value)}><option value="all">{t('allContent')}</option><option value="video">{t('missingVideo')}</option><option value="hebrew">{t('missingHebrew')}</option></select>
       </div>
       {error && <p role="alert" className="text-red-400">{error}</p>}
       <div className="grid gap-3 sm:grid-cols-2">
@@ -46,8 +48,8 @@ export function AdminExercisesPage() {
           const en = item.exercise_translations.find((translation) => translation.locale === 'en');
           const he = item.exercise_translations.find((translation) => translation.locale === 'he');
           return <Link key={item.id} to={`/admin/exercises/${item.id}`} className="card">
-            <div className="flex items-start justify-between"><div><h2 className="text-xl font-black">{en?.name ?? item.stable_key}</h2><p dir="rtl" className="text-slate-400">{he?.name ?? 'Missing Hebrew name'}</p></div><span className="chip">{item.is_published ? 'Published' : 'Draft'}</span></div>
-            <div className="mt-4 flex flex-wrap gap-2 text-xs"><span className="chip">{item.movement_family}</span><span className="chip">{item.exercise_media.length ? 'Has media' : 'Missing video'}</span><span className="chip">{he?.description ? 'Hebrew complete' : 'Missing Hebrew'}</span></div>
+            <div className="flex items-start justify-between"><div><h2 className="text-xl font-black" dir="auto">{en?.name ?? item.stable_key}</h2><p dir="auto" className="text-slate-400">{he?.name ?? t('missingHebrewName')}</p></div><span className="chip">{item.is_published ? t('published') : t('draft')}</span></div>
+            <div className="mt-4 flex flex-wrap gap-2 text-xs"><span className="chip" dir="auto">{item.movement_family}</span><span className="chip">{item.exercise_media.length ? t('hasMedia') : t('missingVideo')}</span><span className="chip">{he?.description ? t('hebrewComplete') : t('missingHebrew')}</span></div>
           </Link>;
         })}
       </div>

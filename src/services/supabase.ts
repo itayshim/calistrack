@@ -12,6 +12,16 @@ export interface AuthSession {
   userId: string;
 }
 
+export class SupabaseApiError extends Error {
+  constructor(
+    public readonly code: string,
+    public readonly status: number,
+  ) {
+    super(code);
+    this.name = 'SupabaseApiError';
+  }
+}
+
 const SESSION_KEY = 'calistrack.admin.session';
 
 export function getAdminSession(): AuthSession | null {
@@ -31,17 +41,31 @@ async function request<T>(
   accessToken?: string,
 ): Promise<T> {
   if (!url || !anonKey) throw new Error('Supabase is not configured');
-  const response = await fetch(`${url}${path}`, {
-    ...init,
-    headers: {
-      apikey: anonKey,
-      Authorization: `Bearer ${accessToken ?? anonKey}`,
-      'Content-Type': 'application/json',
-      Prefer: 'return=representation',
-      ...init.headers,
-    },
-  });
-  if (!response.ok) throw new Error((await response.text()) || `Request failed (${response.status})`);
+  let response: Response;
+  try {
+    response = await fetch(`${url}${path}`, {
+      ...init,
+      headers: {
+        apikey: anonKey,
+        Authorization: `Bearer ${accessToken ?? anonKey}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=representation',
+        ...init.headers,
+      },
+    });
+  } catch {
+    throw new SupabaseApiError('network_error', 0);
+  }
+  if (!response.ok) {
+    let code = response.status === 429 ? 'too_many_requests' : 'unknown_error';
+    try {
+      const body = (await response.json()) as { error_code?: string; code?: string | number };
+      code = body.error_code ?? (typeof body.code === 'string' ? body.code : code);
+    } catch {
+      // Keep the safe generic code. Raw server responses never reach the UI.
+    }
+    throw new SupabaseApiError(code, response.status);
+  }
   return response.status === 204 ? (undefined as T) : ((await response.json()) as T);
 }
 
@@ -60,7 +84,7 @@ export async function signInAdmin(email: string, password: string): Promise<Auth
     {},
     result.access_token,
   );
-  if (profile[0]?.role !== 'admin') throw new Error('This account is not an administrator');
+  if (profile[0]?.role !== 'admin') throw new SupabaseApiError('not_admin', 403);
   const session = {
     accessToken: result.access_token,
     refreshToken: result.refresh_token,

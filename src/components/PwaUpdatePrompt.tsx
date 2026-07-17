@@ -1,8 +1,10 @@
 import { RefreshCw, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { registerSW } from 'virtual:pwa-register';
+import { useI18n } from '../hooks/useI18n';
 
 export function PwaUpdatePrompt() {
+  const { t } = useI18n();
   const [needRefresh, setNeedRefresh] = useState(false),
     [offlineReady, setOfflineReady] = useState(false),
     update = useRef<((reloadPage?: boolean) => Promise<void>) | null>(null);
@@ -26,24 +28,24 @@ export function PwaUpdatePrompt() {
         </span>
         <div className="min-w-0 flex-1">
           <p className="font-black">
-            {needRefresh ? 'A new CalisTrack version is ready' : 'CalisTrack is ready offline'}
+            {needRefresh ? t('updateReadyTitle') : t('offlineReadyTitle')}
           </p>
           <p className="mt-1 text-sm text-slate-400">
             {needRefresh
-              ? 'Update now to get the latest improvements.'
-              : 'The app shell can now open without a connection.'}
+              ? t('updateReadyDescription')
+              : t('offlineReadyDescription')}
           </p>
           {needRefresh && (
             <button
               className="mt-3 rounded-xl bg-brand px-4 py-2 text-sm font-black text-ink"
               onClick={() => void update.current?.(true)}
             >
-              Update and reload
+              {t('updateAndReload')}
             </button>
           )}
         </div>
         <button
-          aria-label="Dismiss"
+          aria-label={t('dismiss')}
           className="p-2 text-slate-500"
           onClick={() => {
             setNeedRefresh(false);

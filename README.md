@@ -60,8 +60,8 @@ Supabase is optional: regular workout tracking remains local-first and works wit
 
 1. Create a Supabase project.
 2. Run `supabase/migrations/202607170001_global_content.sql` in the Supabase SQL Editor.
-3. Create the first administrator in **Authentication → Users**.
-4. Promote only that known user ID from the SQL Editor:
+3. In **Authentication → Users**, choose **Add user → Create new user**. Enter the administrator email and a strong password. Either enable **Auto Confirm User** or complete the confirmation email before signing in.
+4. Copy the new user's UUID from Authentication. Promote only that known Auth user from the SQL Editor:
 
    ```sql
    insert into public.profiles (id, role)
@@ -78,6 +78,17 @@ Supabase is optional: regular workout tracking remains local-first and works wit
    ```
 
 6. Add the same two public `VITE_` values to Vercel Production and Preview, then redeploy once.
+
+Verify that the Auth user and administrator profile match:
+
+```sql
+select u.id, u.email, u.email_confirmed_at, p.role
+from auth.users as u
+left join public.profiles as p on p.id = u.id
+where lower(u.email) = lower('ADMIN_EMAIL_HERE');
+```
+
+The result must show one user, a non-null confirmation date, and `role = 'admin'`. An `invalid_credentials` response occurs before the role lookup and means the submitted email/password do not match the Auth user. Reset the password from **Authentication → Users** if necessary; never share or commit it.
 
 Never expose the Supabase service-role key in the frontend. The migration creates the content tables, validation constraints, indexes, updated-at triggers, RLS policies, and the `exercise-media` bucket. Anonymous users can read only published content. Global writes and storage changes require a server-verified `admin` profile.
 

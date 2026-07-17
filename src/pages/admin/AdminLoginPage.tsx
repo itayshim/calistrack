@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useI18n } from '../../hooks/useI18n';
+import { authErrorMessage } from '../../services/authErrors';
 import { signInAdmin, supabaseConfigured } from '../../services/supabase';
 
 export function AdminLoginPage() {
@@ -11,13 +12,14 @@ export function AdminLoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const submit = async () => {
+    if (loading) return;
     setLoading(true);
     setError('');
     try {
       await signInAdmin(email, password);
       navigate('/admin/exercises');
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Unable to sign in');
+      setError(authErrorMessage(reason, (key) => t(key)));
     } finally {
       setLoading(false);
     }
@@ -28,12 +30,12 @@ export function AdminLoginPage() {
         <p className="eyebrow">{t('admin')}</p>
         <h1 className="mt-2 text-3xl font-black">{t('login')}</h1>
         {!supabaseConfigured && <p role="alert" className="mt-4 rounded-2xl bg-orange-500/10 p-4 text-orange-200">{t('missingConfig')}</p>}
-        <div className="mt-6 space-y-4">
-          <label><span className="label">{t('email')}</span><input dir="ltr" type="email" autoComplete="username" className="field" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
-          <label><span className="label">{t('password')}</span><input dir="ltr" type="password" autoComplete="current-password" className="field" value={password} onChange={(event) => setPassword(event.target.value)} /></label>
-          {error && <p role="alert" className="text-red-400">{error}</p>}
-          <button disabled={!supabaseConfigured || !email || !password || loading} className="btn-primary w-full" onClick={submit}>{loading ? t('loading') : t('signIn')}</button>
-        </div>
+        <form className="mt-6 space-y-4" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
+          <label><span className="label">{t('email')}</span><input dir="ltr" type="email" autoComplete="username" className="field text-left" value={email} onChange={(event) => { setEmail(event.target.value); setError(''); }} /></label>
+          <label><span className="label">{t('password')}</span><input dir="ltr" type="password" autoComplete="current-password" className="field text-left" value={password} onChange={(event) => { setPassword(event.target.value); setError(''); }} /></label>
+          <p aria-live="assertive" className="min-h-6 break-words text-start text-sm font-semibold text-red-400">{error}</p>
+          <button type="submit" disabled={!supabaseConfigured || !email || !password || loading} className="btn-primary w-full">{loading ? t('signingIn') : t('signIn')}</button>
+        </form>
       </section>
     </main>
   );

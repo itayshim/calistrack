@@ -6,6 +6,7 @@ import { AppLayout } from './layouts/AppLayout';
 import { useAppStore } from './store/useAppStore';
 import { loadGlobalContent } from './services/globalContent';
 import { AdminGuard } from './features/admin/AdminGuard';
+import { translations } from './locales/translations';
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((module) => ({ default: module.DashboardPage })));
 const ExerciseDetailPage = lazy(() => import('./pages/ExerciseDetailPage').then((module) => ({ default: module.ExerciseDetailPage })));
 const ExercisesPage = lazy(() => import('./pages/ExercisesPage').then((module) => ({ default: module.ExercisesPage })));
@@ -45,7 +46,7 @@ export default function App() {
       return;
     }
     const id = setTimeout(() => {
-      useAppStore.getState().setToast('Rest time is over — ready for the next set');
+      useAppStore.getState().setToast(translations[settings.language].restFinished);
       if (settings.restTimerVibration && navigator.vibrate) navigator.vibrate([150, 80, 150]);
       if (settings.restTimerSound) {
         const ctx = new AudioContext(),
@@ -57,19 +58,19 @@ export default function App() {
       skip();
     }, wait);
     return () => clearTimeout(id);
-  }, [timer.endsAt, settings.restTimerSound, settings.restTimerVibration, skip]);
+  }, [timer.endsAt, settings.language, settings.restTimerSound, settings.restTimerVibration, skip]);
   useEffect(() => {
     if (!hydrated) return;
     loadGlobalContent(useAppStore.getState().exercises).then(({ exercises, stale }) => {
       setSharedExercises(exercises);
-      if (stale) useAppStore.getState().setToast('Showing saved exercise content');
+      if (stale) useAppStore.getState().setToast(translations[settings.language].offlineContent);
     });
-  }, [hydrated, setSharedExercises]);
+  }, [hydrated, setSharedExercises, settings.language]);
   if (!hydrated)
-    return <div className="grid min-h-screen place-items-center">Loading your workouts…</div>;
+    return <div className="grid min-h-screen place-items-center">{translations[settings.language].loadingWorkouts}</div>;
   return (
     <>
-      <Suspense fallback={<div className="grid min-h-[50vh] place-items-center">Loading…</div>}>
+      <Suspense fallback={<div className="grid min-h-[50vh] place-items-center">{translations[settings.language].loading}</div>}>
       <Routes>
         <Route path="admin/login" element={<AdminLoginPage />} />
         <Route element={<AdminGuard />}>

@@ -12,6 +12,7 @@ import type {
   WorkoutTemplate,
 } from '../types';
 import { createId } from '../utils/id';
+import { translations, type TranslationKey } from '../locales/translations';
 interface Store extends AppData {
   hydrated: boolean;
   toast: string | null;
@@ -86,7 +87,7 @@ export const useAppStore = create<Store>((set, get) => ({
       ) ||
       get().activeWorkout?.exercises.some((exercise) => exercise.exerciseId === id);
     if (referenced) {
-      set({ toast: 'This exercise is used by a program or workout and cannot be deleted' });
+      set({ toast: localized(get().settings.language, 'exerciseInUse') });
       return;
     }
     set((s) => ({ exercises: s.exercises.filter((e) => e.id !== id) }));
@@ -95,7 +96,7 @@ export const useAppStore = create<Store>((set, get) => ({
   saveProgram: (p) => {
     set((s) => ({
       programs: [...s.programs.filter((x) => x.id !== p.id), p],
-      toast: 'Program saved',
+      toast: localized(get().settings.language, 'programSaved'),
     }));
     get().persist();
   },
@@ -184,7 +185,7 @@ export const useAppStore = create<Store>((set, get) => ({
       restTimer: shouldRest
         ? { endsAt: Date.now() + duration * 1000, duration, pausedRemaining: null }
         : emptyTimer(),
-      toast: completedAllowedSets ? 'Exercise completed' : 'Set completed and saved',
+      toast: localized(get().settings.language, completedAllowedSets ? 'exerciseCompleted' : 'setCompleted'),
     });
     get().persist();
   },
@@ -194,7 +195,7 @@ export const useAppStore = create<Store>((set, get) => ({
     a.exercises[i].extraSetCount = (a.exercises[i].extraSetCount ?? 0) + 1;
     a.currentExerciseIndex = i;
     a.completionReady = false;
-    set({ activeWorkout: a, restTimer: emptyTimer(), toast: 'Extra set added' });
+    set({ activeWorkout: a, restTimer: emptyTimer(), toast: localized(get().settings.language, 'extraSetAdded') });
     get().persist();
   },
   editSet: (i, id, value) => {
@@ -253,7 +254,7 @@ export const useAppStore = create<Store>((set, get) => ({
       activeWorkout: null,
       workoutSessions: [a, ...s.workoutSessions],
       restTimer: emptyTimer(),
-      toast: 'Workout completed',
+      toast: localized(get().settings.language, 'workoutCompleted'),
     }));
     get().persist();
   },
@@ -268,12 +269,12 @@ export const useAppStore = create<Store>((set, get) => ({
   deleteSession: (id) => {
     set((s) => ({
       workoutSessions: s.workoutSessions.filter((x) => x.id !== id),
-      toast: 'Workout deleted',
+      toast: localized(get().settings.language, 'workoutDeleted'),
     }));
     get().persist();
   },
   setSettings: (settings) => {
-    set({ settings, toast: 'Settings saved' });
+    set({ settings, toast: localized(settings.language, 'settingsSaved') });
     get().persist();
   },
   addGoal: (g) => {
@@ -285,12 +286,13 @@ export const useAppStore = create<Store>((set, get) => ({
     get().persist();
   },
   importData: (d) => {
-    set({ ...d, toast: 'Import completed successfully' });
+    set({ ...d, toast: localized(d.settings.language, 'importCompleted') });
     get().persist();
   },
   reset: () => {
     storageService.resetData();
-    set({ ...createInitialData(), toast: 'All data was reset' });
+    const data = createInitialData();
+    set({ ...data, toast: localized(data.settings.language, 'dataReset') });
   },
   pauseTimer: () => {
     const r = get().restTimer;
@@ -324,3 +326,5 @@ export const useAppStore = create<Store>((set, get) => ({
 }));
 
 const emptyTimer = (): RestTimerState => ({ endsAt: null, duration: 0, pausedRemaining: null });
+const localized = (language: 'en' | 'he', key: TranslationKey) =>
+  translations[language][key] ?? translations.en[key];

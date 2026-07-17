@@ -9,9 +9,9 @@ export function AdminLayout() {
   return (
     <div className="min-h-screen p-4 pb-24 sm:p-8">
       <header className="mx-auto mb-6 flex max-w-5xl items-center justify-between">
-        <Link to="/admin/exercises"><strong className="text-xl font-black">CalisTrack · {t('admin')}</strong></Link>
+        <Link to="/admin/exercises"><strong className="text-xl font-black">CalisTrack · {t('administratorSystem')}</strong></Link>
         <div className="flex gap-2">
-          <Link className="btn-primary" to="/admin/exercises/new"><Plus size={18} />New</Link>
+          <Link className="btn-primary" to="/admin/exercises/new"><Plus size={18} />{t('newExercise')}</Link>
           <button className="icon-button" aria-label={t('logout')} onClick={() => { signOutAdmin(); navigate('/admin/login'); }}><LogOut /></button>
         </div>
       </header>

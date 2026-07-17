@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useI18n } from '../hooks/useI18n';
 export function ConfirmDialog({
   open,
   title,
@@ -12,6 +13,7 @@ export function ConfirmDialog({
   onConfirm: () => void;
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     if (open && !ref.current?.open) ref.current?.showModal();
@@ -36,10 +38,10 @@ export function ConfirmDialog({
             onClose();
           }}
         >
-          Confirm
+          {t('confirm')}
         </button>
         <button className="btn-secondary" onClick={onClose}>
-          Cancel
+          {t('cancel')}
         </button>
       </div>
     </dialog>

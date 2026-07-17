@@ -33,7 +33,7 @@ export function AppLayout() {
           </span>
           <span>
             <strong className="block text-xl font-black tracking-[-.04em]">CalisTrack</strong>
-            <small className="text-xs font-bold text-slate-500">MOVE WITH INTENT</small>
+            <small className="text-xs font-bold text-slate-500">{t('brandTagline')}</small>
           </span>
         </button>
         <nav className="space-y-2">
@@ -87,14 +87,14 @@ export function AppLayout() {
               className="flex items-center gap-2 rounded-full bg-brand/15 px-3 py-2 text-xs font-black text-brand"
             >
               <span className="h-2 w-2 animate-pulse rounded-full bg-brand" />
-              LIVE
+              {t('live')}
             </button>
           )}
         </header>
         <Outlet />
       </main>
       <nav
-        aria-label="Main navigation"
+        aria-label={t('mainNavigation')}
         className="mobile-bottom-nav fixed inset-x-3 z-30 grid grid-cols-5 rounded-[1.6rem] border border-white/[.08] bg-[#111719]/95 p-1.5 shadow-soft backdrop-blur-xl md:hidden"
       >
         {tabs.map(([to, labelKey, Icon]) => {

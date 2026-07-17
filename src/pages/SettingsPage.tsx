@@ -40,16 +40,16 @@ export function SettingsPage() {
     if (!f) return;
     try {
       setPending(storageService.importData(await f.text()));
-    } catch (e) {
-      store.setToast(e instanceof Error ? `Import failed: ${e.message}` : 'Import failed');
+    } catch {
+      store.setToast(t('importFailed'));
     }
   };
   return (
     <div className="space-y-7">
       <header>
-        <p className="eyebrow">MAKE IT YOURS</p>
-        <h1 className="mt-2 text-4xl font-black tracking-[-.05em]">Settings</h1>
-        <p className="mt-2 text-slate-400">Tune CalisTrack to the way you train.</p>
+        <p className="eyebrow">{t('settingsEyebrow')}</p>
+        <h1 className="mt-2 text-4xl font-black tracking-[-.05em]">{t('settings')}</h1>
+        <p className="mt-2 text-slate-400">{t('settingsSubtitle')}</p>
       </header>
       <section className="card max-w-2xl space-y-5">
         <fieldset>
@@ -75,7 +75,7 @@ export function SettingsPage() {
           </div>
         </fieldset>
         <label>
-          <span className="label">Weekly workout target</span>
+          <span className="label">{t('weeklyWorkoutTarget')}</span>
           <input
             className="field"
             type="number"
@@ -86,7 +86,7 @@ export function SettingsPage() {
           />
         </label>
         <label>
-          <span className="label">Default rest (seconds)</span>
+          <span className="label">{t('defaultRestSeconds')}</span>
           <input
             className="field"
             type="number"
@@ -96,7 +96,7 @@ export function SettingsPage() {
           />
         </label>
         <label>
-          <span className="label">Theme</span>
+          <span className="label">{t('theme')}</span>
           <select
             className="field"
             value={settings.theme}
@@ -104,17 +104,17 @@ export function SettingsPage() {
               setSettings({ ...settings, theme: e.target.value as 'dark' | 'light' })
             }
           >
-            <option value="dark">Dark</option>
-            <option value="light">Light</option>
+            <option value="dark">{t('dark')}</option>
+            <option value="light">{t('light')}</option>
           </select>
         </label>
         <Toggle
-          label="Rest timer sound"
+          label={t('restTimerSound')}
           checked={settings.restTimerSound}
           set={(v) => setSettings({ ...settings, restTimerSound: v })}
         />
         <Toggle
-          label="Vibration when rest ends (if supported)"
+          label={t('restTimerVibration')}
           checked={settings.restTimerVibration}
           set={(v) => setSettings({ ...settings, restTimerVibration: v })}
         />
@@ -123,19 +123,17 @@ export function SettingsPage() {
         </button>
       </section>
       <section className="card max-w-2xl">
-        <p className="eyebrow">BACKUP & CONTROL</p>
-        <h2 className="mt-2 text-2xl font-black">My data</h2>
-        <p className="my-2 text-slate-400">
-          Export includes programs, exercises, workouts, goals, and settings.
-        </p>
+        <p className="eyebrow">{t('backupControl')}</p>
+        <h2 className="mt-2 text-2xl font-black">{t('myData')}</h2>
+        <p className="my-2 text-slate-400">{t('exportDescription')}</p>
         <div className="flex flex-wrap gap-2">
           <button className="btn-secondary" onClick={exportFile}>
             <Download />
-            Export JSON
+            {t('exportJson')}
           </button>
           <button className="btn-secondary" onClick={() => file.current?.click()}>
             <Upload />
-            Import JSON
+            {t('importJson')}
           </button>
           <input
             ref={file}
@@ -146,21 +144,21 @@ export function SettingsPage() {
           />
           <button className="btn-danger" onClick={() => setReset(true)}>
             <RotateCcw />
-            Reset application
+            {t('resetApplication')}
           </button>
         </div>
       </section>
       <ConfirmDialog
         open={!!pending}
-        title="Replace all data?"
-        description="Importing will replace your current data. Export a backup first."
+        title={t('replaceAllData')}
+        description={t('replaceAllDataDescription')}
         onClose={() => setPending(null)}
         onConfirm={() => pending && store.importData(pending)}
       />
       <ConfirmDialog
         open={reset}
-        title="Reset all data"
-        description="All workouts, programs, goals, and custom exercises will be permanently deleted."
+        title={t('resetAllData')}
+        description={t('resetAllDataDescription')}
         onClose={() => setReset(false)}
         onConfirm={store.reset}
       />
