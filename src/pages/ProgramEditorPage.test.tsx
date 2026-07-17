@@ -1,7 +1,8 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { I18nProvider } from '../app/I18nProvider';
 import { createInitialData } from '../data/seed';
 import { useAppStore } from '../store/useAppStore';
 import type { Program } from '../types';
@@ -10,11 +11,13 @@ import { ProgramEditorPage } from './ProgramEditorPage';
 function renderEditor(path = '/program/new') {
   return render(
     <MemoryRouter initialEntries={[path]}>
-      <Routes>
-        <Route path="/program/new" element={<ProgramEditorPage />} />
-        <Route path="/program/:id" element={<ProgramEditorPage />} />
-        <Route path="/program" element={<div>Programs</div>} />
-      </Routes>
+      <I18nProvider>
+        <Routes>
+          <Route path="/program/new" element={<ProgramEditorPage />} />
+          <Route path="/program/:id" element={<ProgramEditorPage />} />
+          <Route path="/program" element={<div>Programs</div>} />
+        </Routes>
+      </I18nProvider>
     </MemoryRouter>,
   );
 }
@@ -75,8 +78,11 @@ describe('program weekday selection', () => {
     await user.click(screen.getByRole('button', { name: 'Add exercise' }));
     await user.type(screen.getByPlaceholderText('Search squats, dips, handstands...'), 'Tuck L-Sit');
     await user.click(screen.getAllByRole('button', { name: /Tuck L-Sit/ })[0]);
-    expect(screen.getByText(/Target duration.*Minimum/)).toBeInTheDocument();
-    expect(screen.getByText(/Target duration.*Maximum/)).toBeInTheDocument();
+    const hold = screen.getByRole('group', { name: 'Target hold' });
+    expect(within(hold).getByLabelText('Target hold Minimum')).toBeInTheDocument();
+    expect(within(hold).getByLabelText('Target hold Maximum')).toBeInTheDocument();
+    expect(within(hold).getByText('seconds')).toBeInTheDocument();
+    expect(hold.querySelector('[dir="ltr"]')).toBeInTheDocument();
   });
   it('shows decimal added-weight targets only for weighted repetitions', async () => {
     const user = userEvent.setup();
@@ -85,8 +91,62 @@ describe('program weekday selection', () => {
     await user.click(screen.getByRole('button', { name: 'Add exercise' }));
     await user.type(screen.getByPlaceholderText('Search squats, dips, handstands...'), 'Weighted Pull-Up');
     await user.click(screen.getAllByRole('button', { name: /Weighted Pull-Up/ })[0]);
-    const weight = screen.getByLabelText('Target added weight');
+    expect(screen.getByRole('group', { name: 'Target reps' })).toBeInTheDocument();
+    const weight = screen.getByLabelText('Added weight');
     expect(weight).toHaveAttribute('step', '0.5');
     expect(weight).toHaveAttribute('min', '0');
+    expect(weight.closest('label')).toHaveTextContent('kg');
+  });
+
+  it('keeps regular repetition targets in one grouped range without a weight field', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await user.click(screen.getByRole('button', { name: 'Add workout day' }));
+    await user.click(screen.getByRole('button', { name: 'Add exercise' }));
+    await user.type(screen.getByPlaceholderText('Search squats, dips, handstands...'), 'Pull-Up');
+    await user.click(screen.getByRole('button', { name: 'Pull-UpPull-Up · intermediate' }));
+    const reps = screen.getByRole('group', { name: 'Target reps' });
+    expect(within(reps).getByLabelText('Target reps Minimum')).toBeInTheDocument();
+    expect(within(reps).getByLabelText('Target reps Maximum')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Added weight')).not.toBeInTheDocument();
+    expect(reps.parentElement).toHaveClass('grid-cols-1', 'md:grid-cols-2');
+  });
+
+  it('renders compact weighted controls with natural Hebrew labels and isolated ranges', () => {
+    const now = '2026-01-01';
+    const program: Program = {
+      id: 'hebrew-program',
+      name: 'תוכנית',
+      createdAt: now,
+      updatedAt: now,
+      workouts: [{
+        id: 'hebrew-workout',
+        programId: 'hebrew-program',
+        name: 'אימון',
+        scheduledDays: [1],
+        createdAt: now,
+        updatedAt: now,
+        exercises: [{
+          id: 'weighted-target',
+          exerciseId: 'builtin-weighted-pull-up',
+          order: 0,
+          targetSets: 3,
+          targetMin: 8,
+          targetMax: 12,
+          targetAddedWeightKg: 10,
+          restSeconds: 75,
+          measurementType: 'weighted_reps',
+        }],
+      }],
+    };
+    useAppStore.setState({
+      programs: [program],
+      settings: { ...useAppStore.getState().settings, language: 'he' },
+    });
+    renderEditor('/program/hebrew-program');
+    const reps = screen.getByRole('group', { name: 'טווח חזרות' });
+    expect(reps.querySelector('[dir="ltr"]')).toBeInTheDocument();
+    expect(screen.getByLabelText('משקל נוסף').closest('label')).toHaveTextContent('ק״ג');
+    expect(screen.getByLabelText('מנוחה').closest('label')).toHaveTextContent('שניות');
   });
 });

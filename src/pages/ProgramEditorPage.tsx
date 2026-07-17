@@ -180,19 +180,22 @@ export function ProgramEditorPage() {
                   const e = exercises.find((x) => x.id === we.exerciseId);
                   return (
                     <div key={we.id} className="rounded-xl border border-line p-3">
-                      <div className="mb-3 flex items-center justify-between">
-                        <div className="flex min-w-0 flex-wrap items-center gap-2">
-                          <b>{e ? getExerciseName(e, language) : t('exerciseUnavailable')}</b>
+                      <div className="mb-4 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+                        <div className="min-w-0">
+                          <b className="block break-words text-lg leading-tight">
+                            {e ? getExerciseName(e, language) : t('exerciseUnavailable')}
+                          </b>
                           {e && (
                             <ExerciseDemonstrationButton
                               exercise={e}
-                              className="min-h-10 px-3 text-xs"
+                              className="mt-2 min-h-11 max-w-full px-3 text-xs"
                             />
                           )}
                         </div>
-                        <div>
+                        <div className="flex shrink-0 items-center justify-end gap-1">
                           <button
                             aria-label="Move up"
+                            className="icon-button h-11 w-11"
                             disabled={!i}
                             onClick={() => move(updateWorkout, w.id, i, -1)}
                           >
@@ -200,6 +203,7 @@ export function ProgramEditorPage() {
                           </button>
                           <button
                             aria-label="Move down"
+                            className="icon-button h-11 w-11"
                             disabled={i === w.exercises.length - 1}
                             onClick={() => move(updateWorkout, w.id, i, 1)}
                           >
@@ -207,7 +211,7 @@ export function ProgramEditorPage() {
                           </button>
                           <button
                             aria-label="Remove exercise"
-                            className="text-red-400"
+                            className="icon-button h-11 w-11 text-red-400"
                             onClick={() =>
                               updateWorkout(w.id, (x) => {
                                 x.exercises = x.exercises
@@ -477,24 +481,39 @@ function TargetFields({
 }) {
   const { t } = useI18n();
   const measurementType = we.measurementType ?? exercise?.measurementType ?? 'reps';
-  const targetLabel = measurementType === 'duration' ? t('targetDuration') : t('repetitions');
   return (
-    <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
-      <Num label={t('sets')} value={we.targetSets} set={(v) => update({ targetSets: v })} />
-      <Num label={`${targetLabel} · ${t('minimum')}`} value={we.targetMin} set={(v) => update({ targetMin: v })} />
-      <Num label={`${targetLabel} · ${t('maximum')}`} value={we.targetMax} set={(v) => update({ targetMax: v })} />
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+      <CompactNumber
+        label={t('sets')}
+        value={we.targetSets}
+        set={(value) => update({ targetSets: value })}
+      />
+      <CompactRange
+        label={measurementType === 'duration' ? t('targetHold') : t('targetReps')}
+        minimum={we.targetMin}
+        maximum={we.targetMax}
+        unit={measurementType === 'duration' ? t('seconds') : undefined}
+        setMinimum={(value) => update({ targetMin: value })}
+        setMaximum={(value) => update({ targetMax: value })}
+      />
       {measurementType === 'weighted_reps' && (
-        <Num
-          label={t('targetAddedWeight')}
+        <CompactNumber
+          label={t('addedWeight')}
           value={we.targetAddedWeightKg ?? 0}
-          set={(v) => update({ targetAddedWeightKg: v })}
+          set={(value) => update({ targetAddedWeightKg: value })}
           min={0}
           step={0.5}
+          unit={t('kilogramsShort')}
         />
       )}
-      <Num label={t('restSeconds')} value={we.restSeconds} set={(v) => update({ restSeconds: v })} />
-      <label>
-        <span className="label">{t('note')}</span>
+      <CompactNumber
+        label={t('rest')}
+        value={we.restSeconds}
+        set={(value) => update({ restSeconds: value })}
+        unit={t('seconds')}
+      />
+      <label className="md:col-span-2">
+        <span className="label normal-case">{t('note')}</span>
         <input
           className="field"
           value={we.notes ?? ''}
@@ -504,19 +523,85 @@ function TargetFields({
     </div>
   );
 }
-function Num({ label, value, set, min = 1, step = 1 }: { label: string; value: number; set: (v: number) => void; min?: number; step?: number }) {
+function CompactNumber({
+  label,
+  value,
+  set,
+  min = 1,
+  step = 1,
+  unit,
+}: {
+  label: string;
+  value: number;
+  set: (value: number) => void;
+  min?: number;
+  step?: number;
+  unit?: string;
+}) {
   return (
-    <label>
-      <span className="label">{label}</span>
-      <input
-        type="number"
-        min={min}
-        step={step}
-        className="field"
-        value={value}
-        onChange={(e) => set(Math.max(min, +e.target.value))}
-      />
+    <label className="min-w-0">
+      <span className="label normal-case">{label}</span>
+      <span className="surface-subtle flex min-h-12 min-w-0 items-center rounded-2xl border border-line px-3 focus-within:ring-2 focus-within:ring-brand">
+        <input
+          type="number"
+          min={min}
+          step={step}
+          inputMode={step < 1 ? 'decimal' : 'numeric'}
+          aria-label={label}
+          className="min-w-0 flex-1 bg-transparent px-2 py-2 text-center text-lg font-black outline-none"
+          value={value}
+          onChange={(event) => set(Math.max(min, Number(event.target.value)))}
+        />
+        {unit && <bdi className="shrink-0 whitespace-nowrap text-sm font-bold text-slate-500">{unit}</bdi>}
+      </span>
     </label>
+  );
+}
+function CompactRange({
+  label,
+  minimum,
+  maximum,
+  unit,
+  setMinimum,
+  setMaximum,
+}: {
+  label: string;
+  minimum: number;
+  maximum: number;
+  unit?: string;
+  setMinimum: (value: number) => void;
+  setMaximum: (value: number) => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <fieldset className="min-w-0">
+      <legend className="label normal-case">{label}</legend>
+      <div
+        dir="ltr"
+        className="surface-subtle flex min-h-12 min-w-0 items-center gap-2 rounded-2xl border border-line px-3 focus-within:ring-2 focus-within:ring-brand"
+      >
+        <input
+          aria-label={`${label} ${t('minimum')}`}
+          type="number"
+          min="1"
+          inputMode="numeric"
+          className="min-w-0 flex-1 bg-transparent px-1 py-2 text-center text-lg font-black outline-none"
+          value={minimum}
+          onChange={(event) => setMinimum(Math.max(1, Number(event.target.value)))}
+        />
+        <span aria-hidden="true" className="shrink-0 text-slate-500">–</span>
+        <input
+          aria-label={`${label} ${t('maximum')}`}
+          type="number"
+          min="1"
+          inputMode="numeric"
+          className="min-w-0 flex-1 bg-transparent px-1 py-2 text-center text-lg font-black outline-none"
+          value={maximum}
+          onChange={(event) => setMaximum(Math.max(1, Number(event.target.value)))}
+        />
+        {unit && <bdi className="shrink-0 whitespace-nowrap text-sm font-bold text-slate-500">{unit}</bdi>}
+      </div>
+    </fieldset>
   );
 }
 function move(
