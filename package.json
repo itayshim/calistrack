@@ -38,6 +38,7 @@
     "globals": "latest",
     "jsdom": "latest",
     "prettier": "latest",
+    "supabase": "^2.109.1",
     "typescript-eslint": "latest",
     "vite-plugin-pwa": "^1.3.0",
     "vitest": "latest"

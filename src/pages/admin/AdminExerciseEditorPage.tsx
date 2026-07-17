@@ -9,6 +9,8 @@ import { builtInExercises } from '../../data/exercises';
 import { invalidatePublishedExerciseMedia } from '../../services/exerciseMedia';
 import { PageBackLink } from '../../components/PageBackLink';
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard';
+import { SuggestedVideosPanel } from './SuggestedVideosPanel';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 
 const empty = {
   id: '',
@@ -43,6 +45,7 @@ export function AdminExerciseEditorPage() {
   const [saving, setSaving] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [media, setMedia] = useState<ExerciseMedia[]>([]);
+  const [pendingPrimary, setPendingPrimary] = useState<ExerciseMedia | null>(null);
   const token = getAdminSession()?.accessToken;
   const dirty = JSON.stringify(form) !== baseline || Boolean(youtube || externalUrl);
   const unsaved = useUnsavedChangesGuard(dirty);
@@ -265,6 +268,7 @@ export function AdminExerciseEditorPage() {
         </div>
         <section className="card space-y-3">
           <h2 className="text-xl font-black">{t('media')}</h2>
+          <SuggestedVideosPanel exerciseId={form.id} exerciseName={form.nameEn || form.stable_key} sortOrder={media.length} onSelected={reloadMedia} />
           <Field label={t('youtubeUrl')} value={youtube} set={setYoutube} ltr />
           {videoId && <div className="aspect-video overflow-hidden rounded-2xl"><iframe className="h-full w-full" src={youtubeEmbedUrl(videoId)} title={t('youtubePreview')} allowFullScreen /></div>}
           <button className="btn-secondary" type="button" disabled={!videoId || !form.id} onClick={addYoutube}>{t('addYoutube')}</button>
@@ -273,12 +277,13 @@ export function AdminExerciseEditorPage() {
           <label className="btn-secondary cursor-pointer"><span>{t('uploadVideoOrImage')}</span><input className="sr-only" type="file" accept="video/mp4,video/quicktime,video/webm,image/jpeg,image/png,image/webp" onChange={(event) => upload(event.target.files?.[0])} /></label>
           <p className="text-sm text-slate-400">{t('uploadRecommendation')}</p>
           {progress !== null && <div role="progressbar" aria-valuenow={progress} className="h-3 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10"><div className="h-full bg-brand" style={{ width: `${progress}%` }} /></div>}
-          <div className="space-y-3">{media.map((item, index) => <article key={item.id} className="surface-subtle rounded-2xl p-4"><div className="flex flex-wrap items-center justify-between gap-2"><div><strong dir="auto">{item.title || item.mediaType}</strong><p className="text-xs text-slate-500 dark:text-slate-400">{item.mediaType} · {item.isPublished ? t('published') : t('draft')} · {item.isPrimary ? t('primary') : t('secondary')}</p></div><div className="flex flex-wrap gap-2"><button className="btn-secondary min-h-10 px-3" onClick={() => updateMedia(item,{isPublished:!item.isPublished})}>{item.isPublished?t('unpublish'):t('publish')}</button><button className="btn-secondary min-h-10 px-3" onClick={() => updateMedia(item,{isPrimary:true})}>{t('makePrimary')}</button><button disabled={!index} className="btn-secondary min-h-10 px-3" onClick={() => updateMedia(item,{sortOrder:index-1})}>{t('moveUp')}</button>{item.provider === 'supabase_storage' && <label className="btn-secondary min-h-10 cursor-pointer px-3">{t('replace')}<input className="sr-only" type="file" accept="video/mp4,video/webm,image/jpeg,image/png,image/webp" onChange={(event) => replaceMedia(item,event.target.files?.[0])}/></label>}<button className="btn-danger min-h-10 px-3" onClick={() => removeMedia(item)}>{t('delete')}</button></div></div></article>)}</div>
+          <div className="space-y-3">{media.map((item, index) => <article key={item.id} className="surface-subtle rounded-2xl p-4"><div className="flex flex-wrap items-center justify-between gap-2"><div><strong dir="auto">{item.title || item.mediaType}</strong><p className="text-xs text-slate-500 dark:text-slate-400">{item.mediaType} · {item.isPublished ? t('published') : t('draft')} · {item.isPrimary ? t('primary') : t('secondary')}</p></div><div className="flex flex-wrap gap-2"><button className="btn-secondary min-h-10 px-3" onClick={() => updateMedia(item,{isPublished:!item.isPublished})}>{item.isPublished?t('unpublish'):t('publish')}</button><button className="btn-secondary min-h-10 px-3" onClick={() => media.some((other) => other.isPrimary && other.id !== item.id) ? setPendingPrimary(item) : updateMedia(item,{isPrimary:true})}>{t('makePrimary')}</button><button disabled={!index} className="btn-secondary min-h-10 px-3" onClick={() => updateMedia(item,{sortOrder:index-1})}>{t('moveUp')}</button>{item.provider === 'supabase_storage' && <label className="btn-secondary min-h-10 cursor-pointer px-3">{t('replace')}<input className="sr-only" type="file" accept="video/mp4,video/webm,image/jpeg,image/png,image/webp" onChange={(event) => replaceMedia(item,event.target.files?.[0])}/></label>}<button className="btn-danger min-h-10 px-3" onClick={() => removeMedia(item)}>{t('delete')}</button></div></div></article>)}</div>
         </section>
       </div>
       {error && <p role="alert" className="mt-4 text-red-400">{error}</p>}
       <div className="mt-5 flex items-center justify-between"><label className="flex min-h-12 items-center gap-3"><input type="checkbox" checked={form.is_published} onChange={(event) => set('is_published', event.target.checked)} />{t('published')}</label><button className="btn-primary" disabled={saving} onClick={save}>{saving ? t('saving') : t('saveExercise')}</button></div>
       {unsaved.dialog}
+      <ConfirmDialog open={pendingPrimary !== null} title={t('replacePrimaryVideo')} description={t('replacePrimaryDescription')} confirmLabel={t('replace')} onClose={() => setPendingPrimary(null)} onConfirm={() => { if (pendingPrimary) void updateMedia(pendingPrimary, { isPrimary: true }); setPendingPrimary(null); }} />
     </main>
   );
 }

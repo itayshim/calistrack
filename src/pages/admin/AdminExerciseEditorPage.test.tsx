@@ -17,6 +17,15 @@ vi.mock('../../services/supabase', () => ({
   uploadExerciseMedia: api.upload,
   deleteExerciseMediaFile: api.removeFile,
 }));
+vi.mock('../../services/youtubeSuggestions', () => ({
+  searchSuggestedVideos: vi.fn().mockResolvedValue([{
+    videoId: 'suggested123',
+    url: 'https://www.youtube.com/watch?v=suggested123',
+    title: 'Incline Push-Up Proper Form',
+    channelTitle: 'Calisthenics Coach',
+    thumbnailUrl: 'https://i.ytimg.com/vi/suggested123/mqdefault.jpg',
+  }]),
+}));
 
 const exerciseRow = {
   id: 'exercise-1',
@@ -96,6 +105,22 @@ describe('administrator exercise media lifecycle', () => {
       'href',
       '/admin/exercises',
     );
+  });
+
+  it('uses the canonical English name and saves a selected suggestion as an unpublished draft', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await ready();
+    await user.click(screen.getByRole('button', { name: 'Find suggested videos' }));
+    expect(screen.getByLabelText('Search query')).toHaveValue('Push-Up tutorial proper form calisthenics');
+    await user.click(screen.getByRole('button', { name: 'Search YouTube' }));
+    expect(await screen.findByText('Incline Push-Up Proper Form')).toBeInTheDocument();
+    expect(screen.getByText('Calisthenics Coach')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Select video' }));
+    await waitFor(() => {
+      const draftCall = api.request.mock.calls.find(([, options]) => options?.method === 'POST' && String(options.body).includes('suggested123'));
+      expect(JSON.parse(draftCall?.[1].body as string)).toMatchObject({ is_published: false, is_primary: false });
+    });
   });
 
   it('adds YouTube media to an existing exercise', async () => {
@@ -193,6 +218,7 @@ describe('administrator exercise media lifecycle', () => {
     renderEditor([primaryMedia, uploadedMedia]);
     await ready();
     await user.click(within(screen.getByText('old.mp4').closest('article')!).getByRole('button', { name: 'Make primary' }));
+    await user.click(screen.getByRole('button', { name: 'Replace' }));
     await waitFor(() => expect(api.request).toHaveBeenCalledWith(
       '/rest/v1/exercise_media?id=eq.media-upload',
       expect.objectContaining({ body: expect.stringContaining('"is_primary":true') }),

@@ -100,6 +100,16 @@ export function signOutAdmin() {
 }
 
 export const supabaseRequest = request;
+export async function supabaseFunctionRequest<T>(
+  functionName: string,
+  body: unknown,
+  accessToken: string,
+): Promise<T> {
+  return request<T>(`/functions/v1/${functionName}`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  }, accessToken);
+}
 export const getSupabasePublicUrl = (path: string) =>
   url ? `${url}/storage/v1/object/public/exercise-media/${path}` : '';
 
