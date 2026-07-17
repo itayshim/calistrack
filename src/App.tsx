@@ -37,6 +37,8 @@ export default function App() {
     document.documentElement.classList.toggle('dark', theme === 'dark');
     document.documentElement.lang = settings.language ?? 'en';
     document.documentElement.dir = settings.language === 'he' ? 'rtl' : 'ltr';
+    const favicon = document.querySelector<HTMLLinkElement>('#theme-favicon');
+    if (favicon) favicon.href = `/brand/calistrack-mark-${theme}.svg`;
   }, [theme, settings.language]);
   useEffect(() => {
     if (!timer.endsAt) return;

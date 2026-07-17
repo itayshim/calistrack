@@ -4,12 +4,12 @@ import {
   Home,
   Play,
   Settings2,
-  Sparkles,
 } from 'lucide-react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { isTabActive } from '../utils/navigation';
 import { useI18n } from '../hooks/useI18n';
+import { BrandLogo } from '../components/BrandLogo';
 
 const tabs = [
   ['/', 'home', Home],
@@ -28,13 +28,8 @@ export function AppLayout() {
     <div className="min-h-screen md:flex" dir={direction}>
       <aside className="fixed inset-y-0 start-0 z-30 hidden w-[17rem] border-e border-slate-200/80 bg-white/95 px-5 py-7 text-slate-950 backdrop-blur-xl dark:border-white/[.06] dark:bg-ink/95 dark:text-white md:flex md:flex-col">
         <button onClick={() => nav('/')} className="mb-10 flex items-center gap-3 px-2 text-start">
-          <span className="grid h-11 w-11 place-items-center rounded-2xl bg-brand text-ink shadow-glow">
-            <Sparkles size={22} />
-          </span>
-          <span>
-            <strong className="block text-xl font-black tracking-[-.04em]">CalisTrack</strong>
-            <small className="text-xs font-bold text-slate-500">{t('brandTagline')}</small>
-          </span>
+          <BrandLogo variant="wordmark" className="h-14 w-[13.5rem]" />
+          <span className="sr-only">{t('brandTagline')}</span>
         </button>
         <nav className="space-y-2">
           {tabs.map(([to, labelKey, Icon]) => {
@@ -76,10 +71,7 @@ export function AppLayout() {
       <main className="app-shell-main mx-auto w-full max-w-[78rem] px-4 pb-28 sm:px-6 md:ms-[17rem] md:px-10 md:pb-12 md:pt-8">
         <header className="mb-7 flex items-center justify-between md:hidden">
           <button onClick={() => nav('/')} className="flex items-center gap-2">
-            <span className="grid h-10 w-10 place-items-center rounded-2xl bg-brand text-ink">
-              <Sparkles size={20} />
-            </span>
-            <span className="text-xl font-black tracking-[-.04em]">CalisTrack</span>
+            <BrandLogo variant="wordmark" className="h-11 w-[10.5rem]" />
           </button>
           {active && (
             <button

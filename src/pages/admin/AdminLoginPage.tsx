@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useI18n } from '../../hooks/useI18n';
 import { authErrorMessage } from '../../services/authErrors';
 import { signInAdmin, supabaseConfigured } from '../../services/supabase';
+import { BrandLogo } from '../../components/BrandLogo';
 
 export function AdminLoginPage() {
   const { t } = useI18n();
@@ -28,6 +29,7 @@ export function AdminLoginPage() {
   return (
     <main className="grid min-h-screen place-items-center p-4">
       <section className="card w-full max-w-md">
+        <BrandLogo variant="wordmark" className="mx-auto mb-6 h-16 w-60" />
         <Link className="mb-5 inline-flex min-h-11 items-center gap-2 font-bold text-slate-400" to="/settings">
           <ArrowLeft className="directional-icon" size={18} />
           {t('backToApp')}
