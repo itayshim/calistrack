@@ -1,15 +1,16 @@
-const cors = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, apikey, content-type',
-  'Content-Type': 'application/json',
-};
+import { corsHeaders } from 'npm:@supabase/supabase-js@^2/cors';
+
 const reply = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: cors });
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
 const env = (name: string) => Deno.env.get(name) ?? '';
 const normalize = (value: string) => value.trim().replace(/\s+/g, ' ').toLowerCase();
 
 Deno.serve(async (request) => {
-  if (request.method === 'OPTIONS') return new Response('ok', { headers: cors });
+  if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+  try {
   if (request.method !== 'POST') return reply({ code: 'method_not_allowed' }, 405);
   const authorization = request.headers.get('Authorization') ?? '';
   const supabaseUrl = env('SUPABASE_URL');
@@ -91,5 +92,7 @@ Deno.serve(async (request) => {
   } catch {
     return reply({ code: 'youtube_unavailable' }, 502);
   }
+  } catch {
+    return reply({ code: 'unexpected_error' }, 500);
+  }
 });
-

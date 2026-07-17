@@ -105,10 +105,26 @@ export async function supabaseFunctionRequest<T>(
   body: unknown,
   accessToken: string,
 ): Promise<T> {
-  return request<T>(`/functions/v1/${functionName}`, {
-    method: 'POST',
-    body: JSON.stringify(body),
-  }, accessToken);
+  if (!url || !anonKey) throw new Error('Supabase is not configured');
+  let response: Response;
+  try {
+    response = await fetch(`${url}/functions/v1/${functionName}`, {
+      method: 'POST',
+      headers: {
+        apikey: anonKey,
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw new SupabaseApiError('network_error', 0);
+  }
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({})) as { code?: string };
+    throw new SupabaseApiError(payload.code ?? 'unknown_error', response.status);
+  }
+  return response.json() as Promise<T>;
 }
 export const getSupabasePublicUrl = (path: string) =>
   url ? `${url}/storage/v1/object/public/exercise-media/${path}` : '';

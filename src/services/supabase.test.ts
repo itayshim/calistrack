@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { signInAdmin } from './supabase';
+import { signInAdmin, supabaseFunctionRequest } from './supabase';
 
 describe('Supabase administrator authentication', () => {
   beforeEach(() => {
@@ -35,5 +35,21 @@ describe('Supabase administrator authentication', () => {
       status: 403,
     });
     expect(sessionStorage.getItem('calistrack.admin.session')).toBeNull();
+  });
+});
+
+describe('Edge Function invocation headers', () => {
+  it('does not leak REST-only Prefer or unexplained pcret headers', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ results: [] }), { status: 200 }),
+    );
+    fetchMock.mockClear();
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ results: [] }), { status: 200 }));
+    await supabaseFunctionRequest('youtube-suggestions', { query: 'pull-up' }, 'token');
+    const headers = fetchMock.mock.calls[0][1]?.headers as Record<string, string>;
+    expect(headers.Prefer).toBeUndefined();
+    expect(headers.pcret).toBeUndefined();
+    expect(headers.Authorization).toBe('Bearer token');
+    fetchMock.mockRestore();
   });
 });
