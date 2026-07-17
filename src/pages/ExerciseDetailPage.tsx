@@ -11,15 +11,15 @@ export function ExerciseDetailPage() {
     exercise = useAppStore((s) => s.exercises.find((e) => e.id === id)),
     { language, t } = useI18n(),
     [showMedia, setShowMedia] = useState(false);
-  if (!exercise) return <div className="card">This exercise is no longer available.</div>;
+  if (!exercise) return <div className="card">{t('exerciseNoLongerAvailable')}</div>;
   return (
     <article className="mx-auto max-w-3xl">
       <Link
         to="/exercises"
         className="mb-7 inline-flex items-center gap-2 text-sm font-black text-slate-400 hover:text-white"
       >
-        <ArrowLeft size={18} />
-        Exercise library
+        <ArrowLeft className="directional-icon" size={18} />
+        {t('exerciseLibrary')}
       </Link>
       <section className="relative overflow-hidden rounded-4xl bg-brand p-7 text-ink shadow-glow sm:p-10">
         <div className="absolute -right-10 -top-10 h-48 w-48 rounded-full border-[32px] border-ink/[.06]" />
@@ -42,7 +42,7 @@ export function ExerciseDetailPage() {
             <IconTile>
               <Lightbulb />
             </IconTile>
-            <h2 className="text-2xl font-black">How to perform it</h2>
+            <h2 className="text-2xl font-black">{t('howToPerform')}</h2>
           </div>
           <ol className="space-y-4">
             {(language === 'he' ? exercise.instructionsHe ?? exercise.instructions : exercise.instructions).map((instruction, index) => (
@@ -60,7 +60,7 @@ export function ExerciseDetailPage() {
             <IconTile tone="orange">
               <TriangleAlert />
             </IconTile>
-            <h2 className="text-2xl font-black">Watch out for</h2>
+            <h2 className="text-2xl font-black">{t('watchOutFor')}</h2>
           </div>
           <ul className="space-y-3">
             {(language === 'he' ? exercise.commonMistakesHe ?? exercise.commonMistakes : exercise.commonMistakes).map((mistake) => (

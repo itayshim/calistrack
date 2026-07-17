@@ -27,7 +27,7 @@ export function ExercisesPage() {
     add = useAppStore((s) => s.addExercise),
     update = useAppStore((s) => s.updateExercise),
     del = useAppStore((s) => s.deleteExercise);
-  const { language } = useI18n();
+  const { language, t } = useI18n();
   const [q, setQ] = useState(''),
     [cat, setCat] = useState('all'),
     [diff, setDiff] = useState('all'),
@@ -61,22 +61,22 @@ export function ExercisesPage() {
     <>
       <div className="mb-7 flex items-end justify-between">
         <div>
-          <p className="eyebrow">MOVEMENT LIBRARY</p>
-          <h1 className="mt-2 text-4xl font-black tracking-[-.05em]">Exercises</h1>
-          <p className="mt-2 text-slate-400">Explore. Learn. Get stronger.</p>
+          <p className="eyebrow">{t('movementLibrary')}</p>
+          <h1 className="mt-2 text-4xl font-black tracking-[-.05em]">{t('exercises')}</h1>
+          <p className="mt-2 text-slate-400">{t('exerciseLibrarySubtitle')}</p>
         </div>
         <button className="btn-primary" onClick={() => setForm(true)}>
           <Plus />
-          Custom exercise
+          {t('customExercise')}
         </button>
       </div>
       <div className="mb-5 grid gap-3 rounded-3xl bg-white/[.035] p-4 md:grid-cols-4">
         <label>
-          <span className="label">Search</span>
+          <span className="label">{t('search')}</span>
           <span className="relative block">
-            <Search className="absolute right-3 top-2.5" size={20} />
+            <Search className="absolute end-3 top-2.5" size={20} />
             <input
-              className="field pr-10"
+              className="field pe-10"
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Name"
@@ -98,11 +98,11 @@ export function ExercisesPage() {
           <section key={group.movementFamily}>
             <div className="mb-3 flex items-end justify-between">
               <div>
-                <p className="eyebrow">MOVEMENT FAMILY</p>
+                <p className="eyebrow">{t('movementFamilyLabel')}</p>
                 <h2 className="text-2xl font-black">{group.movementFamily}</h2>
               </div>
               <span className="text-xs font-bold text-slate-500">
-                {group.exercises.length} progressions
+                <bdi>{group.exercises.length}</bdi> {t('progressions')}
               </span>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -115,8 +115,8 @@ export function ExercisesPage() {
               <span className="chip">{categories[e.category]}</span>
               {e.isCustom && (
                 <div className="flex gap-2">
-                  <button aria-label={`Edit ${e.nameEn}`} onClick={() => setEdit(e.id)}><Pencil size={18} /></button>
-                  <button aria-label={`Delete ${e.nameEn}`} onClick={() => setRemove(e.id)} className="text-red-400"><Trash2 size={18} /></button>
+                  <button aria-label={`${t('editExerciseLabel')} ${e.nameEn}`} onClick={() => setEdit(e.id)}><Pencil size={18} /></button>
+                  <button aria-label={`${t('deleteExerciseLabel')} ${e.nameEn}`} onClick={() => setRemove(e.id)} className="text-red-400"><Trash2 size={18} /></button>
                 </div>
               )}
             </div>
@@ -144,7 +144,7 @@ export function ExercisesPage() {
         ))}
       </div>
       {!list.length && (
-        <div className="card py-10 text-center">No exercises found. Try changing the filters.</div>
+        <div className="card py-10 text-center">{t('noExercisesFound')}</div>
       )}
       {form && (
         <ExerciseForm
@@ -167,8 +167,8 @@ export function ExercisesPage() {
       )}
       <ConfirmDialog
         open={!!remove}
-        title="Delete exercise?"
-        description="The custom exercise will be removed from the library. Workout history will remain saved."
+        title={t('deleteExerciseQuestion')}
+        description={t('deleteExerciseDescription')}
         onClose={() => setRemove(null)}
         onConfirm={() => remove && del(remove)}
       />
@@ -208,6 +208,7 @@ function ExerciseForm({
   onSave: (e: Exercise) => void;
   initial?: Exercise;
 }) {
+  const { t } = useI18n();
   const [nameEn, setEn] = useState(initial?.nameEn ?? ''),
     [category, setCat] = useState<ExerciseCategory>(initial?.category ?? 'push'),
     [difficulty, setDiff] = useState<Difficulty>(initial?.difficulty ?? 'beginner'),
@@ -215,7 +216,7 @@ function ExerciseForm({
     [error, setError] = useState('');
   const save = () => {
     if (!nameEn.trim()) {
-      setError('Please enter an exercise name');
+      setError(t('enterExerciseName'));
       return;
     }
     onSave(makeExercise(nameEn, category, difficulty, measurementType, initial));
@@ -224,14 +225,14 @@ function ExerciseForm({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Create custom exercise"
+      aria-label={t('createCustomExercise')}
       className="fixed inset-0 z-40 grid place-items-center bg-black/70 p-4"
     >
       <div className="card w-full max-w-lg">
-        <h2 className="mb-4 text-xl font-black">{initial ? 'Edit custom exercise' : 'New custom exercise'}</h2>
+        <h2 className="mb-4 text-xl font-black">{initial ? t('editCustomExercise') : t('newCustomExercise')}</h2>
         <div className="space-y-3">
           <label>
-            <span className="label">Exercise name</span>
+            <span className="label">{t('exerciseName')}</span>
             <input
               dir="ltr"
               className="field"
@@ -240,22 +241,22 @@ function ExerciseForm({
             />
           </label>
           <Filter
-            label="Category"
+            label={t('category')}
             value={category}
             set={(v) => setCat(v as ExerciseCategory)}
             options={categories}
           />
           <Filter
-            label="Difficulty"
+            label={t('difficulty')}
             value={difficulty}
             set={(v) => setDiff(v as Difficulty)}
             options={difficulties}
           />
           <Filter
-            label="Measurement type"
+            label={t('measurementType')}
             value={measurementType}
             set={(v) => setM(v as MeasurementType)}
-            options={{ reps: 'Reps', time: 'Time in seconds' }}
+            options={{ reps: t('reps'), time: t('timeSeconds') }}
           />
         </div>
         {error && (
@@ -265,10 +266,10 @@ function ExerciseForm({
         )}
         <div className="mt-5 flex gap-2">
           <button className="btn-primary" onClick={save}>
-            Save
+            {t('save')}
           </button>
           <button className="btn-secondary" onClick={onClose}>
-            Cancel
+            {t('cancel')}
           </button>
         </div>
       </div>

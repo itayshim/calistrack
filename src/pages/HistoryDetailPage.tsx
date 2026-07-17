@@ -3,25 +3,27 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { useAppStore } from '../store/useAppStore';
+import { useI18n } from '../hooks/useI18n';
 export function HistoryDetailPage() {
+  const { t, language } = useI18n();
   const { id } = useParams(),
     original = useAppStore((s) => s.workoutSessions.find((x) => x.id === id)),
     store = useAppStore(),
     nav = useNavigate(),
     [session, setSession] = useState(() => (original ? structuredClone(original) : null)),
     [remove, setRemove] = useState(false);
-  if (!session) return <div className="card">Workout not found.</div>;
+  if (!session) return <div className="card">{t('workoutNotFound')}</div>;
   return (
     <>
       <div className="flex justify-between">
         <div>
           <h1 className="page-title mb-1">{session.workoutName}</h1>
           <p className="mb-5 text-slate-400">
-            {new Date(session.completedAt ?? session.startedAt).toLocaleString('en-US')}
+            {new Date(session.completedAt ?? session.startedAt).toLocaleString(language === 'he' ? 'he-IL' : 'en-US')}
           </p>
         </div>
         <button
-          aria-label="Delete workout"
+          aria-label={t('workoutDeleted')}
           className="btn-danger h-fit"
           onClick={() => setRemove(true)}
         >
@@ -34,13 +36,13 @@ export function HistoryDetailPage() {
           return (
             <section className="card" key={es.id}>
               <div className="flex justify-between">
-                <h2 className="text-xl font-black">{ex?.nameEn ?? 'Deleted exercise'}</h2>
-                {es.skipped && <span>Skipped</span>}
+                <h2 className="text-xl font-black">{ex ? (language === 'he' ? ex.nameHe : ex.nameEn) : t('exerciseUnavailable')}</h2>
+                {es.skipped && <span>{t('skipped')}</span>}
               </div>
               <div className="mt-3 grid gap-2 sm:grid-cols-3">
                 {es.sets.map((st, si) => (
                   <label key={st.id}>
-                    <span className="label">Set {st.setNumber}</span>
+                    <span className="label">{t('set')} <bdi>{st.setNumber}</bdi></span>
                     <input
                       className="field"
                       type="number"
@@ -59,7 +61,7 @@ export function HistoryDetailPage() {
                 ))}
               </div>
               <label className="mt-3 block">
-                <span className="label">Notes</span>
+                <span className="label">{t('notes')}</span>
                 <textarea
                   className="field"
                   value={es.notes ?? ''}
@@ -78,7 +80,7 @@ export function HistoryDetailPage() {
         })}
         <section className="card">
           <label>
-            <span className="label">General notes</span>
+            <span className="label">{t('generalNotes')}</span>
             <textarea
               className="field"
               value={session.notes ?? ''}
@@ -87,12 +89,12 @@ export function HistoryDetailPage() {
           </label>
           <div className="mt-3 grid grid-cols-2 gap-3">
             <Rate
-              label="Difficulty"
+              label={t('difficulty')}
               value={session.difficultyRating ?? 3}
               set={(v) => setSession({ ...session, difficultyRating: v })}
             />
             <Rate
-              label="Feeling"
+              label={t('feelingQuestion')}
               value={session.feelingRating ?? 3}
               set={(v) => setSession({ ...session, feelingRating: v })}
             />
@@ -102,18 +104,18 @@ export function HistoryDetailPage() {
           className="btn-primary w-full"
           onClick={() => {
             store.updateSession(session);
-            store.setToast('Changes saved and progress recalculated');
+            store.setToast(t('changesSaved'));
             nav('/history');
           }}
         >
           <Save />
-          Save changes
+          {t('saveChanges')}
         </button>
       </div>
       <ConfirmDialog
         open={remove}
-        title="Delete workout"
-        description="This affects charts and records and cannot be undone."
+        title={t('deleteWorkout')}
+        description={t('deleteWorkoutDescription')}
         onClose={() => setRemove(false)}
         onConfirm={() => {
           store.deleteSession(session.id);

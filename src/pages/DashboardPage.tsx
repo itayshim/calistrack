@@ -12,7 +12,6 @@ import {
   Trophy,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { beginnerProgram } from '../data/seed';
 import {
   Badge,
   EmptyState,
@@ -28,8 +27,10 @@ import {
   weeklyCompleted,
   workoutSummary,
 } from '../utils/stats';
+import { useI18n } from '../hooks/useI18n';
 
 export function DashboardPage() {
+  const { t, language } = useI18n();
   const programs = useAppStore((s) => s.programs),
     sessions = useAppStore((s) => s.workoutSessions),
     exercises = useAppStore((s) => s.exercises),
@@ -58,24 +59,24 @@ export function DashboardPage() {
     <div className="space-y-8">
       <header className="animate-rise">
         <p className="eyebrow">
-          {new Date().toLocaleDateString('en-US', {
+          {new Date().toLocaleDateString(language === 'he' ? 'he-IL' : 'en-US', {
             weekday: 'long',
             month: 'short',
             day: 'numeric',
           })}
         </p>
         <h1 className="mt-2 text-[2.55rem] font-black leading-[.95] tracking-[-.055em] sm:text-5xl">
-          Build strength.
+          {t('buildStrength')}
           <br />
-          <span className="text-slate-500">Keep showing up.</span>
+          <span className="text-slate-500">{t('keepShowingUp')}</span>
         </h1>
       </header>
       {!programs.length ? (
         <EmptyState
           icon={<Dumbbell size={36} />}
-          title="Your training starts here"
-          description={`Choose our ${beginnerProgram.workouts.length}-day beginner plan or create a routine that fits you.`}
-          action="Set up my program"
+          title={t('trainingStartsHere')}
+          description={t('trainingStartDescription')}
+          action={t('setupProgram')}
           onAction={() => {
             adopt();
             nav('/program');
@@ -123,7 +124,7 @@ export function DashboardPage() {
                 <p className="text-3xl font-black tracking-tight">
                   {weekly} of {goal}
                 </p>
-                <p className="mt-1 text-sm font-semibold text-slate-400">workouts complete</p>
+                <p className="mt-1 text-sm font-semibold text-slate-400">{t('workoutsComplete')}</p>
                 <div className="mt-5">
                   <ProgressBar value={weeklyPct} label="Weekly workout goal" />
                 </div>
@@ -152,7 +153,7 @@ export function DashboardPage() {
                   </IconTile>
                   <div className="min-w-0 flex-1">
                     <h3 className="truncate text-lg font-black">{goals[0].title}</h3>
-                    <p className="text-sm text-slate-400">Stay focused. Small wins compound.</p>
+                    <p className="text-sm text-slate-400">{t('focusMessage')}</p>
                   </div>
                   <ChevronRight className="text-slate-600" />
                 </button>
@@ -165,8 +166,8 @@ export function DashboardPage() {
                     <Target />
                   </IconTile>
                   <div className="flex-1">
-                    <h3 className="font-black">Set your next target</h3>
-                    <p className="text-sm text-slate-400">Give every workout a purpose.</p>
+                    <h3 className="font-black">{t('setNextTarget')}</h3>
+                    <p className="text-sm text-slate-400">{t('goalPurpose')}</p>
                   </div>
                   <ArrowUpRight />
                 </button>
@@ -195,7 +196,7 @@ export function DashboardPage() {
                     </>
                   ) : (
                     <>
-                      <p className="font-black">Your first PR is waiting</p>
+                      <p className="font-black">{t('firstPrWaiting')}</p>
                       <p className="text-sm text-slate-400">
                         Complete a workout to set the baseline.
                       </p>
@@ -238,8 +239,8 @@ export function DashboardPage() {
                   <CalendarDays />
                 </IconTile>
                 <div>
-                  <p className="font-black">No completed workouts yet</p>
-                  <p className="text-sm text-slate-400">Your training story will show up here.</p>
+                  <p className="font-black">{t('noCompletedWorkouts')}</p>
+                  <p className="text-sm text-slate-400">{t('trainingStoryEmpty')}</p>
                 </div>
               </div>
             )}
@@ -247,8 +248,8 @@ export function DashboardPage() {
           <div className="flex items-start gap-3 rounded-3xl bg-white/[.035] p-5 text-sm text-slate-400">
             <Sparkles className="mt-0.5 shrink-0 text-brand" size={18} />
             <p>
-              <strong className="text-white">Consistency beats intensity.</strong> You do not need a
-              perfect workout—just the next one.
+              <strong className="text-white">{t('consistencyTitle')}</strong>{' '}
+              {t('consistencyMessage')}
             </p>
           </div>
         </>

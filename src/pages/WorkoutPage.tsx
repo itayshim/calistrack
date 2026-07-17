@@ -17,8 +17,10 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Badge, ProgressBar } from '../components/ui';
 import { useAppStore } from '../store/useAppStore';
 import { workoutSummary } from '../utils/stats';
+import { useI18n } from '../hooks/useI18n';
 
 export function WorkoutPage() {
+  const { t, language } = useI18n();
   const active = useAppStore((s) => s.activeWorkout),
     store = useAppStore(),
     nav = useNavigate(),
@@ -39,12 +41,10 @@ export function WorkoutPage() {
         <div className="mx-auto grid h-20 w-20 place-items-center rounded-3xl bg-white/[.06] text-brand">
           <Play size={34} />
         </div>
-        <h1 className="mt-6 text-3xl font-black">No workout in progress</h1>
-        <p className="mt-2 text-slate-400">
-          Choose a session from your program when you are ready.
-        </p>
+        <h1 className="mt-6 text-3xl font-black">{t('noWorkout')}</h1>
+        <p className="mt-2 text-slate-400">{t('chooseWorkoutDescription')}</p>
         <button className="btn-primary mt-7 w-full" onClick={() => nav('/program')}>
-          Choose workout
+          {t('chooseWorkout')}
         </button>
       </div>
     );
@@ -104,7 +104,7 @@ export function WorkoutPage() {
       <header className="mb-8">
         <div className="mb-5 flex items-center justify-between">
           <button
-            aria-label="Cancel workout"
+            aria-label={t('cancelWorkout')}
             className="icon-button"
             onClick={() => setCancel(true)}
           >
@@ -121,12 +121,12 @@ export function WorkoutPage() {
             className="rounded-full bg-white/[.06] px-4 py-2 text-xs font-black"
             onClick={() => setFinish(true)}
           >
-            Finish
+            {t('finish')}
           </button>
         </div>
-        <ProgressBar value={progress} label="Workout progress" />
+        <ProgressBar value={progress} label={t('workoutProgress')} />
         <p className="mt-2 text-center text-xs font-bold text-slate-500">
-          {totalDone} of {totalTarget} planned sets
+          <bdi>{totalDone}</bdi> / <bdi>{totalTarget}</bdi> {t('plannedSets')}
         </p>
       </header>
       {remaining > 0 && (
@@ -134,56 +134,55 @@ export function WorkoutPage() {
           role="timer"
           className="mb-6 overflow-hidden rounded-4xl bg-[#1b231c] p-6 text-center shadow-glow"
         >
-          <p className="eyebrow">REST</p>
+          <p className="eyebrow">{t('rest')}</p>
           <strong className="mt-2 block text-7xl font-black tabular-nums tracking-[-.07em] text-brand">
             {remaining}
           </strong>
-          <p className="text-sm font-bold text-slate-400">seconds until your next set</p>
+          <p className="text-sm font-bold text-slate-400">{t('secondsUntilNextSet')}</p>
           <div className="mt-5 flex justify-center gap-3">
             <button
-              aria-label={timer.endsAt ? 'Pause timer' : 'Resume timer'}
+              aria-label={timer.endsAt ? t('pauseTimer') : t('resumeTimer')}
               className="icon-button"
               onClick={timer.endsAt ? store.pauseTimer : store.resumeTimer}
             >
               {timer.endsAt ? <Pause /> : <Play />}
             </button>
-            <button aria-label="Reset timer" className="icon-button" onClick={store.resetTimer}>
+            <button aria-label={t('resetTimer')} className="icon-button" onClick={store.resetTimer}>
               <RotateCcw />
             </button>
             <button className="btn-secondary min-h-12" onClick={store.skipTimer}>
-              Skip rest
+              {t('skipRest')}
             </button>
           </div>
         </section>
       )}
       {restLocked && (
         <p role="status" className="-mt-3 mb-6 text-center text-sm font-bold text-slate-400">
-          Your next set unlocks when rest ends or you choose Skip rest.
+          {t('restLocked')}
         </p>
       )}
       <main className="animate-rise">
         <div className="mb-5 flex items-center justify-between">
           <Badge tone="brand">
-            EXERCISE {i + 1} / {active.exercises.length}
+            {t('exercise')} <bdi>{i + 1}</bdi> / <bdi>{active.exercises.length}</bdi>
           </Badge>
           <span className="text-sm font-black text-slate-500">
-            {done}/{target?.targetSets ?? 0} SETS
+            <bdi>{done}</bdi>/<bdi>{target?.targetSets ?? 0}</bdi> {t('sets')}
           </span>
         </div>
         <h1 className="max-w-2xl text-[3rem] font-black leading-[.92] tracking-[-.06em] sm:text-6xl">
-          {exercise?.nameEn ?? 'Exercise unavailable'}
+          {exercise ? (language === 'he' ? exercise.nameHe : exercise.nameEn) : t('exerciseUnavailable')}
         </h1>
         <p className="mt-4 text-lg font-bold text-slate-400">
-          {target?.targetSets} sets · {target?.targetMin}–{target?.targetMax}{' '}
-          {exercise?.measurementType === 'time' ? 'seconds' : 'reps'}
+          <span><bdi>{target?.targetSets}</bdi> {t('sets')}</span><span aria-hidden="true"> · </span><span><bdi>{target?.targetMin}–{target?.targetMax}</bdi> {exercise?.measurementType === 'time' ? t('seconds') : t('reps')}</span>
         </p>
         {previous?.length ? (
           <div className="mt-6 flex items-center justify-between rounded-2xl bg-white/[.045] px-4 py-3">
             <span className="text-xs font-black uppercase tracking-wider text-slate-500">
-              Last time
+              {t('lastTime')}
             </span>
             <span className="font-black text-slate-200">
-              {previous.join(' · ')} {exercise?.measurementType === 'time' ? 'sec' : 'reps'}
+              <bdi>{previous.join(' · ')}</bdi> {exercise?.measurementType === 'time' ? t('seconds') : t('reps')}
             </span>
           </div>
         ) : null}
@@ -196,7 +195,7 @@ export function WorkoutPage() {
               <span className="grid h-9 w-9 place-items-center rounded-full bg-brand text-ink">
                 <Check size={18} strokeWidth={3} />
               </span>
-              <span className="w-12 text-sm font-black text-slate-400">SET {set.setNumber}</span>
+              <span className="w-16 text-sm font-black text-slate-400">{t('set')} <bdi>{set.setNumber}</bdi></span>
               <input
                 aria-label={`Set value ${set.setNumber}`}
                 type="number"
@@ -206,7 +205,7 @@ export function WorkoutPage() {
                 className="min-w-0 flex-1 bg-transparent text-right text-2xl font-black outline-none"
               />
               <span className="text-sm font-bold text-slate-500">
-                {exercise?.measurementType === 'time' ? 'sec' : 'reps'}
+                {exercise?.measurementType === 'time' ? t('seconds') : t('reps')}
               </span>
               <button
                 aria-label={`Delete set ${set.setNumber}`}
@@ -220,7 +219,7 @@ export function WorkoutPage() {
         </section>
         <div className="mt-8 text-center">
           <label htmlFor="set-value" className="label">
-            {exercise?.measurementType === 'time' ? 'SECONDS' : 'REPS'} FOR SET {done + 1}
+            {exercise?.measurementType === 'time' ? t('seconds') : t('reps')} — {t('set')} <bdi>{done + 1}</bdi>
           </label>
           <input
             id="set-value"
@@ -243,14 +242,14 @@ export function WorkoutPage() {
             className="btn-primary mt-4 min-h-16 w-full text-lg disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Check size={23} strokeWidth={3} />
-            {restLocked ? `Resting · ${remaining}s` : 'Complete set'}
+            {restLocked ? <>{t('resting')} · <bdi>{remaining}</bdi></> : t('completeSet')}
           </button>
         ) : (
           <div className="mt-4 rounded-3xl bg-emerald-500/10 p-4 text-center">
-            <p className="font-black text-emerald-300">Planned sets complete</p>
+            <p className="font-black text-emerald-300">{t('plannedSetsComplete')}</p>
             <button className="btn-secondary mt-3 w-full" onClick={() => store.addExtraSet(i)}>
               <Plus size={20} />
-              Add extra set
+              {t('addExtraSet')}
             </button>
           </div>
         )}
@@ -261,13 +260,13 @@ export function WorkoutPage() {
         )}
         <details className="mt-5 rounded-2xl bg-white/[.035] p-4">
           <summary className="cursor-pointer text-sm font-black text-slate-400">
-            Add exercise notes
+            {t('addExerciseNotes')}
           </summary>
           <textarea
             className="field mt-3"
             value={sessionExercise.notes ?? ''}
             onChange={(e) => store.setExerciseNotes(i, e.target.value)}
-            placeholder="How did this exercise feel?"
+            placeholder={t('exerciseNotesPlaceholder')}
           />
         </details>
         <div className="mt-8 grid grid-cols-3 gap-3">
@@ -277,38 +276,38 @@ export function WorkoutPage() {
             onClick={() => store.setCurrentExercise(i - 1)}
           >
             <ChevronLeft />
-            Previous
+            {t('previous')}
           </button>
           <button className="btn-secondary px-2" onClick={() => store.skipExercise(i)}>
             <SkipForward />
-            Skip
+            {t('skip')}
           </button>
           {i < active.exercises.length - 1 ? (
             <button className="btn-primary px-2" onClick={() => store.setCurrentExercise(i + 1)}>
-              Next
+              {t('next')}
               <ChevronRight />
             </button>
           ) : (
             <button className="btn-primary px-2" onClick={() => setFinish(true)}>
-              Finish
+              {t('finish')}
             </button>
           )}
         </div>
         <section className="mt-10">
-          <p className="label">Workout queue</p>
+          <p className="label">{t('workoutQueue')}</p>
           <div className="flex gap-2 overflow-x-auto pb-2">
             {active.exercises.map((item, n) => (
               <button
                 key={item.id}
                 onClick={() => store.setCurrentExercise(n)}
-                className={`min-w-[9rem] rounded-2xl p-3 text-left ${n === i ? 'bg-brand text-ink' : 'bg-white/[.05] text-slate-400'}`}
+                className={`min-w-[9rem] rounded-2xl p-3 text-start ${n === i ? 'bg-brand text-ink' : 'bg-white/[.05] text-slate-400'}`}
               >
                 <span className="block text-xs font-black">
                   {n + 1}.{' '}
-                  {store.exercises.find((e) => e.id === item.exerciseId)?.nameEn ?? 'Unavailable'}
+                  {store.exercises.find((e) => e.id === item.exerciseId)?.[language === 'he' ? 'nameHe' : 'nameEn'] ?? t('exerciseUnavailable')}
                 </span>
                 <span className="mt-1 block text-[10px] font-bold opacity-60">
-                  {item.skipped ? 'SKIPPED' : `${item.sets.length} SETS DONE`}
+                  {item.skipped ? t('skipped') : <><bdi>{item.sets.length}</bdi> {t('setsDone')}</>}
                 </span>
               </button>
             ))}
@@ -317,8 +316,8 @@ export function WorkoutPage() {
       </main>
       <ConfirmDialog
         open={cancel}
-        title="Cancel this workout?"
-        description="Your active workout will be deleted and will not appear in history."
+        title={t('cancelWorkoutTitle')}
+        description={t('cancelWorkoutDescription')}
         onClose={() => setCancel(false)}
         onConfirm={() => {
           store.cancelWorkout();
@@ -350,20 +349,21 @@ function WorkoutFinish({
   onBack: () => void;
   onSave: () => void;
 }) {
+  const { t } = useI18n();
   const summary = workoutSummary(active);
   return (
     <div className="mx-auto max-w-xl animate-rise py-6 text-center">
       <div className="mx-auto grid h-24 w-24 place-items-center rounded-[2rem] bg-brand text-ink shadow-glow">
         <Check size={44} strokeWidth={3} />
       </div>
-      <p className="eyebrow mt-7">WORKOUT COMPLETE</p>
-      <h1 className="mt-2 text-5xl font-black tracking-[-.06em]">Strong work.</h1>
-      <p className="mt-3 text-slate-400">You showed up and put in the work.</p>
+      <p className="eyebrow mt-7">{t('workoutComplete')}</p>
+      <h1 className="mt-2 text-5xl font-black tracking-[-.06em]">{t('strongWork')}</h1>
+      <p className="mt-3 text-slate-400">{t('completionMessage')}</p>
       <div className="my-8 grid grid-cols-3 gap-3">
         {[
-          [Math.round(summary.durationSeconds / 60), 'MIN'],
-          [summary.totalSets, 'SETS'],
-          [summary.completedExercises, 'MOVES'],
+          [Math.round(summary.durationSeconds / 60), t('minutesShort')],
+          [summary.totalSets, t('sets')],
+          [summary.completedExercises, t('moves')],
         ].map(([v, l]) => (
           <div key={l} className="rounded-3xl bg-white/[.05] p-4">
             <strong className="block text-3xl font-black">{v}</strong>
@@ -371,26 +371,26 @@ function WorkoutFinish({
           </div>
         ))}
       </div>
-      <div className="card text-left">
-        <Rating label="How hard was it?" value={difficulty} set={setDifficulty} />
+      <div className="card text-start">
+        <Rating label={t('difficultyQuestion')} value={difficulty} set={setDifficulty} />
         <div className="mt-6">
-          <Rating label="How do you feel?" value={feeling} set={setFeeling} />
+          <Rating label={t('feelingQuestion')} value={feeling} set={setFeeling} />
         </div>
         <label className="mt-6 block">
-          <span className="label">Workout note</span>
+          <span className="label">{t('workoutNote')}</span>
           <textarea
             className="field"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="A quick note for future you…"
+            placeholder={t('workoutNotePlaceholder')}
           />
         </label>
       </div>
       <button className="btn-primary mt-5 w-full text-lg" onClick={onSave}>
-        Save workout
+        {t('saveWorkout')}
       </button>
       <button className="btn-secondary mt-3 w-full" onClick={onBack}>
-        Back to workout
+        {t('backToWorkout')}
       </button>
     </div>
   );

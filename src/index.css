@@ -109,6 +109,13 @@ textarea:focus-visible {
   bottom: max(0.75rem, env(safe-area-inset-bottom));
   padding-bottom: 0.375rem;
 }
+[dir='rtl'] .directional-icon {
+  transform: scaleX(-1);
+}
+.bidi-isolate,
+bdi {
+  unicode-bidi: isolate;
+}
 .pwa-update-position {
   bottom: calc(max(0.75rem, env(safe-area-inset-bottom)) + 5rem);
 }

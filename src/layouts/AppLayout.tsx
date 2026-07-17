@@ -27,7 +27,7 @@ export function AppLayout() {
   return (
     <div className="min-h-screen md:flex" dir={direction}>
       <aside className="fixed inset-y-0 start-0 z-30 hidden w-[17rem] border-e border-white/[.06] bg-[#0d1113]/95 px-5 py-7 backdrop-blur-xl md:flex md:flex-col">
-        <button onClick={() => nav('/')} className="mb-10 flex items-center gap-3 px-2 text-left">
+        <button onClick={() => nav('/')} className="mb-10 flex items-center gap-3 px-2 text-start">
           <span className="grid h-11 w-11 place-items-center rounded-2xl bg-brand text-ink shadow-glow">
             <Sparkles size={22} />
           </span>
@@ -53,7 +53,7 @@ export function AppLayout() {
                 <Icon size={21} />
                 {t(labelKey)}
                 {to === '/workout' && active && (
-                  <span className="ml-auto h-2 w-2 rounded-full bg-brand shadow-[0_0_12px_#b7f36b]" />
+                  <span className="ms-auto h-2 w-2 rounded-full bg-brand shadow-[0_0_12px_#b7f36b]" />
                 )}
               </Link>
             );
@@ -112,7 +112,7 @@ export function AppLayout() {
               <Icon size={to === '/workout' ? 24 : 21} strokeWidth={2.3} />
               {t(labelKey)}
               {to === '/workout' && active && (
-                <span className="absolute right-3 top-2 h-2 w-2 rounded-full bg-brand" />
+                <span className="absolute end-3 top-2 h-2 w-2 rounded-full bg-brand" />
               )}
             </Link>
           );

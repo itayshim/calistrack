@@ -3,7 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { EmptyState, IconTile } from '../components/ui';
 import { useAppStore } from '../store/useAppStore';
 import { workoutSummary } from '../utils/stats';
+import { useI18n } from '../hooks/useI18n';
 export function HistoryPage() {
+  const { t } = useI18n();
   const sessions = useAppStore((s) => s.workoutSessions)
       .filter((s) => s.status === 'completed')
       .sort((a, b) => (b.completedAt ?? b.startedAt).localeCompare(a.completedAt ?? a.startedAt)),
@@ -11,9 +13,9 @@ export function HistoryPage() {
   return (
     <div className="space-y-7">
       <header>
-        <p className="eyebrow">THE WORK YOU’VE DONE</p>
-        <h1 className="mt-2 text-4xl font-black tracking-[-.05em]">History</h1>
-        <p className="mt-2 text-slate-400">Every session is a vote for who you’re becoming.</p>
+        <p className="eyebrow">{t('historyEyebrow')}</p>
+        <h1 className="mt-2 text-4xl font-black tracking-[-.05em]">{t('history')}</h1>
+        <p className="mt-2 text-slate-400">{t('historySubtitle')}</p>
       </header>
       {!sessions.length ? (
         <EmptyState

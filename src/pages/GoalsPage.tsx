@@ -5,6 +5,7 @@ import { useAppStore } from '../store/useAppStore';
 import type { GoalType } from '../types';
 import { createId } from '../utils/id';
 import { exercisePoints, weeklyCompleted } from '../utils/stats';
+import { useI18n } from '../hooks/useI18n';
 const icons = {
   'weekly-workouts': Dumbbell,
   'exercise-reps': Target,
@@ -12,6 +13,7 @@ const icons = {
   'first-skill': Trophy,
 };
 export function GoalsPage() {
+  const { t } = useI18n();
   const store = useAppStore(),
     [open, setOpen] = useState(false),
     [title, setTitle] = useState(''),
@@ -35,9 +37,9 @@ export function GoalsPage() {
     <div className="space-y-7">
       <header className="flex items-end justify-between">
         <div>
-          <p className="eyebrow">YOUR NORTH STAR</p>
-          <h1 className="mt-2 text-4xl font-black tracking-[-.05em]">Goals</h1>
-          <p className="mt-2 text-slate-400">Small targets. Serious momentum.</p>
+          <p className="eyebrow">{t('goalsEyebrow')}</p>
+          <h1 className="mt-2 text-4xl font-black tracking-[-.05em]">{t('goals')}</h1>
+          <p className="mt-2 text-slate-400">{t('goalsSubtitle')}</p>
         </div>
         <button
           aria-label="Create goal"
@@ -116,7 +118,7 @@ export function GoalsPage() {
           >
             <div className="mb-7 flex items-center justify-between">
               <div>
-                <p className="eyebrow">NEW GOAL</p>
+                <p className="eyebrow">{t('newGoal')}</p>
                 <h2 id="goal-title" className="mt-1 text-3xl font-black">
                   What are you chasing?
                 </h2>
@@ -127,7 +129,7 @@ export function GoalsPage() {
             </div>
             <div className="space-y-5">
               <label>
-                <span className="label">Goal title</span>
+                <span className="label">{t('goalTitle')}</span>
                 <input
                   autoFocus
                   className="field"
@@ -137,7 +139,7 @@ export function GoalsPage() {
                 />
               </label>
               <fieldset>
-                <legend className="label">Goal type</legend>
+                <legend className="label">{t('goalType')}</legend>
                 <div className="grid grid-cols-2 gap-2">
                   {(
                     [
@@ -159,7 +161,7 @@ export function GoalsPage() {
               </fieldset>
               {type !== 'weekly-workouts' && (
                 <label>
-                  <span className="label">Exercise</span>
+                  <span className="label">{t('exercise')}</span>
                   <select
                     className="field"
                     value={exerciseId}
@@ -174,7 +176,7 @@ export function GoalsPage() {
                 </label>
               )}
               <label>
-                <span className="label">Target</span>
+                <span className="label">{t('target')}</span>
                 <input
                   className="field text-2xl font-black"
                   type="number"

@@ -10,6 +10,7 @@ describe('global exercise merging', () => {
     const personal: Exercise = { ...builtIn, id: 'personal', stableKey: 'personal', nameEn: 'My Move', isCustom: true };
     const merged = mergeExerciseSources([global], [...builtInExercises, personal]);
     expect(merged.find((exercise) => exercise.stableKey === 'push-up')?.nameEn).toBe('Updated Push-Up');
+    expect(merged.filter((exercise) => exercise.stableKey === 'push-up')).toHaveLength(1);
     expect(merged.find((exercise) => exercise.id === 'personal')).toBeTruthy();
   });
 });

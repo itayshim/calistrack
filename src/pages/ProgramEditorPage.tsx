@@ -13,8 +13,10 @@ import type {
 } from '../types';
 import { createId } from '../utils/id';
 import { searchExercises } from '../utils/exerciseSearch';
+import { useI18n } from '../hooks/useI18n';
 const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 export function ProgramEditorPage() {
+  const { t } = useI18n();
   const { id } = useParams(),
     existing = useAppStore((s) => s.programs.find((p) => p.id === id)),
     exercises = useAppStore((s) => s.exercises),
@@ -73,7 +75,7 @@ export function ProgramEditorPage() {
   return (
     <>
       <div className="flex items-center justify-between">
-        <h1 className="page-title">{existing ? 'Edit program' : 'New program'}</h1>
+        <h1 className="page-title">{existing ? t('editProgram') : t('newProgram')}</h1>
         <button
           disabled={!valid}
           className="btn-primary"
@@ -83,11 +85,11 @@ export function ProgramEditorPage() {
           }}
         >
           <Save />
-          Save
+          {t('save')}
         </button>
       </div>
       <label className="card mb-4 block">
-        <span className="label">Program name</span>
+        <span className="label">{t('programName')}</span>
         <input
           className="field text-xl font-bold"
           value={program.name}
@@ -99,7 +101,7 @@ export function ProgramEditorPage() {
           <section className="card" key={w.id}>
             <div className="flex gap-2">
               <input
-                aria-label="Workout day name"
+                aria-label={t('workoutDayName')}
                 className="field text-lg font-black"
                 value={w.name}
                 onChange={(e) =>
@@ -109,7 +111,7 @@ export function ProgramEditorPage() {
                 }
               />
               <button
-                aria-label="Duplicate day"
+                aria-label={t('duplicateDay')}
                 className="btn-secondary"
                 onClick={() =>
                   setProgram((p) => ({
@@ -139,7 +141,7 @@ export function ProgramEditorPage() {
               </button>
             </div>
             <fieldset className="my-3">
-              <legend className="label">Days of the week</legend>
+              <legend className="label">{t('daysOfWeek')}</legend>
               <div className="flex flex-wrap gap-2">
                 {dayNames.map((d, i) => {
                   const selected = w.scheduledDays.includes(i);
@@ -261,6 +263,7 @@ function ExercisePicker({
   onSelect: (exerciseId: string) => void;
   onCreate: (exercise: Exercise) => void;
 }) {
+  const { t } = useI18n();
   const [query, setQuery] = useState('');
   const [family, setFamily] = useState('All');
   const [category, setCategory] = useState<'all' | ExerciseCategory>('all');
@@ -290,8 +293,8 @@ function ExercisePicker({
       <div className="max-h-[92dvh] w-full overflow-hidden rounded-t-[2rem] bg-[#121719] shadow-soft sm:max-w-2xl sm:rounded-[2rem]">
         <div className="flex items-center justify-between border-b border-white/[.06] p-5">
           <div>
-            <p className="eyebrow">EXERCISE LIBRARY</p>
-            <h2 className="text-2xl font-black">Add movement</h2>
+            <p className="eyebrow">{t('exerciseLibrary')}</p>
+            <h2 className="text-2xl font-black">{t('addMovement')}</h2>
           </div>
           <button aria-label="Close exercise picker" className="icon-button" onClick={onClose}>
             <X />
@@ -307,7 +310,7 @@ function ExercisePicker({
           <>
             <div className="space-y-3 p-4">
               <label className="relative block">
-                <span className="sr-only">Search exercises</span>
+                <span className="sr-only">{t('searchExercises')}</span>
                 <Search className="absolute left-4 top-3.5 text-slate-500" size={20} />
                 <input
                   autoFocus
@@ -337,7 +340,7 @@ function ExercisePicker({
                   value={category}
                   onChange={(event) => setCategory(event.target.value as typeof category)}
                 >
-                  <option value="all">All categories</option>
+                  <option value="all">{t('allCategories')}</option>
                   {['push', 'pull', 'legs', 'core', 'mobility', 'skill'].map((item) => (
                     <option key={item} value={item}>{item}</option>
                   ))}
@@ -348,10 +351,10 @@ function ExercisePicker({
                   value={difficulty}
                   onChange={(event) => setDifficulty(event.target.value as typeof difficulty)}
                 >
-                  <option value="all">All levels</option>
-                  <option value="beginner">Beginner</option>
-                  <option value="intermediate">Intermediate</option>
-                  <option value="advanced">Advanced</option>
+                  <option value="all">{t('allLevels')}</option>
+                  <option value="beginner">{t('beginner')}</option>
+                  <option value="intermediate">{t('intermediate')}</option>
+                  <option value="advanced">{t('advanced')}</option>
                 </select>
               </div>
             </div>
@@ -370,7 +373,7 @@ function ExercisePicker({
                         {exercise.movementFamily} · {exercise.difficulty}
                       </small>
                     </span>
-                    {exercise.isCustom && <span className="chip">CUSTOM</span>}
+                    {exercise.isCustom && <span className="chip">{t('custom')}</span>}
                   </button>
                 ))}
               </div>
@@ -397,6 +400,7 @@ function CustomExerciseForm({
   onCancel: () => void;
   onSave: (exercise: Exercise) => void;
 }) {
+  const { t } = useI18n();
   const [name, setName] = useState(initialName);
   const [measurementType, setMeasurementType] = useState<MeasurementType>('reps');
   const [movementFamily, setMovementFamily] = useState('Custom');
@@ -430,20 +434,20 @@ function CustomExerciseForm({
   return (
     <div className="max-h-[75dvh] space-y-4 overflow-y-auto p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
       <label className="block">
-        <span className="label">Exercise name</span>
+        <span className="label">{t('exerciseName')}</span>
         <input className="field" value={name} onChange={(event) => setName(event.target.value)} />
       </label>
       <div className="grid grid-cols-2 gap-3">
-        <label><span className="label">Measurement</span><select className="field" value={measurementType} onChange={(event) => setMeasurementType(event.target.value as MeasurementType)}><option value="reps">Repetitions</option><option value="time">Time</option></select></label>
-        <label><span className="label">Difficulty</span><select className="field" value={difficulty} onChange={(event) => setDifficulty(event.target.value as Difficulty)}><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></label>
+        <label><span className="label">{t('measurement')}</span><select className="field" value={measurementType} onChange={(event) => setMeasurementType(event.target.value as MeasurementType)}><option value="reps">{t('repetitions')}</option><option value="time">{t('time')}</option></select></label>
+        <label><span className="label">{t('difficulty')}</span><select className="field" value={difficulty} onChange={(event) => setDifficulty(event.target.value as Difficulty)}><option value="beginner">{t('beginner')}</option><option value="intermediate">{t('intermediate')}</option><option value="advanced">{t('advanced')}</option></select></label>
       </div>
-      <label className="block"><span className="label">Movement family</span><input className="field" value={movementFamily} onChange={(event) => setMovementFamily(event.target.value)} /></label>
-      <label className="block"><span className="label">Category</span><select className="field" value={category} onChange={(event) => setCategory(event.target.value as ExerciseCategory)}>{['push', 'pull', 'legs', 'core', 'mobility', 'skill'].map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
-      <label className="block"><span className="label">Target muscles (comma separated)</span><input className="field" value={muscles} onChange={(event) => setMuscles(event.target.value)} /></label>
-      <label className="block"><span className="label">Notes</span><textarea className="field" value={notes} onChange={(event) => setNotes(event.target.value)} /></label>
+      <label className="block"><span className="label">{t('movementFamily')}</span><input className="field" value={movementFamily} onChange={(event) => setMovementFamily(event.target.value)} /></label>
+      <label className="block"><span className="label">{t('category')}</span><select className="field" value={category} onChange={(event) => setCategory(event.target.value as ExerciseCategory)}>{['push', 'pull', 'legs', 'core', 'mobility', 'skill'].map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+      <label className="block"><span className="label">{t('targetMuscles')}</span><input className="field" value={muscles} onChange={(event) => setMuscles(event.target.value)} /></label>
+      <label className="block"><span className="label">{t('notes')}</span><textarea className="field" value={notes} onChange={(event) => setNotes(event.target.value)} /></label>
       <div className="grid grid-cols-2 gap-3">
-        <button className="btn-secondary" onClick={onCancel}>Back</button>
-        <button className="btn-primary" disabled={!name.trim()} onClick={save}>Save and add</button>
+        <button className="btn-secondary" onClick={onCancel}>{t('back')}</button>
+        <button className="btn-primary" disabled={!name.trim()} onClick={save}>{t('saveAndAdd')}</button>
       </div>
     </div>
   );
@@ -455,14 +459,15 @@ function TargetFields({
   we: WorkoutExercise;
   update: (p: Partial<WorkoutExercise>) => void;
 }) {
+  const { t } = useI18n();
   return (
     <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
-      <Num label="Sets" value={we.targetSets} set={(v) => update({ targetSets: v })} />
-      <Num label="Minimum" value={we.targetMin} set={(v) => update({ targetMin: v })} />
-      <Num label="Maximum" value={we.targetMax} set={(v) => update({ targetMax: v })} />
-      <Num label="Rest (seconds)" value={we.restSeconds} set={(v) => update({ restSeconds: v })} />
+      <Num label={t('sets')} value={we.targetSets} set={(v) => update({ targetSets: v })} />
+      <Num label={t('minimum')} value={we.targetMin} set={(v) => update({ targetMin: v })} />
+      <Num label={t('maximum')} value={we.targetMax} set={(v) => update({ targetMax: v })} />
+      <Num label={t('restSeconds')} value={we.restSeconds} set={(v) => update({ restSeconds: v })} />
       <label>
-        <span className="label">Note</span>
+        <span className="label">{t('note')}</span>
         <input
           className="field"
           value={we.notes ?? ''}

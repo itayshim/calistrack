@@ -134,3 +134,16 @@ export function uploadExerciseMedia(
     xhr.send(file);
   });
 }
+
+export async function deleteExerciseMediaFile(storagePath: string): Promise<void> {
+  const session = getAdminSession();
+  if (!url || !anonKey || !session) throw new SupabaseApiError('not_admin', 403);
+  const response = await fetch(
+    `${url}/storage/v1/object/exercise-media/${storagePath.split('/').map(encodeURIComponent).join('/')}`,
+    {
+      method: 'DELETE',
+      headers: { apikey: anonKey, Authorization: `Bearer ${session.accessToken}` },
+    },
+  );
+  if (!response.ok && response.status !== 404) throw new SupabaseApiError('media_delete_failed', response.status);
+}

@@ -77,7 +77,8 @@ export default function App() {
           <Route path="admin" element={<AdminLayout />}>
             <Route index element={<Navigate to="exercises" replace />} />
             <Route path="exercises" element={<AdminExercisesPage />} />
-            <Route path="exercises/:exerciseId" element={<AdminExerciseEditorPage />} />
+            <Route path="exercises/new" element={<AdminExerciseEditorPage />} />
+            <Route path="exercises/:exerciseId/edit" element={<AdminExerciseEditorPage />} />
             <Route path="media" element={<Navigate to="../exercises" replace />} />
           </Route>
         </Route>

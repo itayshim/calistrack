@@ -13,7 +13,9 @@ import { Badge, IconTile, SectionHeader } from '../components/ui';
 import { useAppStore } from '../store/useAppStore';
 import { exercisePoints } from '../utils/stats';
 import { getRecommendation } from '../utils/recommendations';
+import { useI18n } from '../hooks/useI18n';
 export function ProgressPage() {
+  const { t } = useI18n();
   const exercises = useAppStore((s) => s.exercises),
     sessions = useAppStore((s) => s.workoutSessions),
     [id, setId] = useState(exercises[0]?.id ?? ''),
@@ -37,9 +39,9 @@ export function ProgressPage() {
   return (
     <div className="space-y-8">
       <header>
-        <p className="eyebrow">PROOF OF WORK</p>
-        <h1 className="mt-2 text-4xl font-black tracking-[-.05em]">Progress</h1>
-        <p className="mt-2 text-slate-400">See the work turning into strength.</p>
+        <p className="eyebrow">{t('progressEyebrow')}</p>
+        <h1 className="mt-2 text-4xl font-black tracking-[-.05em]">{t('progress')}</h1>
+        <p className="mt-2 text-slate-400">{t('progressSubtitle')}</p>
       </header>
       <section className="card p-4">
         <label className="sr-only" htmlFor="progress-exercise">
@@ -91,7 +93,7 @@ export function ProgressPage() {
             <div className="grid h-full place-items-center text-center">
               <div>
                 <ChartNoAxesColumnIncreasing className="mx-auto text-slate-700" size={44} />
-                <h3 className="mt-4 text-xl font-black">Your trend is just beginning</h3>
+                <h3 className="mt-4 text-xl font-black">{t('trendBeginning')}</h3>
                 <p className="mt-2 max-w-xs text-sm text-slate-400">
                   Log this exercise in two workouts to unlock the chart.
                 </p>
@@ -165,8 +167,8 @@ export function ProgressPage() {
               <Award />
             </IconTile>
             <div>
-              <Badge tone="brand">COACHING INSIGHT</Badge>
-              <h2 className="mt-3 text-xl font-black">Ready for what’s next</h2>
+              <Badge tone="brand">{t('coachingInsight')}</Badge>
+              <h2 className="mt-3 text-xl font-black">{t('readyForNext')}</h2>
               <p className="mt-2 text-sm leading-relaxed text-slate-300">
                 {recommendation.message}
               </p>
