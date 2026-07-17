@@ -201,14 +201,69 @@ const seeds: ExerciseSeed[] = [
 
 const slug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 const levels: Difficulty[] = ['beginner', 'intermediate', 'advanced'];
+const hebrewFamilies: Record<string, string> = {
+  'Push-Up': 'שכיבות סמיכה',
+  Dip: 'מקבילים',
+  'Pull-Up': 'מתח',
+  'Chin-Up': 'מתח באחיזה הפוכה',
+  Row: 'משיכה אופקית',
+  Squat: 'סקוואט',
+  Lunge: 'מכרעים',
+  'Calf Raise': 'עליות תאומים',
+  'Glute Bridge': 'גשר ישבן',
+  'Nordic Curl': 'כפיפת ברך נורדית',
+  Plank: 'פלאנק',
+  'Hollow Body': 'הולו בודי',
+  'Leg Raise': 'הרמות רגליים',
+  Handstand: 'עמידת ידיים',
+  'Handstand Push-Up': 'שכיבות סמיכה בעמידת ידיים',
+  'L-Sit': 'אל-סיט',
+  'Front Lever': 'פרונט לבר',
+  'Back Lever': 'בק לבר',
+  'Muscle-Up': 'מאסל אפ',
+  Planche: "פלאנץ'",
+  'Human Flag': 'דגל אנושי',
+  'Warm-Up': 'חימום',
+  Mobility: 'מוביליטי',
+  Balance: 'שיווי משקל',
+};
+const hebrewNames: Record<string, string> = {
+  'Push-Up': 'שכיבות סמיכה',
+  'Pull-Up': 'מתח',
+  'Chin-Up': 'מתח באחיזה הפוכה',
+  'Bodyweight Squat': 'סקוואט במשקל גוף',
+  'Pistol Squat': 'פיסטול סקוואט',
+  'Bulgarian Split Squat': 'סקוואט בולגרי',
+  'Australian Row': 'מתח אוסטרלי',
+  'Pike Push-Up': 'שכיבות סמיכה פייק',
+  'Parallel Bar Dip': 'מקבילים',
+  'Ring Dip': 'מקבילים על טבעות',
+  'Straight Bar Dip': 'מקבילים על מוט',
+  'Negative Dip': 'מקבילים שליליים',
+  'Weighted Dip': 'מקבילים עם משקל',
+  'Wall Handstand Hold': 'עמידת ידיים על קיר',
+  'Freestanding Handstand Hold': 'עמידת ידיים חופשית',
+  'Hollow Body Hold': 'הולו בודי',
+  Plank: 'פלאנק',
+  'Tuck L-Sit': 'טאק אל-סיט',
+  'L-Sit': 'אל-סיט',
+  'Nordic Curl': 'כפיפת ברך נורדית',
+  'Front Lever': 'פרונט לבר',
+  'Back Lever': 'בק לבר',
+  'Bar Muscle-Up': 'מאסל אפ על מוט',
+  'Full Planche': "פלאנץ' מלא",
+  'Human Flag': 'דגל אנושי',
+};
 
 export const builtInExercises: Exercise[] = seeds.map((seed, index) => {
   const siblings = seeds.filter((item) => item.family === seed.family);
   const familyIndex = siblings.findIndex((item) => item.name === seed.name);
   const difficulty = seed.difficulty ?? levels[Math.min(2, Math.floor(familyIndex / 3))];
+  const familyHe = hebrewFamilies[seed.family] ?? seed.family;
+  const nameHe = hebrewNames[seed.name] ?? `${familyHe} – ${seed.name}`;
   return {
     id: `builtin-${slug(seed.name)}`,
-    nameHe: seed.name,
+    nameHe,
     nameEn: seed.name,
     movementFamily: seed.family,
     category: seed.category,
@@ -216,21 +271,32 @@ export const builtInExercises: Exercise[] = seeds.map((seed, index) => {
     muscles: seed.muscles ?? defaultMuscles(seed.category),
     aliases: seed.aliases ?? [],
     keywords: [seed.family, seed.category, ...(seed.aliases ?? [])],
+    aliasesHe: [familyHe, nameHe],
+    keywordsHe: [familyHe, nameHe],
     progressionOrder: familyIndex,
     measurementType: seed.measurement ?? 'reps',
     description: `${seed.name} is a ${seed.family.toLowerCase()} progression for controlled bodyweight training.`,
+    descriptionHe: `${nameHe} הוא תרגיל ממשפחת ${familyHe}. עבדו בשליטה ובטווח תנועה נוח שמתאים לרמה שלכם.`,
     instructions: [
       'Set up in a stable starting position',
       'Move through a controlled, comfortable range',
       'Maintain steady breathing and body position',
     ],
     commonMistakes: ['Rushing the movement', 'Losing a stable body position'],
+    instructionsHe: [
+      'היכנסו לעמדת מוצא יציבה',
+      'בצעו את התנועה לאט ובשליטה',
+      'שמרו על נשימה רציפה ומנח גוף יציב',
+    ],
+    commonMistakesHe: ['ביצוע מהיר מדי', 'איבוד מנח גוף יציב'],
     easierExerciseId: familyIndex > 0 ? `builtin-${slug(siblings[familyIndex - 1].name)}` : undefined,
     harderExerciseId:
       familyIndex < siblings.length - 1
         ? `builtin-${slug(siblings[familyIndex + 1].name)}`
         : undefined,
     isCustom: false,
+    stableKey: slug(seed.name),
+    source: 'built-in',
     updatedAt: String(index),
   };
 });

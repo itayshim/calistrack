@@ -18,6 +18,7 @@ interface Store extends AppData {
   hydrate: () => void;
   persist: () => void;
   setToast: (v: string | null) => void;
+  setSharedExercises: (exercises: Exercise[]) => void;
   addExercise: (e: Exercise) => void;
   updateExercise: (e: Exercise) => void;
   deleteExercise: (id: string) => void;
@@ -64,6 +65,7 @@ export const useAppStore = create<Store>((set, get) => ({
       restTimer: get().restTimer,
     }),
   setToast: (v) => set({ toast: v }),
+  setSharedExercises: (exercises) => set({ exercises }),
   addExercise: (e) => {
     set((s) => ({ exercises: [...s.exercises, e] }));
     get().persist();

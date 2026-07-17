@@ -6,6 +6,7 @@ import { useAppStore } from '../store/useAppStore';
 import type { Difficulty, Exercise, ExerciseCategory, MeasurementType } from '../types';
 import { createId } from '../utils/id';
 import { searchExercises } from '../utils/exerciseSearch';
+import { useI18n } from '../hooks/useI18n';
 const categories: Record<string, string> = {
   all: 'All',
   push: 'Push',
@@ -26,6 +27,7 @@ export function ExercisesPage() {
     add = useAppStore((s) => s.addExercise),
     update = useAppStore((s) => s.updateExercise),
     del = useAppStore((s) => s.deleteExercise);
+  const { language } = useI18n();
   const [q, setQ] = useState(''),
     [cat, setCat] = useState('all'),
     [diff, setDiff] = useState('all'),
@@ -123,7 +125,7 @@ export function ExercisesPage() {
                 {e.nameEn.slice(0, 1)}
               </div>
               <h2 className="mt-3 text-xl font-black tracking-tight group-hover:text-brand">
-                {e.nameEn}
+                {language === 'he' ? e.nameHe : e.nameEn}
               </h2>
               <p dir="ltr" className="text-left text-sm text-slate-400">
                 {e.nameEn}

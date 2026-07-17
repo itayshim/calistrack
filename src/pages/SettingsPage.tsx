@@ -3,12 +3,14 @@ import { useEffect, useRef, useState } from 'react';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { storageService } from '../services/storage';
 import { useAppStore } from '../store/useAppStore';
+import { useI18n } from '../hooks/useI18n';
 export function SettingsPage() {
   const store = useAppStore(),
     [settings, setSettings] = useState(store.settings),
     [reset, setReset] = useState(false),
     [pending, setPending] = useState<ReturnType<typeof storageService.importData> | null>(null),
-    file = useRef<HTMLInputElement>(null);
+    file = useRef<HTMLInputElement>(null),
+    { t } = useI18n();
   useEffect(() => {
     document.documentElement.classList.toggle('dark', settings.theme === 'dark');
   }, [settings.theme]);
@@ -50,6 +52,28 @@ export function SettingsPage() {
         <p className="mt-2 text-slate-400">Tune CalisTrack to the way you train.</p>
       </header>
       <section className="card max-w-2xl space-y-5">
+        <fieldset>
+          <legend className="label">{t('language')}</legend>
+          <div className="grid grid-cols-2 gap-2">
+            {(['en', 'he'] as const).map((language) => (
+              <button
+                type="button"
+                key={language}
+                aria-pressed={settings.language === language}
+                className={`min-h-12 rounded-2xl font-black ${
+                  settings.language === language ? 'bg-brand text-ink' : 'bg-white/[.06] text-slate-300'
+                }`}
+                onClick={() => {
+                  const next = { ...settings, language };
+                  setSettings(next);
+                  store.setSettings(next);
+                }}
+              >
+                {language === 'en' ? t('english') : t('hebrew')}
+              </button>
+            ))}
+          </div>
+        </fieldset>
         <label>
           <span className="label">Weekly workout target</span>
           <input
@@ -95,7 +119,7 @@ export function SettingsPage() {
           set={(v) => setSettings({ ...settings, restTimerVibration: v })}
         />
         <button className="btn-primary w-full" onClick={() => store.setSettings(settings)}>
-          Save settings
+          {t('saveSettings')}
         </button>
       </section>
       <section className="card max-w-2xl">

@@ -16,6 +16,14 @@ export interface Exercise {
   description: string;
   instructions: string[];
   commonMistakes: string[];
+  descriptionHe?: string;
+  instructionsHe?: string[];
+  commonMistakesHe?: string[];
+  aliasesHe?: string[];
+  keywordsHe?: string[];
+  stableKey?: string;
+  source?: 'built-in' | 'global' | 'personal';
+  media?: ExerciseMedia[];
   easierExerciseId?: string;
   harderExerciseId?: string;
   isCustom: boolean;
@@ -86,6 +94,7 @@ export interface UserSettings {
   restTimerVibration: boolean;
   defaultRestSeconds: number;
   theme: 'dark' | 'light';
+  language: 'en' | 'he';
 }
 export type GoalType = 'weekly-workouts' | 'exercise-reps' | 'exercise-time' | 'first-skill';
 export interface UserGoal {
@@ -111,4 +120,22 @@ export interface RestTimerState {
   endsAt: number | null;
   duration: number;
   pausedRemaining: number | null;
+}
+
+export type MediaType = 'youtube' | 'uploaded_video' | 'image' | 'external_link' | 'coaching_note' | 'equipment_note';
+export interface ExerciseMedia {
+  id: string;
+  exerciseId: string;
+  mediaType: MediaType;
+  provider: 'youtube' | 'supabase_storage' | 'external';
+  title?: string;
+  description?: string;
+  externalUrl?: string;
+  storagePath?: string;
+  thumbnailUrl?: string;
+  mimeType?: string;
+  fileSizeBytes?: number;
+  sortOrder: number;
+  isPrimary: boolean;
+  isPublished: boolean;
 }

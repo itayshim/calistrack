@@ -1,0 +1,15 @@
+import { describe, expect, it } from 'vitest';
+import { builtInExercises } from '../data/exercises';
+import type { Exercise } from '../types';
+import { mergeExerciseSources } from './globalContent';
+
+describe('global exercise merging', () => {
+  it('lets published global content override a built-in stable key and keeps personal exercises', () => {
+    const builtIn = builtInExercises.find((exercise) => exercise.stableKey === 'push-up')!;
+    const global = { ...builtIn, nameEn: 'Updated Push-Up', source: 'global' as const };
+    const personal: Exercise = { ...builtIn, id: 'personal', stableKey: 'personal', nameEn: 'My Move', isCustom: true };
+    const merged = mergeExerciseSources([global], [...builtInExercises, personal]);
+    expect(merged.find((exercise) => exercise.stableKey === 'push-up')?.nameEn).toBe('Updated Push-Up');
+    expect(merged.find((exercise) => exercise.id === 'personal')).toBeTruthy();
+  });
+});

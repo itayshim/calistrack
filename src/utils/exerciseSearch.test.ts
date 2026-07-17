@@ -23,4 +23,10 @@ describe('exercise search', () => {
     expect(searchExercises(builtInExercises, 'handstad').some((exercise) => exercise.movementFamily === 'Handstand')).toBe(true);
     expect(searchExercises(builtInExercises, 'plank')[0].nameEn).toBe('Plank');
   });
+  it('finds core movement families using Hebrew terms', () => {
+    expect(searchExercises(builtInExercises, 'סקוואט').some((exercise) => exercise.movementFamily === 'Squat')).toBe(true);
+    expect(searchExercises(builtInExercises, 'מקבילים').some((exercise) => exercise.movementFamily === 'Dip')).toBe(true);
+    expect(searchExercises(builtInExercises, 'מתח').some((exercise) => exercise.movementFamily === 'Pull-Up')).toBe(true);
+    expect(searchExercises(builtInExercises, 'פרונט לבר').some((exercise) => exercise.movementFamily === 'Front Lever')).toBe(true);
+  });
 });

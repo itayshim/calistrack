@@ -54,6 +54,41 @@ LocalStorage remains the source of truth for user data. It is isolated by browse
 
 `vercel.json` configures SPA fallback routing, so direct visits and refreshes on routes such as `/progress` and `/settings` resolve to the app instead of returning 404.
 
+## Supabase shared content and administrator setup
+
+Supabase is optional: regular workout tracking remains local-first and works without an account. Supabase is used only for administrator authentication and published exercise content/media.
+
+1. Create a Supabase project.
+2. Run `supabase/migrations/202607170001_global_content.sql` in the Supabase SQL Editor.
+3. Create the first administrator in **Authentication → Users**.
+4. Promote only that known user ID from the SQL Editor:
+
+   ```sql
+   insert into public.profiles (id, role)
+   values ('AUTH-USER-UUID-HERE', 'admin')
+   on conflict (id) do update set role = 'admin';
+   ```
+
+5. Copy `.env.example` to `.env.local` and supply the project URL and public anonymous key:
+
+   ```text
+   VITE_SUPABASE_URL=https://your-project.supabase.co
+   VITE_SUPABASE_ANON_KEY=your-public-anon-key
+   VITE_MEDIA_UPLOAD_LIMIT_MB=50
+   ```
+
+6. Add the same two public `VITE_` values to Vercel Production and Preview, then redeploy once.
+
+Never expose the Supabase service-role key in the frontend. The migration creates the content tables, validation constraints, indexes, updated-at triggers, RLS policies, and the `exercise-media` bucket. Anonymous users can read only published content. Global writes and storage changes require a server-verified `admin` profile.
+
+Admin routes are `/admin/login`, `/admin/exercises`, and `/admin/exercises/:exerciseId`.
+
+MP4/H.264 is recommended for uploaded video. MOV/HEVC is accepted within the configured size limit but is not transcoded and may not play in every browser.
+
+## Localization
+
+English remains the default for existing users. The language selector in Settings switches immediately between English and Hebrew and persists with local settings. Hebrew mode applies `lang="he"` and `dir="rtl"`. Exercise search matches English and Hebrew names, aliases, keywords, and movement families regardless of the selected interface language.
+
 ## Installing on iPhone
 
 1. Open the deployed HTTPS URL in Safari.

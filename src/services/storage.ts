@@ -6,7 +6,7 @@ const valid = (v: unknown): v is AppData => {
   if (!v || typeof v !== 'object') return false;
   const d = v as Partial<AppData>;
   return (
-    (d.schemaVersion === 1 || d.schemaVersion === 2) &&
+    (d.schemaVersion === 1 || d.schemaVersion === 2 || d.schemaVersion === 3) &&
     Array.isArray(d.exercises) &&
     Array.isArray(d.programs) &&
     Array.isArray(d.workoutSessions) &&
@@ -72,7 +72,8 @@ export function migrateAppData(data: AppData): AppData {
   const customExercises = data.exercises.filter((exercise) => exercise.isCustom).map(normalizeExercise);
   return {
     ...data,
-    schemaVersion: 2,
+    schemaVersion: 3,
+    settings: { ...data.settings, language: data.settings.language ?? 'en' },
     exercises: [...builtInExercises, ...customExercises],
     restTimer: data.restTimer ?? { endsAt: null, duration: 0, pausedRemaining: null },
     programs: data.programs.map((program) => ({

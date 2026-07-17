@@ -3,7 +3,8 @@ import type { Exercise } from '../types';
 export function normalizeSearchText(value: string): string {
   return value
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '')
+    .replace(/[ךםןףץ]/g, (letter) => ({ ך: 'כ', ם: 'מ', ן: 'נ', ף: 'פ', ץ: 'צ' })[letter] ?? letter)
+    .replace(/[^a-z0-9\u0590-\u05ff]+/g, '')
     .replace(/(push|pull)ups$/g, '$1up')
     .replace(/dips$/g, 'dip');
 }
@@ -27,9 +28,9 @@ export function exerciseSearchScore(exercise: Exercise, query: string): number {
   const order = exercise.progressionOrder ?? 0;
   if (!q) return 1_000 - order;
   const name = normalizeSearchText(exercise.nameEn);
-  const aliases = (exercise.aliases ?? []).map(normalizeSearchText);
+  const aliases = [...(exercise.aliases ?? []), ...(exercise.aliasesHe ?? [])].map(normalizeSearchText);
   const family = normalizeSearchText(exercise.movementFamily ?? '');
-  const direct = [name, ...aliases];
+  const direct = [name, normalizeSearchText(exercise.nameHe), ...aliases];
   if (name === q) return 10_000;
   if (aliases.includes(q)) return 9_500;
   if (name.startsWith(q)) return 9_000 - name.length;
@@ -38,6 +39,7 @@ export function exerciseSearchScore(exercise: Exercise, query: string): number {
   const metadata = [
     exercise.category,
     ...(exercise.keywords ?? []),
+    ...(exercise.keywordsHe ?? []),
     ...exercise.muscles,
     exercise.movementFamily ?? '',
   ].map(normalizeSearchText);

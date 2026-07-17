@@ -1,0 +1,171 @@
+import { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { createId } from '../../utils/id';
+import { getAdminSession, supabaseRequest, uploadExerciseMedia } from '../../services/supabase';
+import { parseYouTubeVideoId, youtubeEmbedUrl } from '../../utils/youtube';
+
+const empty = {
+  id: '',
+  stable_key: '',
+  movement_family: '',
+  category: 'skill',
+  difficulty: 'beginner',
+  measurement_type: 'reps',
+  muscles: '',
+  aliases: '',
+  keywords: '',
+  is_published: false,
+  nameEn: '',
+  nameHe: '',
+  descriptionEn: '',
+  descriptionHe: '',
+  instructionsEn: '',
+  instructionsHe: '',
+  mistakesEn: '',
+  mistakesHe: '',
+};
+
+export function AdminExerciseEditorPage() {
+  const { exerciseId } = useParams();
+  const navigate = useNavigate();
+  const [form, setForm] = useState(empty);
+  const [youtube, setYoutube] = useState('');
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [progress, setProgress] = useState<number | null>(null);
+  const token = getAdminSession()?.accessToken;
+  useEffect(() => {
+    if (!exerciseId || exerciseId === 'new' || !token) return;
+    supabaseRequest<Array<Record<string, unknown>>>(
+      `/rest/v1/global_exercises?id=eq.${exerciseId}&select=*,exercise_translations(*)`,
+      {},
+      token,
+    ).then(([row]) => {
+      if (!row) return;
+      const translations = row.exercise_translations as Array<Record<string, unknown>>;
+      const en = translations.find((item) => item.locale === 'en');
+      const he = translations.find((item) => item.locale === 'he');
+      setForm({
+        id: String(row.id),
+        stable_key: String(row.stable_key),
+        movement_family: String(row.movement_family),
+        category: String(row.category),
+        difficulty: String(row.difficulty),
+        measurement_type: String(row.measurement_type),
+        muscles: (row.muscles as string[]).join(', '),
+        aliases: (row.aliases as string[]).join(', '),
+        keywords: (row.keywords as string[]).join(', '),
+        is_published: Boolean(row.is_published),
+        nameEn: String(en?.name ?? ''),
+        nameHe: String(he?.name ?? ''),
+        descriptionEn: String(en?.description ?? ''),
+        descriptionHe: String(he?.description ?? ''),
+        instructionsEn: ((en?.instructions as string[]) ?? []).join('\n'),
+        instructionsHe: ((he?.instructions as string[]) ?? []).join('\n'),
+        mistakesEn: ((en?.common_mistakes as string[]) ?? []).join('\n'),
+        mistakesHe: ((he?.common_mistakes as string[]) ?? []).join('\n'),
+      });
+    }).catch((reason: Error) => setError(reason.message));
+  }, [exerciseId, token]);
+  const list = (value: string) => value.split(/[\n,]/).map((item) => item.trim()).filter(Boolean);
+  const save = async () => {
+    if (!token || !form.stable_key || !form.nameEn || !form.measurement_type) {
+      setError('Stable key, English name and measurement type are required');
+      return;
+    }
+    setSaving(true);
+    setError('');
+    try {
+      const id = form.id || createId();
+      await supabaseRequest('/rest/v1/global_exercises?on_conflict=id', {
+        method: 'POST',
+        headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
+        body: JSON.stringify({
+          id,
+          stable_key: form.stable_key,
+          movement_family: form.movement_family,
+          category: form.category,
+          difficulty: form.difficulty,
+          measurement_type: form.measurement_type,
+          muscles: list(form.muscles),
+          aliases: list(form.aliases),
+          keywords: list(form.keywords),
+          is_published: form.is_published,
+          created_by: getAdminSession()?.userId,
+          updated_by: getAdminSession()?.userId,
+        }),
+      }, token);
+      const translations = [
+        { locale: 'en', name: form.nameEn, description: form.descriptionEn, instructions: list(form.instructionsEn), common_mistakes: list(form.mistakesEn), aliases: [], keywords: [] },
+        { locale: 'he', name: form.nameHe || form.nameEn, description: form.descriptionHe, instructions: list(form.instructionsHe), common_mistakes: list(form.mistakesHe), aliases: [], keywords: [] },
+      ].map((translation) => ({ ...translation, exercise_id: id }));
+      await supabaseRequest('/rest/v1/exercise_translations?on_conflict=exercise_id,locale', {
+        method: 'POST',
+        headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
+        body: JSON.stringify(translations),
+      }, token);
+      const videoId = youtube ? parseYouTubeVideoId(youtube) : null;
+      if (youtube && !videoId) throw new Error('Enter a valid YouTube URL');
+      if (videoId) await supabaseRequest('/rest/v1/exercise_media', {
+        method: 'POST',
+        body: JSON.stringify({ exercise_id: id, media_type: 'youtube', provider: 'youtube', title: `${form.nameEn} demonstration`, external_url: `https://youtu.be/${videoId}`, is_primary: true, is_published: form.is_published, created_by: getAdminSession()?.userId }),
+      }, token);
+      navigate('/admin/exercises');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to save');
+    } finally {
+      setSaving(false);
+    }
+  };
+  const upload = async (file?: File) => {
+    if (!file || !form.id || !token) return setError('Save the exercise before uploading media');
+    if (file.type === 'video/quicktime') setError('MOV/HEVC may not play in every browser. MP4/H.264 is recommended.');
+    try {
+      setProgress(0);
+      const path = await uploadExerciseMedia(form.id, file, setProgress);
+      await supabaseRequest('/rest/v1/exercise_media', { method: 'POST', body: JSON.stringify({ exercise_id: form.id, media_type: file.type.startsWith('image/') ? 'image' : 'uploaded_video', provider: 'supabase_storage', title: file.name, storage_path: path, mime_type: file.type, file_size_bytes: file.size, is_published: false, created_by: getAdminSession()?.userId }) }, token);
+      setProgress(null);
+    } catch (reason) {
+      setProgress(null);
+      setError(reason instanceof Error ? reason.message : 'Upload failed');
+    }
+  };
+  const set = (key: keyof typeof empty, value: string | boolean) => setForm((current) => ({ ...current, [key]: value }));
+  const videoId = parseYouTubeVideoId(youtube);
+  return (
+    <main className="mx-auto max-w-4xl">
+      <h1 className="text-4xl font-black">{form.id ? 'Edit shared exercise' : 'New shared exercise'}</h1>
+      <div className="mt-6 grid gap-5">
+        <section className="card grid gap-3 sm:grid-cols-2">
+          <h2 className="sm:col-span-2 text-xl font-black">Exercise metadata</h2>
+          <Field label="Stable key" value={form.stable_key} set={(value) => set('stable_key', value)} />
+          <Field label="Movement family" value={form.movement_family} set={(value) => set('movement_family', value)} />
+          <Select label="Category" value={form.category} values={['push','pull','legs','core','mobility','skill']} set={(value) => set('category', value)} />
+          <Select label="Difficulty" value={form.difficulty} values={['beginner','intermediate','advanced']} set={(value) => set('difficulty', value)} />
+          <Select label="Measurement" value={form.measurement_type} values={['reps','time']} set={(value) => set('measurement_type', value)} />
+          <Field label="Muscles" value={form.muscles} set={(value) => set('muscles', value)} />
+          <Field label="Aliases" value={form.aliases} set={(value) => set('aliases', value)} />
+          <Field label="Keywords" value={form.keywords} set={(value) => set('keywords', value)} />
+        </section>
+        <div className="grid gap-5 lg:grid-cols-2">
+          <TranslationCard title="English" name={form.nameEn} description={form.descriptionEn} instructions={form.instructionsEn} mistakes={form.mistakesEn} set={(key, value) => set(`${key}En` as keyof typeof empty, value)} />
+          <TranslationCard title="עברית" name={form.nameHe} description={form.descriptionHe} instructions={form.instructionsHe} mistakes={form.mistakesHe} set={(key, value) => set(`${key}He` as keyof typeof empty, value)} rtl />
+        </div>
+        <section className="card space-y-3">
+          <h2 className="text-xl font-black">Media</h2>
+          <Field label="YouTube URL" value={youtube} set={setYoutube} />
+          {videoId && <div className="aspect-video overflow-hidden rounded-2xl"><iframe className="h-full w-full" src={youtubeEmbedUrl(videoId)} title="YouTube preview" allowFullScreen /></div>}
+          <label className="btn-secondary cursor-pointer"><span>Upload video or image</span><input className="sr-only" type="file" accept="video/mp4,video/quicktime,video/webm,image/jpeg,image/png,image/webp" onChange={(event) => upload(event.target.files?.[0])} /></label>
+          <p className="text-sm text-slate-400">Short MP4/H.264 clips are recommended. Maximum 50 MB. MOV/HEVC may not play in every browser.</p>
+          {progress !== null && <div role="progressbar" aria-valuenow={progress} className="h-3 overflow-hidden rounded-full bg-white/10"><div className="h-full bg-brand" style={{ width: `${progress}%` }} /></div>}
+        </section>
+      </div>
+      {error && <p role="alert" className="mt-4 text-red-400">{error}</p>}
+      <div className="mt-5 flex items-center justify-between"><label className="flex min-h-12 items-center gap-3"><input type="checkbox" checked={form.is_published} onChange={(event) => set('is_published', event.target.checked)} />Published</label><button className="btn-primary" disabled={saving} onClick={save}>{saving ? 'Saving…' : 'Save exercise'}</button></div>
+    </main>
+  );
+}
+
+function Field({ label, value, set }: { label: string; value: string; set: (value: string) => void }) { return <label><span className="label">{label}</span><input className="field" value={value} onChange={(event) => set(event.target.value)} /></label>; }
+function Select({ label, value, values, set }: { label: string; value: string; values: string[]; set: (value: string) => void }) { return <label><span className="label">{label}</span><select className="field" value={value} onChange={(event) => set(event.target.value)}>{values.map((item) => <option key={item}>{item}</option>)}</select></label>; }
+function TranslationCard({ title, name, description, instructions, mistakes, set, rtl = false }: { title: string; name: string; description: string; instructions: string; mistakes: string; set: (key: 'name' | 'description' | 'instructions' | 'mistakes', value: string) => void; rtl?: boolean }) { return <section className="card space-y-3" dir={rtl ? 'rtl' : 'ltr'}><h2 className="text-xl font-black">{title}</h2><Field label="Name" value={name} set={(value) => set('name', value)} /><label><span className="label">Description</span><textarea className="field" value={description} onChange={(event) => set('description', event.target.value)} /></label><label><span className="label">Instructions (one per line)</span><textarea className="field min-h-32" value={instructions} onChange={(event) => set('instructions', event.target.value)} /></label><label><span className="label">Common mistakes (one per line)</span><textarea className="field" value={mistakes} onChange={(event) => set('mistakes', event.target.value)} /></label></section>; }
