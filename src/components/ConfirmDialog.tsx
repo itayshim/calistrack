@@ -6,18 +6,30 @@ export function ConfirmDialog({
   description,
   onConfirm,
   onClose,
+  confirmLabel,
+  cancelLabel,
 }: {
   open: boolean;
   title: string;
   description: string;
   onConfirm: () => void;
   onClose: () => void;
+  confirmLabel?: string;
+  cancelLabel?: string;
 }) {
   const { t } = useI18n();
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
-    if (open && !ref.current?.open) ref.current?.showModal();
-    if (!open && ref.current?.open) ref.current.close();
+    const dialog = ref.current;
+    if (!dialog) return;
+    if (open && !dialog.open) {
+      if (typeof dialog.showModal === 'function') dialog.showModal();
+      else dialog.setAttribute('open', '');
+    }
+    if (!open && dialog.open) {
+      if (typeof dialog.close === 'function') dialog.close();
+      else dialog.removeAttribute('open');
+    }
   }, [open]);
   return (
     <dialog
@@ -38,10 +50,10 @@ export function ConfirmDialog({
             onClose();
           }}
         >
-          {t('confirm')}
+          {confirmLabel ?? t('confirm')}
         </button>
         <button className="btn-secondary" onClick={onClose}>
-          {t('cancel')}
+          {cancelLabel ?? t('cancel')}
         </button>
       </div>
     </dialog>

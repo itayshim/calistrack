@@ -47,10 +47,20 @@ button {
 }
 button:focus-visible,
 a:focus-visible,
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible {
+input:not(.control-input):focus-visible,
+select:not(.control-input):focus-visible,
+textarea:not(.control-input):focus-visible {
   @apply outline-none ring-2 ring-brand ring-offset-2 ring-offset-slate-50 dark:ring-offset-ink;
+}
+.control-input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+.control-shell {
+  @apply border border-transparent transition;
+}
+.control-shell:focus-within {
+  @apply border-brand/80 ring-2 ring-brand/30;
 }
 
 @layer components {
@@ -70,7 +80,7 @@ textarea:focus-visible {
     @apply btn bg-red-500/10 text-red-500 dark:text-red-300;
   }
   .field {
-    @apply min-h-12 w-full rounded-2xl border-0 bg-slate-100 px-4 py-3 font-semibold outline-none placeholder:text-slate-400 dark:bg-white/[.06] dark:text-white;
+    @apply min-h-12 w-full rounded-2xl border border-transparent bg-slate-100 px-4 py-3 font-semibold outline-none placeholder:text-slate-400 focus-visible:border-brand/80 focus-visible:ring-2 focus-visible:ring-brand/30 focus-visible:ring-offset-0 dark:bg-white/[.06] dark:text-white;
   }
   .label {
     @apply mb-2 block text-xs font-extrabold uppercase tracking-[.12em] text-slate-500 dark:text-slate-400;

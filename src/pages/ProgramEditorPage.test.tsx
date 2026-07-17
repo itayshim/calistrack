@@ -37,6 +37,8 @@ describe('program weekday selection', () => {
     await user.click(monday);
     await user.click(screen.getByRole('button', { name: 'Select Wednesday' }));
     expect(monday).toHaveAttribute('aria-pressed', 'true');
+    expect(monday).toHaveClass('bg-brand/25');
+    expect(monday.querySelector('svg')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Deselect Monday' }));
     await user.click(screen.getByRole('button', { name: 'Save' }));
     expect(useAppStore.getState().programs[0].workouts[0].scheduledDays).toEqual([3]);
@@ -83,6 +85,8 @@ describe('program weekday selection', () => {
     expect(within(hold).getByLabelText('Target hold Maximum')).toBeInTheDocument();
     expect(within(hold).getByText('seconds')).toBeInTheDocument();
     expect(hold.querySelector('[dir="ltr"]')).toBeInTheDocument();
+    expect(hold.querySelector('.control-shell')).toBeInTheDocument();
+    expect(hold.querySelectorAll('.control-input')).toHaveLength(2);
   });
   it('shows decimal added-weight targets only for weighted repetitions', async () => {
     const user = userEvent.setup();
@@ -148,5 +152,29 @@ describe('program weekday selection', () => {
     expect(reps.querySelector('[dir="ltr"]')).toBeInTheDocument();
     expect(screen.getByLabelText('משקל נוסף').closest('label')).toHaveTextContent('ק״ג');
     expect(screen.getByLabelText('מנוחה').closest('label')).toHaveTextContent('שניות');
+  });
+
+  it('protects dirty internal back navigation and preserves values when editing continues', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await user.click(screen.getByRole('button', { name: 'Add workout day' }));
+    const name = screen.getByLabelText('Workout day name');
+    await user.clear(name);
+    await user.type(name, 'Pull day');
+    await user.click(screen.getByRole('link', { name: 'Back to programs' }));
+    expect(screen.getByRole('heading', { name: 'Discard unsaved changes?' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Keep editing' }));
+    expect(screen.getByLabelText('Workout day name')).toHaveValue('Pull day');
+    await user.click(screen.getByRole('link', { name: 'Back to programs' }));
+    await user.click(screen.getByRole('button', { name: 'Discard changes' }));
+    expect(screen.getByText('Programs')).toBeInTheDocument();
+  });
+
+  it('does not warn when an untouched editor returns to programs', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await user.click(screen.getByRole('link', { name: 'Back to programs' }));
+    expect(screen.queryByText('Discard unsaved changes?')).not.toBeInTheDocument();
+    expect(screen.getByText('Programs')).toBeInTheDocument();
   });
 });

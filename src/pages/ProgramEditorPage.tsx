@@ -16,6 +16,8 @@ import { searchExercises } from '../utils/exerciseSearch';
 import { useI18n } from '../hooks/useI18n';
 import { ExerciseDemonstrationButton } from '../components/ExerciseDemonstration';
 import { getExerciseName } from '../utils/exerciseLocalization';
+import { PageBackLink } from '../components/PageBackLink';
+import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard';
 const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 export function ProgramEditorPage() {
   const { t, language } = useI18n();
@@ -31,6 +33,9 @@ export function ProgramEditorPage() {
       ? structuredClone(existing)
       : { id: createId(), name: 'My program', workouts: [], createdAt: now, updatedAt: now },
   );
+  const [initialSnapshot, setInitialSnapshot] = useState(() => JSON.stringify(program));
+  const dirty = JSON.stringify(program) !== initialSnapshot;
+  const unsaved = useUnsavedChangesGuard(dirty);
   const [chooser, setChooser] = useState<string | null>(null);
   const updateWorkout = (wid: string, fn: (w: WorkoutTemplate) => void) =>
     setProgram((p) => ({
@@ -79,6 +84,15 @@ export function ProgramEditorPage() {
   const valid = program.name.trim() && program.workouts.length > 0;
   return (
     <>
+      <div onClick={(event) => {
+        const anchor = (event.target as Element).closest('a[href="/program"]');
+        if (anchor && dirty) {
+          event.preventDefault();
+          unsaved.request(() => nav('/program'));
+        }
+      }}>
+        <PageBackLink to="/program" label={t('backToPrograms')} />
+      </div>
       <div className="flex items-center justify-between">
         <h1 className="page-title">{existing ? t('editProgram') : t('newProgram')}</h1>
         <button
@@ -86,6 +100,7 @@ export function ProgramEditorPage() {
           className="btn-primary"
           onClick={() => {
             save({ ...program, updatedAt: new Date().toISOString() });
+            setInitialSnapshot(JSON.stringify(program));
             nav('/program');
           }}
         >
@@ -156,8 +171,8 @@ export function ProgramEditorPage() {
                     key={d}
                     aria-pressed={selected}
                     aria-label={`${selected ? 'Deselect' : 'Select'} ${d}`}
-                    className={`chip min-h-11 cursor-pointer gap-2 px-4 focus-visible:ring-2 focus-visible:ring-brand ${
-                      selected ? 'border-brand bg-brand text-ink' : 'border-slate-200 bg-slate-100 dark:border-white/10 dark:bg-white/[.04]'
+                    className={`chip min-h-11 cursor-pointer gap-2 border px-4 focus-visible:ring-2 focus-visible:ring-brand ${
+                      selected ? 'border-brand bg-brand/25 text-slate-950 shadow-[inset_0_0_0_1px_rgba(183,243,107,.35)] dark:bg-brand/20 dark:text-brand' : 'border-slate-200 bg-slate-100 hover:bg-slate-200 dark:border-white/10 dark:bg-white/[.04] dark:hover:bg-white/[.08]'
                     }`}
                     onClick={() =>
                       updateWorkout(w.id, (x) => {
@@ -266,6 +281,7 @@ export function ProgramEditorPage() {
           Add at least one workout day before saving.
         </p>
       )}
+      {unsaved.dialog}
     </>
   );
 }
@@ -541,14 +557,14 @@ function CompactNumber({
   return (
     <label className="min-w-0">
       <span className="label normal-case">{label}</span>
-      <span className="surface-subtle flex min-h-12 min-w-0 items-center rounded-2xl border border-line px-3 focus-within:ring-2 focus-within:ring-brand">
+      <span className="control-shell surface-subtle flex min-h-12 min-w-0 items-center rounded-2xl px-3">
         <input
           type="number"
           min={min}
           step={step}
           inputMode={step < 1 ? 'decimal' : 'numeric'}
           aria-label={label}
-          className="min-w-0 flex-1 bg-transparent px-2 py-2 text-center text-lg font-black outline-none"
+          className="control-input min-w-0 flex-1 bg-transparent px-2 py-2 text-center text-lg font-black outline-none"
           value={value}
           onChange={(event) => set(Math.max(min, Number(event.target.value)))}
         />
@@ -578,14 +594,14 @@ function CompactRange({
       <legend className="label normal-case">{label}</legend>
       <div
         dir="ltr"
-        className="surface-subtle flex min-h-12 min-w-0 items-center gap-2 rounded-2xl border border-line px-3 focus-within:ring-2 focus-within:ring-brand"
+        className="control-shell surface-subtle flex min-h-12 min-w-0 items-center gap-2 rounded-2xl px-3"
       >
         <input
           aria-label={`${label} ${t('minimum')}`}
           type="number"
           min="1"
           inputMode="numeric"
-          className="min-w-0 flex-1 bg-transparent px-1 py-2 text-center text-lg font-black outline-none"
+          className="control-input min-w-0 flex-1 bg-transparent px-1 py-2 text-center text-lg font-black outline-none focus:bg-brand/[.06]"
           value={minimum}
           onChange={(event) => setMinimum(Math.max(1, Number(event.target.value)))}
         />
@@ -595,7 +611,7 @@ function CompactRange({
           type="number"
           min="1"
           inputMode="numeric"
-          className="min-w-0 flex-1 bg-transparent px-1 py-2 text-center text-lg font-black outline-none"
+          className="control-input min-w-0 flex-1 bg-transparent px-1 py-2 text-center text-lg font-black outline-none focus:bg-brand/[.06]"
           value={maximum}
           onChange={(event) => setMaximum(Math.max(1, Number(event.target.value)))}
         />

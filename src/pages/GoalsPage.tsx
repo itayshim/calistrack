@@ -8,6 +8,7 @@ import { exercisePoints, weeklyCompleted } from '../utils/stats';
 import { useI18n } from '../hooks/useI18n';
 import { getExerciseName } from '../utils/exerciseLocalization';
 import { formatAddedWeight, formatDuration, formatReps, getSetAddedWeight, getSetReps } from '../utils/performance';
+import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard';
 const icons = {
   'weekly-workouts': Dumbbell,
   'exercise-reps': Target,
@@ -24,6 +25,9 @@ export function GoalsPage() {
     [exerciseId, setExercise] = useState(store.exercises[0]?.id ?? ''),
     [target, setTarget] = useState(3),
     [targetWeight, setTargetWeight] = useState(0);
+  const goalDirty = open && Boolean(title || type !== 'weekly-workouts' || target !== 3 || targetWeight !== 0);
+  const unsaved = useUnsavedChangesGuard(goalDirty);
+  const closeEditor = () => unsaved.request(() => setOpen(false));
   const save = () => {
     if (!title.trim()) return;
     store.addGoal({
@@ -137,7 +141,7 @@ export function GoalsPage() {
       {open && (
         <div
           className="fixed inset-0 z-50 flex items-end bg-black/70 backdrop-blur-sm sm:items-center sm:justify-center"
-          onMouseDown={(e) => e.target === e.currentTarget && setOpen(false)}
+          onMouseDown={(e) => e.target === e.currentTarget && closeEditor()}
         >
           <section
             role="dialog"
@@ -152,7 +156,7 @@ export function GoalsPage() {
                   What are you chasing?
                 </h2>
               </div>
-              <button aria-label="Close" className="icon-button" onClick={() => setOpen(false)}>
+              <button aria-label="Close" className="icon-button" onClick={closeEditor}>
                 <X />
               </button>
             </div>
@@ -240,6 +244,7 @@ export function GoalsPage() {
           </section>
         </div>
       )}
+      {unsaved.dialog}
     </div>
   );
 }

@@ -7,6 +7,8 @@ import { parseYouTubeVideoId, youtubeEmbedUrl } from '../../utils/youtube';
 import { useI18n } from '../../hooks/useI18n';
 import { builtInExercises } from '../../data/exercises';
 import { invalidatePublishedExerciseMedia } from '../../services/exerciseMedia';
+import { PageBackLink } from '../../components/PageBackLink';
+import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard';
 
 const empty = {
   id: '',
@@ -34,6 +36,7 @@ export function AdminExerciseEditorPage() {
   const { exerciseId } = useParams();
   const navigate = useNavigate();
   const [form, setForm] = useState(empty);
+  const [baseline, setBaseline] = useState(JSON.stringify(empty));
   const [youtube, setYoutube] = useState('');
   const [externalUrl, setExternalUrl] = useState('');
   const [error, setError] = useState('');
@@ -41,12 +44,18 @@ export function AdminExerciseEditorPage() {
   const [progress, setProgress] = useState<number | null>(null);
   const [media, setMedia] = useState<ExerciseMedia[]>([]);
   const token = getAdminSession()?.accessToken;
+  const dirty = JSON.stringify(form) !== baseline || Boolean(youtube || externalUrl);
+  const unsaved = useUnsavedChangesGuard(dirty);
+  const loadForm = (next: typeof empty) => {
+    setForm(next);
+    setBaseline(JSON.stringify(next));
+  };
   useEffect(() => {
     if (!exerciseId || exerciseId === 'new' || !token) return;
     if (exerciseId.startsWith('builtin:')) {
       const key = exerciseId.slice(8);
       const exercise = builtInExercises.find((item) => (item.stableKey ?? item.id.replace(/^builtin-/, '')) === key);
-      if (exercise) queueMicrotask(() => setForm({
+      if (exercise) queueMicrotask(() => loadForm({
         ...empty,
         stable_key: key,
         movement_family: exercise.movementFamily ?? exercise.category,
@@ -76,7 +85,7 @@ export function AdminExerciseEditorPage() {
       const translations = row.exercise_translations as Array<Record<string, unknown>>;
       const en = translations.find((item) => item.locale === 'en');
       const he = translations.find((item) => item.locale === 'he');
-      setForm({
+      loadForm({
         id: String(row.id),
         stable_key: String(row.stable_key),
         movement_family: String(row.movement_family),
@@ -147,6 +156,7 @@ export function AdminExerciseEditorPage() {
         canonicalExerciseId: id,
         stableKey: form.stable_key,
       });
+      setBaseline(JSON.stringify(form));
       navigate('/admin/exercises');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : t('unableToSave'));
@@ -220,6 +230,15 @@ export function AdminExerciseEditorPage() {
   const videoId = parseYouTubeVideoId(youtube);
   return (
     <main className="mx-auto max-w-4xl">
+      <div onClick={(event) => {
+        const anchor = (event.target as Element).closest('a[href="/admin/exercises"]');
+        if (anchor && dirty) {
+          event.preventDefault();
+          unsaved.request(() => navigate('/admin/exercises'));
+        }
+      }}>
+        <PageBackLink to="/admin/exercises" label={t('backToExercises')} />
+      </div>
       <h1 className="text-4xl font-black">{form.id ? t('editSharedExercise') : t('newSharedExercise')}</h1>
       <div className="mt-6 grid gap-5">
         <section className="card grid gap-3 sm:grid-cols-2">
@@ -259,6 +278,7 @@ export function AdminExerciseEditorPage() {
       </div>
       {error && <p role="alert" className="mt-4 text-red-400">{error}</p>}
       <div className="mt-5 flex items-center justify-between"><label className="flex min-h-12 items-center gap-3"><input type="checkbox" checked={form.is_published} onChange={(event) => set('is_published', event.target.checked)} />{t('published')}</label><button className="btn-primary" disabled={saving} onClick={save}>{saving ? t('saving') : t('saveExercise')}</button></div>
+      {unsaved.dialog}
     </main>
   );
 }

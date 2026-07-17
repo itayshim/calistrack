@@ -89,6 +89,15 @@ describe('administrator exercise media lifecycle', () => {
     api.removeFile.mockReset();
   });
 
+  it('provides a clear back action to the shared exercise list', async () => {
+    renderEditor();
+    await ready();
+    expect(screen.getByRole('link', { name: 'Back to exercises' })).toHaveAttribute(
+      'href',
+      '/admin/exercises',
+    );
+  });
+
   it('adds YouTube media to an existing exercise', async () => {
     const user = userEvent.setup();
     renderEditor();

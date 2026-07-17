@@ -11,6 +11,8 @@ import {
   getSetReps,
   normalizeMeasurementType,
 } from '../utils/performance';
+import { PageBackLink } from '../components/PageBackLink';
+import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard';
 export function HistoryDetailPage() {
   const { t, language } = useI18n();
   const { id } = useParams(),
@@ -19,9 +21,20 @@ export function HistoryDetailPage() {
     nav = useNavigate(),
     [session, setSession] = useState(() => (original ? structuredClone(original) : null)),
     [remove, setRemove] = useState(false);
+  const dirty = Boolean(session && original && JSON.stringify(session) !== JSON.stringify(original));
+  const unsaved = useUnsavedChangesGuard(dirty);
   if (!session) return <div className="card">{t('workoutNotFound')}</div>;
   return (
     <>
+      <div onClick={(event) => {
+        const anchor = (event.target as Element).closest('a[href="/history"]');
+        if (anchor && dirty) {
+          event.preventDefault();
+          unsaved.request(() => nav('/history'));
+        }
+      }}>
+        <PageBackLink to="/history" label={t('backToHistory')} />
+      </div>
       <div className="flex justify-between">
         <div>
           <h1 className="page-title mb-1">{session.workoutName}</h1>
@@ -145,6 +158,7 @@ export function HistoryDetailPage() {
           nav('/history');
         }}
       />
+      {unsaved.dialog}
     </>
   );
 }
