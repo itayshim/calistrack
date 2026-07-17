@@ -5,7 +5,7 @@ import { useAppStore } from '../store/useAppStore';
 import { workoutSummary } from '../utils/stats';
 import { useI18n } from '../hooks/useI18n';
 export function HistoryPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const sessions = useAppStore((s) => s.workoutSessions)
       .filter((s) => s.status === 'completed')
       .sort((a, b) => (b.completedAt ?? b.startedAt).localeCompare(a.completedAt ?? a.startedAt)),
@@ -20,9 +20,9 @@ export function HistoryPage() {
       {!sessions.length ? (
         <EmptyState
           icon={<History size={36} />}
-          title="Your first workout is waiting"
-          description="Complete a session and your training story will begin here."
-          action="Choose workout"
+          title={t('firstWorkoutWaiting')}
+          description={t('firstWorkoutHistoryDescription')}
+          action={t('chooseWorkout')}
           onAction={() => nav('/program')}
         />
       ) : (
@@ -41,7 +41,7 @@ export function HistoryPage() {
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-black uppercase tracking-wider text-slate-500">
                     {new Date(session.completedAt ?? session.startedAt).toLocaleDateString(
-                      'en-US',
+                      language === 'he' ? 'he-IL' : 'en-US',
                       { month: 'short', day: 'numeric', year: 'numeric' },
                     )}
                   </p>
@@ -49,16 +49,16 @@ export function HistoryPage() {
                   <p className="mt-2 flex flex-wrap items-center gap-3 text-xs font-bold text-slate-400">
                     <span className="flex items-center gap-1">
                       <Clock3 size={13} />
-                      {Math.round(summary.durationSeconds / 60)} min
+                      <bdi>{Math.round(summary.durationSeconds / 60)}</bdi> {t('minutesLowerShort')}
                     </span>
                     <span className="flex items-center gap-1">
                       <CalendarDays size={13} />
-                      {summary.totalSets} sets
+                      <bdi>{summary.totalSets}</bdi> {t('sets')}
                     </span>
-                    {session.difficultyRating && <span>Effort {session.difficultyRating}/5</span>}
+                    {session.difficultyRating && <span>{t('effort')} <bdi>{session.difficultyRating}/5</bdi></span>}
                   </p>
                 </div>
-                <ChevronRight className="text-slate-600 transition group-hover:translate-x-1 group-hover:text-brand" />
+                <ChevronRight className="directional-icon text-slate-600 transition group-hover:text-brand" />
               </Link>
             );
           })}

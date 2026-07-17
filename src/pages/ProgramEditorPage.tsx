@@ -152,7 +152,7 @@ export function ProgramEditorPage() {
                     aria-pressed={selected}
                     aria-label={`${selected ? 'Deselect' : 'Select'} ${d}`}
                     className={`chip min-h-11 cursor-pointer gap-2 px-4 focus-visible:ring-2 focus-visible:ring-brand ${
-                      selected ? 'border-brand bg-brand text-ink' : 'border-white/10 bg-white/[.04]'
+                      selected ? 'border-brand bg-brand text-ink' : 'border-slate-200 bg-slate-100 dark:border-white/10 dark:bg-white/[.04]'
                     }`}
                     onClick={() =>
                       updateWorkout(w.id, (x) => {
@@ -290,8 +290,8 @@ function ExercisePicker({
       aria-label="Choose exercise"
       className="fixed inset-0 z-40 flex items-end bg-black/70 sm:items-center sm:justify-center sm:p-4"
     >
-      <div className="max-h-[92dvh] w-full overflow-hidden rounded-t-[2rem] bg-[#121719] shadow-soft sm:max-w-2xl sm:rounded-[2rem]">
-        <div className="flex items-center justify-between border-b border-white/[.06] p-5">
+      <div className="modal-surface max-h-[92dvh] w-full overflow-hidden rounded-t-[2rem] sm:max-w-2xl sm:rounded-[2rem]">
+        <div className="flex items-center justify-between border-b border-slate-200 p-5 dark:border-white/[.06]">
           <div>
             <p className="eyebrow">{t('exerciseLibrary')}</p>
             <h2 className="text-2xl font-black">{t('addMovement')}</h2>
@@ -364,7 +364,7 @@ function ExercisePicker({
                 {results.map((exercise) => (
                   <button
                     key={exercise.id}
-                    className="flex min-h-16 w-full items-center justify-between rounded-2xl bg-white/[.045] p-4 text-left hover:bg-white/[.08]"
+                    className="surface-subtle flex min-h-16 w-full items-center justify-between rounded-2xl p-4 text-left hover:bg-slate-200 dark:hover:bg-white/[.08]"
                     onClick={() => onSelect(exercise.id)}
                   >
                     <span>

@@ -18,6 +18,7 @@ export function ProgressPage() {
   const { t } = useI18n();
   const exercises = useAppStore((s) => s.exercises),
     sessions = useAppStore((s) => s.workoutSessions),
+    theme = useAppStore((s) => s.settings.theme),
     [id, setId] = useState(exercises[0]?.id ?? ''),
     [mode, setMode] = useState<'best' | 'total'>('best'),
     [range, setRange] = useState(0),
@@ -76,12 +77,12 @@ export function ProgressPage() {
       <section>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <SectionHeader title="Performance trend" />
-          <div className="flex rounded-xl bg-white/[.05] p-1">
+          <div className="surface-subtle flex rounded-xl p-1">
             {(['best', 'total'] as const).map((v) => (
               <button
                 key={v}
                 onClick={() => setMode(v)}
-                className={`rounded-lg px-3 py-2 text-xs font-black ${mode === v ? 'bg-white/[.1] text-white' : 'text-slate-500'}`}
+                className={`rounded-lg px-3 py-2 text-xs font-black ${mode === v ? 'bg-white text-slate-950 shadow-sm dark:bg-white/[.1] dark:text-white' : 'text-slate-500'}`}
               >
                 {v === 'best' ? 'BEST SET' : 'TOTAL'}
               </button>
@@ -116,7 +117,7 @@ export function ProgressPage() {
                     <stop offset="100%" stopColor="#b7f36b" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid stroke="#263035" vertical={false} />
+                <CartesianGrid stroke={theme === 'dark' ? '#263035' : '#e2e8f0'} vertical={false} />
                 <XAxis
                   dataKey="label"
                   axisLine={false}
@@ -130,7 +131,12 @@ export function ProgressPage() {
                   tick={{ fill: '#68747a', fontSize: 11 }}
                 />
                 <Tooltip
-                  contentStyle={{ background: '#171e22', border: '0', borderRadius: '16px' }}
+                  contentStyle={{
+                    background: theme === 'dark' ? '#171e22' : '#ffffff',
+                    color: theme === 'dark' ? '#ffffff' : '#0f172a',
+                    border: theme === 'dark' ? '1px solid #263035' : '1px solid #e2e8f0',
+                    borderRadius: '16px',
+                  }}
                 />
                 <Area
                   type="monotone"
@@ -153,7 +159,7 @@ export function ProgressPage() {
             <button
               key={v}
               onClick={() => setRange(Number(v))}
-              className={`rounded-full px-4 py-2 text-xs font-black ${range === v ? 'bg-brand text-ink' : 'bg-white/[.05] text-slate-500'}`}
+              className={`rounded-full px-4 py-2 text-xs font-black ${range === v ? 'bg-brand text-ink' : 'bg-slate-100 text-slate-500 dark:bg-white/[.05]'}`}
             >
               {l}
             </button>
@@ -161,7 +167,7 @@ export function ProgressPage() {
         </div>
       </section>
       {recommendation && (
-        <section className="card border-brand/20 bg-[#182019]">
+        <section className="card border-brand/30 bg-lime-50 dark:bg-[#182019]">
           <div className="flex gap-4">
             <IconTile>
               <Award />
@@ -169,7 +175,7 @@ export function ProgressPage() {
             <div>
               <Badge tone="brand">{t('coachingInsight')}</Badge>
               <h2 className="mt-3 text-xl font-black">{t('readyForNext')}</h2>
-              <p className="mt-2 text-sm leading-relaxed text-slate-300">
+              <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
                 {recommendation.message}
               </p>
               {exercise?.harderExerciseId && recommendation.kind === 'progress' && (

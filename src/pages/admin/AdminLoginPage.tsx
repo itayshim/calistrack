@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useI18n } from '../../hooks/useI18n';
 import { authErrorMessage } from '../../services/authErrors';
 import { signInAdmin, supabaseConfigured } from '../../services/supabase';
@@ -27,6 +28,10 @@ export function AdminLoginPage() {
   return (
     <main className="grid min-h-screen place-items-center p-4">
       <section className="card w-full max-w-md">
+        <Link className="mb-5 inline-flex min-h-11 items-center gap-2 font-bold text-slate-400" to="/settings">
+          <ArrowLeft className="directional-icon" size={18} />
+          {t('backToApp')}
+        </Link>
         <p className="eyebrow">{t('admin')}</p>
         <h1 className="mt-2 text-3xl font-black">{t('login')}</h1>
         {!supabaseConfigured && <p role="alert" className="mt-4 rounded-2xl bg-orange-500/10 p-4 text-orange-200">{t('missingConfig')}</p>}

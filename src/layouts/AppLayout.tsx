@@ -26,7 +26,7 @@ export function AppLayout() {
   const workoutPath = active ? `/workout/${active.id}` : '/program';
   return (
     <div className="min-h-screen md:flex" dir={direction}>
-      <aside className="fixed inset-y-0 start-0 z-30 hidden w-[17rem] border-e border-white/[.06] bg-[#0d1113]/95 px-5 py-7 backdrop-blur-xl md:flex md:flex-col">
+      <aside className="fixed inset-y-0 start-0 z-30 hidden w-[17rem] border-e border-slate-200/80 bg-white/95 px-5 py-7 text-slate-950 backdrop-blur-xl dark:border-white/[.06] dark:bg-ink/95 dark:text-white md:flex md:flex-col">
         <button onClick={() => nav('/')} className="mb-10 flex items-center gap-3 px-2 text-start">
           <span className="grid h-11 w-11 place-items-center rounded-2xl bg-brand text-ink shadow-glow">
             <Sparkles size={22} />
@@ -46,8 +46,8 @@ export function AppLayout() {
                 aria-current={isTabActive(to, location.pathname) ? 'page' : undefined}
                 className={`flex min-h-14 items-center gap-4 rounded-2xl px-4 font-extrabold transition ${
                   isTabActive(to, location.pathname)
-                    ? 'bg-white/[.08] text-white'
-                    : 'text-slate-500 hover:bg-white/[.04] hover:text-white'
+                    ? 'bg-slate-100 text-slate-950 dark:bg-white/[.08] dark:text-white'
+                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[.04] dark:hover:text-white'
                 }`}
               >
                 <Icon size={21} />
@@ -95,7 +95,7 @@ export function AppLayout() {
       </main>
       <nav
         aria-label={t('mainNavigation')}
-        className="mobile-bottom-nav fixed inset-x-3 z-30 grid grid-cols-5 rounded-[1.6rem] border border-white/[.08] bg-[#111719]/95 p-1.5 shadow-soft backdrop-blur-xl md:hidden"
+        className="mobile-bottom-nav fixed inset-x-3 z-30 grid grid-cols-5 rounded-[1.6rem] border border-slate-200/80 bg-white/95 p-1.5 shadow-lg backdrop-blur-xl dark:border-white/[.08] dark:bg-panel/95 dark:shadow-soft md:hidden"
       >
         {tabs.map(([to, labelKey, Icon]) => {
           const destination = to === '/workout' ? workoutPath : to;
@@ -106,7 +106,7 @@ export function AppLayout() {
               aria-label={t(labelKey)}
               aria-current={isTabActive(to, location.pathname) ? 'page' : undefined}
               className={`relative flex min-h-[3.7rem] flex-col items-center justify-center gap-1 rounded-2xl text-[10px] font-extrabold transition ${
-                isTabActive(to, location.pathname) ? 'bg-white/[.07] text-brand' : 'text-slate-500'
+                isTabActive(to, location.pathname) ? 'bg-brand/15 text-lime-700 dark:bg-white/[.07] dark:text-brand' : 'text-slate-500'
               }`}
             >
               <Icon size={to === '/workout' ? 24 : 21} strokeWidth={2.3} />

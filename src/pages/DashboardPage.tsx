@@ -89,19 +89,19 @@ export function DashboardPage() {
             <div className="absolute bottom-0 right-16 h-24 w-24 rounded-t-full bg-ink/[.05]" />
             <div className="relative">
               <div className="flex items-center justify-between">
-                <Badge tone="neutral">{active ? 'WORKOUT IN PROGRESS' : 'UP NEXT'}</Badge>
+                <Badge tone="neutral">{active ? t('workoutInProgress') : t('upNext')}</Badge>
                 <span className="flex items-center gap-1 text-xs font-black opacity-60">
                   <Clock3 size={14} />
-                  ~35 MIN
+                  {t('approximateMinutesShort')}
                 </span>
               </div>
               <h2 className="mt-7 max-w-xl text-4xl font-black leading-none tracking-[-.05em] sm:text-5xl">
-                {active?.workoutName ?? next?.name ?? 'Free workout'}
+                {active?.workoutName ?? next?.name ?? t('freeWorkout')}
               </h2>
               <p className="mt-3 font-bold opacity-65">
                 {active
-                  ? 'Pick up exactly where you left off.'
-                  : `${next?.exercises.length ?? 0} exercises · Full body`}
+                  ? t('resumeWorkoutDescription')
+                  : `${next?.exercises.length ?? 0} ${t('workoutOverview')}`}
               </p>
               <button
                 disabled={!next && !active}
@@ -109,38 +109,38 @@ export function DashboardPage() {
                 className="mt-8 flex min-h-16 w-full items-center justify-center gap-3 rounded-2xl bg-ink px-6 text-lg font-black text-white shadow-xl transition active:scale-[.98] sm:w-auto sm:min-w-64"
               >
                 <Play size={22} fill="currentColor" />
-                {active ? 'Resume workout' : 'Start workout'}
+                {active ? t('resumeWorkout') : t('startWorkout')}
               </button>
             </div>
           </section>
           <section>
             <SectionHeader
-              title="This week"
-              action="View history"
+              title={t('thisWeek')}
+              action={t('viewHistory')}
               onAction={() => nav('/history')}
             />
-            <div className="grid grid-cols-[1fr_auto] items-center gap-5 rounded-3xl bg-panel p-5 shadow-soft sm:p-6">
+            <div className="surface-panel grid grid-cols-[1fr_auto] items-center gap-5 rounded-3xl p-5 sm:p-6">
               <div>
                 <p className="text-3xl font-black tracking-tight">
-                  {weekly} of {goal}
+                  <bdi>{weekly}</bdi> {t('of')} <bdi>{goal}</bdi>
                 </p>
                 <p className="mt-1 text-sm font-semibold text-slate-400">{t('workoutsComplete')}</p>
                 <div className="mt-5">
-                  <ProgressBar value={weeklyPct} label="Weekly workout goal" />
+                  <ProgressBar value={weeklyPct} label={t('weeklyWorkoutGoal')} />
                 </div>
                 <div className="mt-4 flex items-center gap-2 text-sm font-bold text-slate-400">
                   <Flame size={17} className="text-orange-400" />
-                  <span>{streak} week streak</span>
+                  <span><bdi>{streak}</bdi> {t('weekStreak')}</span>
                 </div>
               </div>
-              <ProgressRing value={weeklyPct} label="Weekly progress" />
+              <ProgressRing value={weeklyPct} label={t('weeklyProgress')} />
             </div>
           </section>
           <div className="grid gap-8 lg:grid-cols-2">
             <section>
               <SectionHeader
-                title="Current goal"
-                action="All goals"
+                title={t('currentGoal')}
+                action={t('allGoals')}
                 onAction={() => nav('/goals')}
               />
               {goals[0] ? (
@@ -155,7 +155,7 @@ export function DashboardPage() {
                     <h3 className="truncate text-lg font-black">{goals[0].title}</h3>
                     <p className="text-sm text-slate-400">{t('focusMessage')}</p>
                   </div>
-                  <ChevronRight className="text-slate-600" />
+                  <ChevronRight className="directional-icon text-slate-600" />
                 </button>
               ) : (
                 <button
@@ -169,14 +169,14 @@ export function DashboardPage() {
                     <h3 className="font-black">{t('setNextTarget')}</h3>
                     <p className="text-sm text-slate-400">{t('goalPurpose')}</p>
                   </div>
-                  <ArrowUpRight />
+                  <ArrowUpRight className="directional-icon" />
                 </button>
               )}
             </section>
             <section>
               <SectionHeader
-                title="Personal best"
-                action="Progress"
+                title={t('personalBest')}
+                action={t('progress')}
                 onAction={() => nav('/progress')}
               />
               <div className="card flex items-center gap-4">
@@ -190,7 +190,7 @@ export function DashboardPage() {
                       <p className="text-3xl font-black">
                         {topRecord.bestSet}{' '}
                         <span className="text-base text-slate-500">
-                          {topRecord.measurementType === 'time' ? 'sec' : 'reps'}
+                          {topRecord.measurementType === 'time' ? t('secondsShort') : t('repsShort')}
                         </span>
                       </p>
                     </>
@@ -198,7 +198,7 @@ export function DashboardPage() {
                     <>
                       <p className="font-black">{t('firstPrWaiting')}</p>
                       <p className="text-sm text-slate-400">
-                        Complete a workout to set the baseline.
+                        {t('completeWorkoutBaseline')}
                       </p>
                     </>
                   )}
@@ -209,8 +209,8 @@ export function DashboardPage() {
           </div>
           <section>
             <SectionHeader
-              title="Recent workout"
-              action="History"
+              title={t('recentWorkout')}
+              action={t('history')}
               onAction={() => nav('/history')}
             />
             {last ? (
@@ -224,14 +224,14 @@ export function DashboardPage() {
                 <div className="min-w-0 flex-1">
                   <h3 className="truncate text-lg font-black">{last.workoutName}</h3>
                   <p className="text-sm font-semibold text-slate-400">
-                    {new Date(last.completedAt ?? last.startedAt).toLocaleDateString('en-US', {
+                    {new Date(last.completedAt ?? last.startedAt).toLocaleDateString(language === 'he' ? 'he-IL' : 'en-US', {
                       month: 'short',
                       day: 'numeric',
                     })}{' '}
-                    · {workoutSummary(last).totalSets} sets
+                    · <bdi>{workoutSummary(last).totalSets}</bdi> {t('sets')}
                   </p>
                 </div>
-                <ChevronRight className="text-slate-600" />
+                <ChevronRight className="directional-icon text-slate-600" />
               </button>
             ) : (
               <div className="card flex items-center gap-4">
@@ -245,10 +245,10 @@ export function DashboardPage() {
               </div>
             )}
           </section>
-          <div className="flex items-start gap-3 rounded-3xl bg-white/[.035] p-5 text-sm text-slate-400">
+          <div className="surface-subtle flex items-start gap-3 rounded-3xl p-5 text-sm text-slate-500 dark:text-slate-400">
             <Sparkles className="mt-0.5 shrink-0 text-brand" size={18} />
             <p>
-              <strong className="text-white">{t('consistencyTitle')}</strong>{' '}
+              <strong className="text-slate-950 dark:text-white">{t('consistencyTitle')}</strong>{' '}
               {t('consistencyMessage')}
             </p>
           </div>

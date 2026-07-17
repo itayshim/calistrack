@@ -16,7 +16,7 @@ export function ExerciseDetailPage() {
     <article className="mx-auto max-w-3xl">
       <Link
         to="/exercises"
-        className="mb-7 inline-flex items-center gap-2 text-sm font-black text-slate-400 hover:text-white"
+        className="mb-7 inline-flex items-center gap-2 text-sm font-black text-slate-500 hover:text-slate-950 dark:text-slate-400 dark:hover:text-white"
       >
         <ArrowLeft className="directional-icon" size={18} />
         {t('exerciseLibrary')}

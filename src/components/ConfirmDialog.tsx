@@ -23,7 +23,7 @@ export function ConfirmDialog({
     <dialog
       ref={ref}
       onCancel={onClose}
-      className="w-[calc(100%-2rem)] max-w-sm rounded-4xl border border-white/[.08] bg-elevated p-6 text-white shadow-soft backdrop:bg-black/75 backdrop:backdrop-blur-sm"
+      className="modal-surface w-[calc(100%-2rem)] max-w-sm rounded-4xl p-6 backdrop:bg-black/60 backdrop:backdrop-blur-sm"
       aria-labelledby="dialog-title"
     >
       <h2 id="dialog-title" className="text-2xl font-black tracking-tight">

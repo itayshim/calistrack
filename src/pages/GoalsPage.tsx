@@ -114,7 +114,7 @@ export function GoalsPage() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="goal-title"
-            className="w-full animate-rise rounded-t-4xl bg-elevated p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-soft sm:max-w-lg sm:rounded-4xl"
+            className="modal-surface w-full animate-rise rounded-t-4xl p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:max-w-lg sm:rounded-4xl"
           >
             <div className="mb-7 flex items-center justify-between">
               <div>
@@ -152,7 +152,7 @@ export function GoalsPage() {
                     <button
                       key={value}
                       onClick={() => setType(value)}
-                      className={`min-h-13 rounded-2xl px-3 text-sm font-black ${type === value ? 'bg-brand text-ink' : 'bg-white/[.06] text-slate-400'}`}
+                      className={`min-h-13 rounded-2xl px-3 text-sm font-black ${type === value ? 'bg-brand text-ink' : 'bg-slate-100 text-slate-600 dark:bg-white/[.06] dark:text-slate-400'}`}
                     >
                       {label}
                     </button>

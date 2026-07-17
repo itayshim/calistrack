@@ -70,7 +70,7 @@ export function ExercisesPage() {
           {t('customExercise')}
         </button>
       </div>
-      <div className="mb-5 grid gap-3 rounded-3xl bg-white/[.035] p-4 md:grid-cols-4">
+      <div className="surface-subtle mb-5 grid gap-3 rounded-3xl p-4 md:grid-cols-4">
         <label>
           <span className="label">{t('search')}</span>
           <span className="relative block">
@@ -226,7 +226,7 @@ function ExerciseForm({
       role="dialog"
       aria-modal="true"
       aria-label={t('createCustomExercise')}
-      className="fixed inset-0 z-40 grid place-items-center bg-black/70 p-4"
+      className="fixed inset-0 z-40 grid place-items-center bg-black/60 p-4 backdrop-blur-sm"
     >
       <div className="card w-full max-w-lg">
         <h2 className="mb-4 text-xl font-black">{initial ? t('editCustomExercise') : t('newCustomExercise')}</h2>

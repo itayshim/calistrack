@@ -20,7 +20,7 @@ export function PwaUpdatePrompt() {
     <aside
       role="status"
       aria-live="polite"
-      className="pwa-update-position fixed inset-x-4 z-[60] mx-auto max-w-md rounded-3xl border border-white/[.08] bg-elevated p-4 text-white shadow-soft"
+      className="modal-surface pwa-update-position fixed inset-x-4 z-[60] mx-auto max-w-md rounded-3xl p-4"
     >
       <div className="flex items-start gap-3">
         <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-brand/15 text-brand">

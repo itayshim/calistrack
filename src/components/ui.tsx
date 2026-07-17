@@ -47,7 +47,7 @@ export function ProgressRing({
           fill="none"
           stroke="currentColor"
           strokeWidth="8"
-          className="text-white/10"
+          className="text-slate-200 dark:text-white/10"
         />
         <circle
           cx="50"
@@ -77,7 +77,7 @@ export function Badge({
   tone?: 'neutral' | 'brand' | 'blue' | 'orange';
 }) {
   const tones = {
-    neutral: 'bg-white/[.07] text-slate-300',
+    neutral: 'bg-slate-200/80 text-slate-700 dark:bg-white/[.07] dark:text-slate-300',
     brand: 'bg-brand/15 text-brand',
     blue: 'bg-blue-500/15 text-blue-300',
     orange: 'bg-orange-500/15 text-orange-300',
@@ -127,7 +127,7 @@ export function SectionHeader({
           className="flex items-center gap-1 text-sm font-extrabold text-brand"
         >
           {action}
-          <ArrowRight size={16} />
+          <ArrowRight className="directional-icon" size={16} />
         </button>
       )}
     </div>

@@ -38,7 +38,7 @@ export function WorkoutPage() {
   if (!active)
     return (
       <div className="mx-auto max-w-lg py-16 text-center">
-        <div className="mx-auto grid h-20 w-20 place-items-center rounded-3xl bg-white/[.06] text-brand">
+        <div className="mx-auto grid h-20 w-20 place-items-center rounded-3xl bg-brand/15 text-lime-700 dark:bg-white/[.06] dark:text-brand">
           <Play size={34} />
         </div>
         <h1 className="mt-6 text-3xl font-black">{t('noWorkout')}</h1>
@@ -118,7 +118,7 @@ export function WorkoutPage() {
             </p>
           </div>
           <button
-            className="rounded-full bg-white/[.06] px-4 py-2 text-xs font-black"
+            className="rounded-full bg-slate-100 px-4 py-2 text-xs font-black dark:bg-white/[.06]"
             onClick={() => setFinish(true)}
           >
             {t('finish')}
@@ -132,7 +132,7 @@ export function WorkoutPage() {
       {remaining > 0 && (
         <section
           role="timer"
-          className="mb-6 overflow-hidden rounded-4xl bg-[#1b231c] p-6 text-center shadow-glow"
+          className="mb-6 overflow-hidden rounded-4xl border border-brand/30 bg-lime-50 p-6 text-center shadow-sm dark:bg-[#1b231c] dark:shadow-glow"
         >
           <p className="eyebrow">{t('rest')}</p>
           <strong className="mt-2 block text-7xl font-black tabular-nums tracking-[-.07em] text-brand">
@@ -177,7 +177,7 @@ export function WorkoutPage() {
           <span><bdi>{target?.targetSets}</bdi> {t('sets')}</span><span aria-hidden="true"> · </span><span><bdi>{target?.targetMin}–{target?.targetMax}</bdi> {exercise?.measurementType === 'time' ? t('seconds') : t('reps')}</span>
         </p>
         {previous?.length ? (
-          <div className="mt-6 flex items-center justify-between rounded-2xl bg-white/[.045] px-4 py-3">
+          <div className="surface-subtle mt-6 flex items-center justify-between rounded-2xl px-4 py-3">
             <span className="text-xs font-black uppercase tracking-wider text-slate-500">
               {t('lastTime')}
             </span>
@@ -190,7 +190,7 @@ export function WorkoutPage() {
           {sessionExercise.sets.map((set) => (
             <div
               key={set.id}
-              className="flex min-h-16 items-center gap-3 rounded-2xl bg-white/[.05] px-4"
+              className="surface-subtle flex min-h-16 items-center gap-3 rounded-2xl px-4"
             >
               <span className="grid h-9 w-9 place-items-center rounded-full bg-brand text-ink">
                 <Check size={18} strokeWidth={3} />
@@ -232,7 +232,7 @@ export function WorkoutPage() {
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && complete()}
             placeholder="0"
-            className="mx-auto block w-full bg-transparent text-center text-[6.5rem] font-black leading-none tabular-nums tracking-[-.08em] text-white outline-none placeholder:text-white/[.08] disabled:cursor-not-allowed disabled:opacity-30 sm:text-9xl"
+            className="mx-auto block w-full bg-transparent text-center text-[6.5rem] font-black leading-none tabular-nums tracking-[-.08em] text-slate-950 outline-none placeholder:text-slate-300 disabled:cursor-not-allowed disabled:opacity-30 dark:text-white dark:placeholder:text-white/[.08] sm:text-9xl"
           />
         </div>
         {canEnterSet ? (
@@ -258,7 +258,7 @@ export function WorkoutPage() {
             {target.notes}
           </p>
         )}
-        <details className="mt-5 rounded-2xl bg-white/[.035] p-4">
+        <details className="surface-subtle mt-5 rounded-2xl p-4">
           <summary className="cursor-pointer text-sm font-black text-slate-400">
             {t('addExerciseNotes')}
           </summary>
@@ -275,7 +275,7 @@ export function WorkoutPage() {
             className="btn-secondary px-2"
             onClick={() => store.setCurrentExercise(i - 1)}
           >
-            <ChevronLeft />
+            <ChevronLeft className="directional-icon" />
             {t('previous')}
           </button>
           <button className="btn-secondary px-2" onClick={() => store.skipExercise(i)}>
@@ -285,7 +285,7 @@ export function WorkoutPage() {
           {i < active.exercises.length - 1 ? (
             <button className="btn-primary px-2" onClick={() => store.setCurrentExercise(i + 1)}>
               {t('next')}
-              <ChevronRight />
+              <ChevronRight className="directional-icon" />
             </button>
           ) : (
             <button className="btn-primary px-2" onClick={() => setFinish(true)}>
@@ -300,7 +300,7 @@ export function WorkoutPage() {
               <button
                 key={item.id}
                 onClick={() => store.setCurrentExercise(n)}
-                className={`min-w-[9rem] rounded-2xl p-3 text-start ${n === i ? 'bg-brand text-ink' : 'bg-white/[.05] text-slate-400'}`}
+                className={`min-w-[9rem] rounded-2xl p-3 text-start ${n === i ? 'bg-brand text-ink' : 'bg-slate-100 text-slate-500 dark:bg-white/[.05] dark:text-slate-400'}`}
               >
                 <span className="block text-xs font-black">
                   {n + 1}.{' '}
@@ -365,7 +365,7 @@ function WorkoutFinish({
           [summary.totalSets, t('sets')],
           [summary.completedExercises, t('moves')],
         ].map(([v, l]) => (
-          <div key={l} className="rounded-3xl bg-white/[.05] p-4">
+          <div key={l} className="surface-subtle rounded-3xl p-4">
             <strong className="block text-3xl font-black">{v}</strong>
             <span className="text-[10px] font-black tracking-wider text-slate-500">{l}</span>
           </div>
@@ -406,7 +406,7 @@ function Rating({ label, value, set }: { label: string; value: number; set: (v: 
             key={n}
             aria-pressed={value === n}
             onClick={() => set(n)}
-            className={`min-h-12 rounded-2xl font-black transition ${value === n ? 'bg-brand text-ink' : 'bg-white/[.06] text-slate-400'}`}
+            className={`min-h-12 rounded-2xl font-black transition ${value === n ? 'bg-brand text-ink' : 'bg-slate-100 text-slate-500 dark:bg-white/[.06] dark:text-slate-400'}`}
           >
             {n}
           </button>

@@ -3,8 +3,11 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
   font-synthesis: none;
+}
+.dark {
+  color-scheme: dark;
 }
 * {
   box-sizing: border-box;
@@ -18,7 +21,7 @@ html {
     BlinkMacSystemFont,
     'Segoe UI',
     sans-serif;
-  background: #080b0d;
+  @apply bg-slate-50 dark:bg-ink;
 }
 body {
   @apply m-0 min-w-[320px] overflow-x-hidden bg-slate-50 text-slate-950 antialiased dark:bg-ink dark:text-white;
@@ -47,7 +50,7 @@ a:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  @apply outline-none ring-2 ring-brand ring-offset-2 ring-offset-ink;
+  @apply outline-none ring-2 ring-brand ring-offset-2 ring-offset-slate-50 dark:ring-offset-ink;
 }
 
 @layer components {
@@ -86,6 +89,15 @@ textarea:focus-visible {
   }
   .icon-button {
     @apply grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-slate-100 transition active:scale-95 dark:bg-white/[.07];
+  }
+  .surface-subtle {
+    @apply bg-slate-100 text-slate-900 dark:bg-white/[.05] dark:text-white;
+  }
+  .surface-panel {
+    @apply border border-slate-200/70 bg-white text-slate-950 shadow-sm dark:border-white/[.06] dark:bg-panel dark:text-white dark:shadow-soft;
+  }
+  .modal-surface {
+    @apply border border-slate-200 bg-white text-slate-950 shadow-xl dark:border-white/[.08] dark:bg-elevated dark:text-white dark:shadow-soft;
   }
 }
 

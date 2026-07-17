@@ -1,16 +1,19 @@
-import { Download, RotateCcw, Upload } from 'lucide-react';
+import { Download, RotateCcw, ShieldCheck, Upload } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { storageService } from '../services/storage';
 import { useAppStore } from '../store/useAppStore';
 import { useI18n } from '../hooks/useI18n';
+import { getAdminSession } from '../services/supabase';
 export function SettingsPage() {
   const store = useAppStore(),
     [settings, setSettings] = useState(store.settings),
     [reset, setReset] = useState(false),
     [pending, setPending] = useState<ReturnType<typeof storageService.importData> | null>(null),
     file = useRef<HTMLInputElement>(null),
-    { t } = useI18n();
+    { t } = useI18n(),
+    adminSession = getAdminSession();
   useEffect(() => {
     document.documentElement.classList.toggle('dark', settings.theme === 'dark');
   }, [settings.theme]);
@@ -61,7 +64,7 @@ export function SettingsPage() {
                 key={language}
                 aria-pressed={settings.language === language}
                 className={`min-h-12 rounded-2xl font-black ${
-                  settings.language === language ? 'bg-brand text-ink' : 'bg-white/[.06] text-slate-300'
+                  settings.language === language ? 'bg-brand text-ink' : 'bg-slate-100 text-slate-600 dark:bg-white/[.06] dark:text-slate-300'
                 }`}
                 onClick={() => {
                   const next = { ...settings, language };
@@ -123,6 +126,20 @@ export function SettingsPage() {
         </button>
       </section>
       <section className="card max-w-2xl">
+        <div className="flex items-start gap-4">
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-brand/15 text-brand">
+            <ShieldCheck aria-hidden="true" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-xl font-black">{t('administration')}</h2>
+            <p className="mt-1 text-sm text-slate-400">{t('administrationDescription')}</p>
+            <Link className="btn-secondary mt-4 w-full sm:w-auto" to={adminSession ? '/admin' : '/admin/login'}>
+              {adminSession ? t('openAdmin') : t('adminSignIn')}
+            </Link>
+          </div>
+        </div>
+      </section>
+      <section className="card max-w-2xl">
         <p className="eyebrow">{t('backupControl')}</p>
         <h2 className="mt-2 text-2xl font-black">{t('myData')}</h2>
         <p className="my-2 text-slate-400">{t('exportDescription')}</p>
@@ -175,7 +192,7 @@ function Toggle({
   set: (v: boolean) => void;
 }) {
   return (
-    <label className="flex min-h-16 items-center justify-between rounded-2xl bg-white/[.045] px-4">
+    <label className="surface-subtle flex min-h-16 items-center justify-between rounded-2xl px-4">
       <span className="font-bold">{label}</span>
       <input
         className="h-5 w-5 accent-brand"

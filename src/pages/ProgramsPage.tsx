@@ -89,7 +89,7 @@ export function ProgramsPage() {
                     onClick={() => launch(workout)}
                     className="flex w-full items-center gap-4 p-5 text-start"
                   >
-                    <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-white/[.06] text-brand">
+                    <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-brand/15 text-lime-700 dark:bg-white/[.06] dark:text-brand">
                       <span className="text-xl font-black">{String.fromCharCode(65 + index)}</span>
                     </span>
                     <div className="min-w-0 flex-1">
@@ -111,7 +111,7 @@ export function ProgramsPage() {
             </div>
             <Link
               to={`/program/${program.id}`}
-              className="mt-4 flex items-center justify-center gap-1 py-3 text-sm font-black text-slate-400 hover:text-white"
+              className="mt-4 flex items-center justify-center gap-1 py-3 text-sm font-black text-slate-500 hover:text-slate-950 dark:text-slate-400 dark:hover:text-white"
             >
               {t('editTrainingWeek')} <ChevronRight className="directional-icon" size={16} />
             </Link>

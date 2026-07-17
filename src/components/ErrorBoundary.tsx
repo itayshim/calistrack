@@ -11,7 +11,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { failed: 
     const language = useAppStore.getState().settings.language;
     const copy = translations[language];
     return this.state.failed ? (
-      <main dir={language === 'he' ? 'rtl' : 'ltr'} className="grid min-h-screen place-items-center bg-ink p-6 text-white">
+      <main dir={language === 'he' ? 'rtl' : 'ltr'} className="grid min-h-screen place-items-center bg-slate-50 p-6 text-slate-950 dark:bg-ink dark:text-white">
         <div className="card max-w-md text-center">
           <h1 className="text-2xl font-black">{copy.errorTitle}</h1>
           <p className="my-3">{copy.errorDescription}</p>
