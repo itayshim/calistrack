@@ -4,7 +4,7 @@ export function parseYouTubeVideoId(value: string): string | null {
     const host = url.hostname.replace(/^www\./, '').replace(/^m\./, '');
     let id: string | null = null;
     if (host === 'youtu.be') id = url.pathname.split('/').filter(Boolean)[0] ?? null;
-    if (host === 'youtube.com') {
+    if (host === 'youtube.com' || host === 'youtube-nocookie.com') {
       if (url.pathname === '/watch') id = url.searchParams.get('v');
       if (url.pathname.startsWith('/shorts/') || url.pathname.startsWith('/embed/')) {
         id = url.pathname.split('/')[2] ?? null;

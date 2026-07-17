@@ -13,4 +13,23 @@ describe('global exercise merging', () => {
     expect(merged.filter((exercise) => exercise.stableKey === 'push-up')).toHaveLength(1);
     expect(merged.find((exercise) => exercise.id === 'personal')).toBeTruthy();
   });
+
+  it('preserves a global canonical ID while keeping the stable built-in app ID', () => {
+    const builtIn = builtInExercises.find(
+      (exercise) => exercise.stableKey === 'incline-push-up',
+    )!;
+    const global = {
+      ...builtIn,
+      id: 'builtin-incline-push-up',
+      canonicalExerciseId: 'supabase-uuid',
+      source: 'global' as const,
+    };
+    const merged = mergeExerciseSources([global], builtInExercises);
+    expect(
+      merged.find((exercise) => exercise.stableKey === 'incline-push-up'),
+    ).toEqual(expect.objectContaining({
+      id: 'builtin-incline-push-up',
+      canonicalExerciseId: 'supabase-uuid',
+    }));
+  });
 });

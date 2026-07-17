@@ -22,6 +22,7 @@ export interface Exercise {
   aliasesHe?: string[];
   keywordsHe?: string[];
   stableKey?: string;
+  canonicalExerciseId?: string;
   source?: 'built-in' | 'global' | 'personal';
   media?: ExerciseMedia[];
   easierExerciseId?: string;

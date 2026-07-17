@@ -56,6 +56,7 @@ function toExercise(row: GlobalRow): Exercise {
   const he = row.exercise_translations.find((item) => item.locale === 'he');
   return {
     id: `builtin-${row.stable_key}`,
+    canonicalExerciseId: row.id,
     stableKey: row.stable_key,
     source: 'global',
     nameEn: en?.name ?? row.stable_key,
@@ -75,7 +76,13 @@ function toExercise(row: GlobalRow): Exercise {
     instructionsHe: he?.instructions,
     commonMistakes: en?.common_mistakes ?? [],
     commonMistakesHe: he?.common_mistakes,
-    media: (row.exercise_media ?? []).map(toMedia).sort((a, b) => a.sortOrder - b.sortOrder),
+    media: (row.exercise_media ?? [])
+      .map(toMedia)
+      .filter((item) => item.isPublished)
+      .sort(
+        (a, b) =>
+          Number(b.isPrimary) - Number(a.isPrimary) || a.sortOrder - b.sortOrder,
+      ),
     isCustom: false,
   };
 }
@@ -91,7 +98,7 @@ export async function loadGlobalContent(local: Exercise[]): Promise<GlobalConten
   if (supabaseConfigured) {
     try {
       const rows = await supabaseRequest<GlobalRow[]>(
-        '/rest/v1/global_exercises?is_published=eq.true&select=*,exercise_translations(*),exercise_media(*)&exercise_media.is_published=eq.true',
+        '/rest/v1/global_exercises?is_published=eq.true&select=*,exercise_translations(*),exercise_media(*)',
       );
       const global = rows.map(toExercise);
       localStorage.setItem(CACHE_KEY, JSON.stringify(global));

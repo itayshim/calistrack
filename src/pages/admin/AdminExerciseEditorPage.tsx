@@ -6,6 +6,7 @@ import type { ExerciseMedia } from '../../types';
 import { parseYouTubeVideoId, youtubeEmbedUrl } from '../../utils/youtube';
 import { useI18n } from '../../hooks/useI18n';
 import { builtInExercises } from '../../data/exercises';
+import { invalidatePublishedExerciseMedia } from '../../services/exerciseMedia';
 
 const empty = {
   id: '',
@@ -142,6 +143,10 @@ export function AdminExerciseEditorPage() {
         headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
         body: JSON.stringify(translations),
       }, token);
+      invalidatePublishedExerciseMedia({
+        canonicalExerciseId: id,
+        stableKey: form.stable_key,
+      });
       navigate('/admin/exercises');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : t('unableToSave'));
@@ -165,6 +170,10 @@ export function AdminExerciseEditorPage() {
   };
   const reloadMedia = async () => {
     if (!form.id || !token) return;
+    invalidatePublishedExerciseMedia({
+      canonicalExerciseId: form.id,
+      stableKey: form.stable_key,
+    });
     const rows = await supabaseRequest<Array<Record<string, unknown>>>(`/rest/v1/exercise_media?exercise_id=eq.${form.id}&order=sort_order.asc`, {}, token);
     setMedia(rows.map((item) => ({ id: String(item.id), exerciseId: String(item.exercise_id), mediaType: item.media_type as ExerciseMedia['mediaType'], provider: item.provider as ExerciseMedia['provider'], title: String(item.title ?? ''), externalUrl: typeof item.external_url === 'string' ? item.external_url : undefined, storagePath: typeof item.storage_path === 'string' ? item.storage_path : undefined, sortOrder: Number(item.sort_order ?? 0), isPrimary: item.is_primary === true, isPublished: item.is_published === true })));
   };

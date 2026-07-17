@@ -118,6 +118,35 @@ describe('exercise demonstration viewer', () => {
     expect(useAppStore.getState().activeWorkout).toEqual(activeWorkout);
   });
 
+  it('renders published media even when no item is primary', async () => {
+    const user = userEvent.setup();
+    renderButton({
+      ...incline,
+      media: [{ ...exerciseWithMedia.media![0], isPrimary: false }],
+    });
+    await user.click(screen.getByRole('button', { name: 'How to perform it' }));
+    expect(await screen.findByTitle('Secondary view')).toBeInTheDocument();
+  });
+
+  it('falls back to a safe external action for an invalid YouTube URL', async () => {
+    const user = userEvent.setup();
+    renderButton({
+      ...incline,
+      media: [{
+        ...exerciseWithMedia.media![0],
+        externalUrl: 'https://example.com/not-a-youtube-video',
+      }],
+    });
+    await user.click(screen.getByRole('button', { name: 'How to perform it' }));
+    expect(
+      await screen.findByText('This YouTube link cannot be embedded safely.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open video' })).toHaveAttribute(
+      'href',
+      'https://example.com/not-a-youtube-video',
+    );
+  });
+
   it('preserves the entered set value when opened from an active workout', async () => {
     const user = userEvent.setup();
     useAppStore.setState({

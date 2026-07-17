@@ -21,6 +21,11 @@ const en = {
   showDemonstration: 'Show demonstration',
   hideDemonstration: 'Hide demonstration',
   openExternalMedia: 'Open demonstration',
+  openVideo: 'Open video',
+  loadingDemonstrationMedia: 'Loading demonstration media…',
+  demonstrationMediaLoadFailed: 'The demonstration media could not be loaded. Try again when you are online.',
+  noPublishedDemonstrationMedia: 'No published demonstration media is available yet.',
+  invalidYoutubeMedia: 'This YouTube link cannot be embedded safely.',
   admin: 'Administrator',
   login: 'Admin login',
   logout: 'Log out',
@@ -325,6 +330,11 @@ const en = {
 
 const he: Record<keyof typeof en, string> = {
   openExternalMedia: 'פתיחת ההדגמה',
+  openVideo: 'פתיחת הסרטון',
+  loadingDemonstrationMedia: 'טוען מדיית הדגמה…',
+  demonstrationMediaLoadFailed: 'לא ניתן לטעון את מדיית ההדגמה. נסו שוב כשיש חיבור לאינטרנט.',
+  noPublishedDemonstrationMedia: 'עדיין אין מדיית הדגמה שפורסמה.',
+  invalidYoutubeMedia: 'לא ניתן להטמיע את קישור ה־YouTube הזה בבטחה.',
   home: 'בית',
   program: 'תוכנית',
   workout: 'אימון',

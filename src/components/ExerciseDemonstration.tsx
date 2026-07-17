@@ -3,6 +3,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useI18n } from '../hooks/useI18n';
 import { getSupabasePublicUrl } from '../services/supabase';
+import {
+  loadPublishedExerciseMedia,
+  subscribeToExerciseMediaInvalidation,
+} from '../services/exerciseMedia';
 import type { Exercise, ExerciseMedia } from '../types';
 import {
   getExerciseInstructions,
@@ -48,7 +52,7 @@ function ExerciseDemonstrationSheet({
   onClose: () => void;
 }) {
   const { language, t } = useI18n();
-  const media = useMemo(
+  const initialMedia = useMemo(
     () =>
       (exercise.media ?? [])
         .filter((item) => item.isPublished)
@@ -58,10 +62,42 @@ function ExerciseDemonstrationSheet({
         ),
     [exercise.media],
   );
+  const [media, setMedia] = useState(initialMedia);
+  const [mediaState, setMediaState] = useState<'loading' | 'loaded' | 'error'>(
+    'loading',
+  );
   const [selectedId, setSelectedId] = useState<string | undefined>(media[0]?.id);
   const instructions = getExerciseInstructions(exercise, language);
   const mistakes = getExerciseMistakes(exercise, language);
   const selected = media.find((item) => item.id === selectedId) ?? media[0];
+
+  useEffect(() => {
+    let active = true;
+    const refresh = async (force = false) => {
+      setMediaState('loading');
+      try {
+        const next = await loadPublishedExerciseMedia(exercise, { force });
+        if (!active) return;
+        setMedia(next);
+        setSelectedId(next[0]?.id);
+        setMediaState('loaded');
+      } catch {
+        if (active) setMediaState('error');
+      }
+    };
+    void refresh();
+    const unsubscribe = subscribeToExerciseMediaInvalidation((identity) => {
+      const matches =
+        (identity.canonicalExerciseId &&
+          identity.canonicalExerciseId === exercise.canonicalExerciseId) ||
+        (identity.stableKey && identity.stableKey === exercise.stableKey);
+      if (matches) void refresh(true);
+    });
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [exercise]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => event.key === 'Escape' && onClose();
@@ -92,6 +128,21 @@ function ExerciseDemonstrationSheet({
           </button>
         </header>
 
+        {mediaState === 'loading' && !selected && (
+          <p className="surface-subtle mt-5 rounded-2xl p-4" role="status">
+            {t('loadingDemonstrationMedia')}
+          </p>
+        )}
+        {mediaState === 'error' && !selected && (
+          <p className="mt-5 rounded-2xl bg-red-500/10 p-4 text-red-700 dark:text-red-200" role="alert">
+            {t('demonstrationMediaLoadFailed')}
+          </p>
+        )}
+        {mediaState === 'loaded' && !selected && (
+          <p className="surface-subtle mt-5 rounded-2xl p-4">
+            {t('noPublishedDemonstrationMedia')}
+          </p>
+        )}
         {selected && <div className="mt-5"><MediaItem item={selected} exercise={exercise} /></div>}
         {media.length > 1 && (
           <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
@@ -146,18 +197,42 @@ function MediaItem({ item, exercise }: { item: ExerciseMedia; exercise: Exercise
   const { language, t } = useI18n();
   const accessibleName = item.title || `${getExerciseName(exercise, language)} ${t('demonstration')}`;
   const videoId = item.externalUrl ? parseYouTubeVideoId(item.externalUrl) : null;
-  if (item.mediaType === 'youtube' && videoId)
+  if (item.mediaType === 'youtube') {
+    if (import.meta.env.DEV) {
+      console.debug('[CalisTrack media]', {
+        mediaType: 'youtube',
+        youtubeParsingSucceeded: Boolean(videoId),
+      });
+    }
+    if (videoId)
+      return (
+        <div className="aspect-video overflow-hidden rounded-2xl bg-black">
+          <iframe
+            className="h-full w-full"
+            src={youtubeEmbedUrl(videoId)}
+            title={accessibleName}
+            loading="lazy"
+            allowFullScreen
+          />
+        </div>
+      );
     return (
-      <div className="aspect-video overflow-hidden rounded-2xl bg-black">
-        <iframe
-          className="h-full w-full"
-          src={youtubeEmbedUrl(videoId)}
-          title={accessibleName}
-          loading="lazy"
-          allowFullScreen
-        />
+      <div className="surface-subtle rounded-2xl p-4">
+        <p className="font-bold">{t('invalidYoutubeMedia')}</p>
+        {item.externalUrl && (
+          <a
+            className="btn-secondary mt-3 w-full"
+            href={item.externalUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <ExternalLink size={18} />
+            {t('openVideo')}
+          </a>
+        )}
       </div>
     );
+  }
   if (item.mediaType === 'uploaded_video' && item.storagePath)
     return (
       <video
