@@ -11,6 +11,11 @@ import { PageBackLink } from '../../components/PageBackLink';
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard';
 import { SuggestedVideosPanel } from './SuggestedVideosPanel';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
+import {
+  addPublishedYouTubeMedia,
+  findDuplicateYouTubeMedia,
+} from '../../services/adminExerciseMedia';
+import { useAppStore } from '../../store/useAppStore';
 
 const empty = {
   id: '',
@@ -46,6 +51,7 @@ export function AdminExerciseEditorPage() {
   const [progress, setProgress] = useState<number | null>(null);
   const [media, setMedia] = useState<ExerciseMedia[]>([]);
   const [pendingPrimary, setPendingPrimary] = useState<ExerciseMedia | null>(null);
+  const [highlightedMediaId, setHighlightedMediaId] = useState('');
   const token = getAdminSession()?.accessToken;
   const dirty = JSON.stringify(form) !== baseline || Boolean(youtube || externalUrl);
   const unsaved = useUnsavedChangesGuard(dirty);
@@ -113,6 +119,7 @@ export function AdminExerciseEditorPage() {
         mediaType: item.media_type as ExerciseMedia['mediaType'],
         provider: item.provider as ExerciseMedia['provider'],
         title: String(item.title ?? ''), externalUrl: typeof item.external_url === 'string' ? item.external_url : undefined,
+        youtubeVideoId: typeof item.youtube_video_id === 'string' ? item.youtube_video_id : undefined,
         storagePath: typeof item.storage_path === 'string' ? item.storage_path : undefined,
         sortOrder: Number(item.sort_order ?? 0), isPrimary: item.is_primary === true, isPublished: item.is_published === true,
       })).sort((a, b) => a.sortOrder - b.sortOrder));
@@ -188,14 +195,31 @@ export function AdminExerciseEditorPage() {
       stableKey: form.stable_key,
     });
     const rows = await supabaseRequest<Array<Record<string, unknown>>>(`/rest/v1/exercise_media?exercise_id=eq.${form.id}&order=sort_order.asc`, {}, token);
-    setMedia(rows.map((item) => ({ id: String(item.id), exerciseId: String(item.exercise_id), mediaType: item.media_type as ExerciseMedia['mediaType'], provider: item.provider as ExerciseMedia['provider'], title: String(item.title ?? ''), externalUrl: typeof item.external_url === 'string' ? item.external_url : undefined, storagePath: typeof item.storage_path === 'string' ? item.storage_path : undefined, sortOrder: Number(item.sort_order ?? 0), isPrimary: item.is_primary === true, isPublished: item.is_published === true })));
+    setMedia(rows.map((item) => ({ id: String(item.id), exerciseId: String(item.exercise_id), mediaType: item.media_type as ExerciseMedia['mediaType'], provider: item.provider as ExerciseMedia['provider'], title: String(item.title ?? ''), externalUrl: typeof item.external_url === 'string' ? item.external_url : undefined, youtubeVideoId: typeof item.youtube_video_id === 'string' ? item.youtube_video_id : undefined, storagePath: typeof item.storage_path === 'string' ? item.storage_path : undefined, sortOrder: Number(item.sort_order ?? 0), isPrimary: item.is_primary === true, isPublished: item.is_published === true })));
+  };
+  const reloadAndHighlight = async (mediaId: string) => {
+    await reloadMedia();
+    setHighlightedMediaId(mediaId);
+    requestAnimationFrame(() => {
+      document.getElementById(`media-${mediaId}`)?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+    });
+    window.setTimeout(() => setHighlightedMediaId(''), 1800);
   };
   const addYoutube = async () => {
     const videoId = parseYouTubeVideoId(youtube);
     if (!videoId || !form.id || !token) return setError(t('validYoutubeRequired'));
+    if (findDuplicateYouTubeMedia(media, youtube)) return setError(t('youtubeVideoAlreadyAdded'));
     try {
-      await supabaseRequest('/rest/v1/exercise_media', { method: 'POST', body: JSON.stringify({ exercise_id: form.id, media_type: 'youtube', provider: 'youtube', title: `${form.nameEn} demonstration`, external_url: `https://youtu.be/${videoId}`, sort_order: media.length, is_primary: !media.length, is_published: form.is_published, created_by: getAdminSession()?.userId }) }, token);
-      setYoutube(''); await reloadMedia();
+      const result = await addPublishedYouTubeMedia({
+        exerciseId: form.id,
+        title: `${form.nameEn} demonstration`,
+        url: youtube,
+        sortOrder: media.length,
+      });
+      if (result.status === 'duplicate') return setError(t('youtubeVideoAlreadyAdded'));
+      setYoutube('');
+      await reloadAndHighlight(result.mediaId);
+      useAppStore.getState().setToast(t('videoAddedAndPublished'));
     } catch { setError(t('unableToSave')); }
   };
   const updateMedia = async (item: ExerciseMedia, changes: Partial<ExerciseMedia>) => {
@@ -268,7 +292,7 @@ export function AdminExerciseEditorPage() {
         </div>
         <section className="card space-y-3">
           <h2 className="text-xl font-black">{t('media')}</h2>
-          <SuggestedVideosPanel exerciseId={form.id} exerciseName={form.nameEn || form.stable_key} sortOrder={media.length} onSelected={reloadMedia} />
+          <SuggestedVideosPanel exerciseId={form.id} exerciseName={form.nameEn || form.stable_key} sortOrder={media.length} existingMedia={media} onSelected={reloadAndHighlight} />
           <Field label={t('youtubeUrl')} value={youtube} set={setYoutube} ltr />
           {videoId && <div className="aspect-video overflow-hidden rounded-2xl"><iframe className="h-full w-full" src={youtubeEmbedUrl(videoId)} title={t('youtubePreview')} allowFullScreen /></div>}
           <button className="btn-secondary" type="button" disabled={!videoId || !form.id} onClick={addYoutube}>{t('addYoutube')}</button>
@@ -277,7 +301,7 @@ export function AdminExerciseEditorPage() {
           <label className="btn-secondary cursor-pointer"><span>{t('uploadVideoOrImage')}</span><input className="sr-only" type="file" accept="video/mp4,video/quicktime,video/webm,image/jpeg,image/png,image/webp" onChange={(event) => upload(event.target.files?.[0])} /></label>
           <p className="text-sm text-slate-400">{t('uploadRecommendation')}</p>
           {progress !== null && <div role="progressbar" aria-valuenow={progress} className="h-3 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10"><div className="h-full bg-brand" style={{ width: `${progress}%` }} /></div>}
-          <div className="space-y-3">{media.map((item, index) => <article key={item.id} className="surface-subtle rounded-2xl p-4"><div className="flex flex-wrap items-center justify-between gap-2"><div><strong dir="auto">{item.title || item.mediaType}</strong><p className="text-xs text-slate-500 dark:text-slate-400">{item.mediaType} · {item.isPublished ? t('published') : t('draft')} · {item.isPrimary ? t('primary') : t('secondary')}</p></div><div className="flex flex-wrap gap-2"><button className="btn-secondary min-h-10 px-3" onClick={() => updateMedia(item,{isPublished:!item.isPublished})}>{item.isPublished?t('unpublish'):t('publish')}</button><button className="btn-secondary min-h-10 px-3" onClick={() => media.some((other) => other.isPrimary && other.id !== item.id) ? setPendingPrimary(item) : updateMedia(item,{isPrimary:true})}>{t('makePrimary')}</button><button disabled={!index} className="btn-secondary min-h-10 px-3" onClick={() => updateMedia(item,{sortOrder:index-1})}>{t('moveUp')}</button>{item.provider === 'supabase_storage' && <label className="btn-secondary min-h-10 cursor-pointer px-3">{t('replace')}<input className="sr-only" type="file" accept="video/mp4,video/webm,image/jpeg,image/png,image/webp" onChange={(event) => replaceMedia(item,event.target.files?.[0])}/></label>}<button className="btn-danger min-h-10 px-3" onClick={() => removeMedia(item)}>{t('delete')}</button></div></div></article>)}</div>
+          <div className="space-y-3">{media.map((item, index) => <article id={`media-${item.id}`} key={item.id} className={`surface-subtle rounded-2xl p-4 transition ${highlightedMediaId === item.id ? 'ring-2 ring-brand' : ''}`}><div className="flex flex-wrap items-center justify-between gap-2"><div><strong dir="auto">{item.title || item.mediaType}</strong><p className="text-xs text-slate-500 dark:text-slate-400">{item.mediaType} · {item.isPublished ? t('published') : t('draft')} · {item.isPrimary ? t('primary') : t('secondary')}</p></div><div className="flex flex-wrap gap-2"><button className="btn-secondary min-h-10 px-3" onClick={() => updateMedia(item,{isPublished:!item.isPublished})}>{item.isPublished?t('unpublish'):t('publish')}</button><button className="btn-secondary min-h-10 px-3" onClick={() => media.some((other) => other.isPrimary && other.id !== item.id) ? setPendingPrimary(item) : updateMedia(item,{isPrimary:true})}>{t('makePrimary')}</button><button disabled={!index} className="btn-secondary min-h-10 px-3" onClick={() => updateMedia(item,{sortOrder:index-1})}>{t('moveUp')}</button>{item.provider === 'supabase_storage' && <label className="btn-secondary min-h-10 cursor-pointer px-3">{t('replace')}<input className="sr-only" type="file" accept="video/mp4,video/webm,image/jpeg,image/png,image/webp" onChange={(event) => replaceMedia(item,event.target.files?.[0])}/></label>}<button className="btn-danger min-h-10 px-3" onClick={() => removeMedia(item)}>{t('delete')}</button></div></div></article>)}</div>
         </section>
       </div>
       {error && <p role="alert" className="mt-4 text-red-400">{error}</p>}

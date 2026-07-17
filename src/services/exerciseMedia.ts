@@ -17,6 +17,7 @@ interface MediaRow {
   title?: string | null;
   description?: string | null;
   external_url?: string | null;
+  youtube_video_id?: string | null;
   storage_path?: string | null;
   thumbnail_url?: string | null;
   mime_type?: string | null;
@@ -50,6 +51,7 @@ function toMedia(row: MediaRow): ExerciseMedia {
     title: row.title ?? undefined,
     description: row.description ?? undefined,
     externalUrl: row.external_url ?? undefined,
+    youtubeVideoId: row.youtube_video_id ?? undefined,
     storagePath: row.storage_path ?? undefined,
     thumbnailUrl: row.thumbnail_url ?? undefined,
     mimeType: row.mime_type ?? undefined,

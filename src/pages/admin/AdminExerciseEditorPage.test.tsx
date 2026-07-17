@@ -19,11 +19,11 @@ vi.mock('../../services/supabase', () => ({
 }));
 vi.mock('../../services/youtubeSuggestions', () => ({
   searchSuggestedVideos: vi.fn().mockResolvedValue([{
-    videoId: 'suggested123',
-    url: 'https://www.youtube.com/watch?v=suggested123',
+    videoId: 'suggest1234',
+    url: 'https://www.youtube.com/watch?v=suggest1234',
     title: 'Incline Push-Up Proper Form',
     channelTitle: 'Calisthenics Coach',
-    thumbnailUrl: 'https://i.ytimg.com/vi/suggested123/mqdefault.jpg',
+    thumbnailUrl: 'https://i.ytimg.com/vi/suggest1234/mqdefault.jpg',
   }]),
 }));
 
@@ -73,6 +73,9 @@ function renderEditor(media: Record<string, unknown>[] = []) {
   api.request.mockImplementation((path: string, options?: RequestInit) => {
     if (path.includes('global_exercises')) return Promise.resolve([{ ...exerciseRow, exercise_media: media }]);
     if (path.includes('exercise_media') && (!options?.method || options.method === 'GET')) return Promise.resolve(media);
+    if (path.includes('rpc/admin_add_youtube_media')) {
+      return Promise.resolve([{ media_id: 'suggested-media', was_added: true, is_primary: media.length === 0 }]);
+    }
     return Promise.resolve([]);
   });
   return render(
@@ -107,7 +110,7 @@ describe('administrator exercise media lifecycle', () => {
     );
   });
 
-  it('uses the canonical English name and saves a selected suggestion as an unpublished draft', async () => {
+  it('uses the canonical English name and publishes the first selected suggestion as primary', async () => {
     const user = userEvent.setup();
     renderEditor();
     await ready();
@@ -118,9 +121,51 @@ describe('administrator exercise media lifecycle', () => {
     expect(screen.getByText('Calisthenics Coach')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Select video' }));
     await waitFor(() => {
-      const draftCall = api.request.mock.calls.find(([, options]) => options?.method === 'POST' && String(options.body).includes('suggested123'));
-      expect(JSON.parse(draftCall?.[1].body as string)).toMatchObject({ is_published: false, is_primary: false });
+      const call = api.request.mock.calls.find(([path]) => String(path).includes('rpc/admin_add_youtube_media'));
+      expect(JSON.parse(call?.[1].body as string)).toMatchObject({
+        p_exercise_id: 'exercise-1',
+        p_video_id: 'suggest1234',
+      });
     });
+  });
+
+  it('requires confirmation before adding a distinct second suggestion', async () => {
+    const user = userEvent.setup();
+    renderEditor([primaryMedia]);
+    await ready();
+    await user.click(screen.getByRole('button', { name: 'Find suggested videos' }));
+    await user.click(screen.getByRole('button', { name: 'Search YouTube' }));
+    await user.click(await screen.findByRole('button', { name: 'Select video' }));
+    expect(screen.getByText('Add another demonstration video?')).toBeInTheDocument();
+    expect(api.request.mock.calls.some(([path]) => String(path).includes('rpc/admin_add_youtube_media'))).toBe(false);
+    await user.click(screen.getByRole('button', { name: 'Add video' }));
+    await waitFor(() => expect(api.request.mock.calls.some(([path]) => String(path).includes('rpc/admin_add_youtube_media'))).toBe(true));
+  });
+
+  it('cancels adding a distinct second suggestion', async () => {
+    const user = userEvent.setup();
+    renderEditor([primaryMedia]);
+    await ready();
+    await user.click(screen.getByRole('button', { name: 'Find suggested videos' }));
+    await user.click(screen.getByRole('button', { name: 'Search YouTube' }));
+    await user.click(await screen.findByRole('button', { name: 'Select video' }));
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(api.request.mock.calls.some(([path]) => String(path).includes('rpc/admin_add_youtube_media'))).toBe(false);
+  });
+
+  it('rejects the same YouTube video in another URL format before inserting', async () => {
+    const user = userEvent.setup();
+    renderEditor([{
+      ...primaryMedia,
+      external_url: 'https://youtube-nocookie.com/embed/suggest1234?rel=0',
+    }]);
+    await ready();
+    await user.click(screen.getByRole('button', { name: 'Find suggested videos' }));
+    await user.click(screen.getByRole('button', { name: 'Search YouTube' }));
+    await user.click(await screen.findByRole('button', { name: 'Select video' }));
+    expect(await screen.findByText('This video has already been added to this exercise.')).toBeInTheDocument();
+    expect(screen.getByText('Add another demonstration video?').closest('dialog')).not.toHaveAttribute('open');
+    expect(api.request.mock.calls.some(([path]) => String(path).includes('rpc/admin_add_youtube_media'))).toBe(false);
   });
 
   it('adds YouTube media to an existing exercise', async () => {
@@ -130,15 +175,14 @@ describe('administrator exercise media lifecycle', () => {
     await user.type(screen.getByLabelText('YouTube URL'), 'https://youtu.be/abc123xyz00');
     await user.click(screen.getByRole('button', { name: 'Add YouTube video' }));
     await waitFor(() => expect(api.request).toHaveBeenCalledWith(
-      '/rest/v1/exercise_media',
+      '/rest/v1/rpc/admin_add_youtube_media',
       expect.objectContaining({ method: 'POST' }),
       'token',
     ));
-    const call = api.request.mock.calls.find(([, options]) => options?.method === 'POST');
+    const call = api.request.mock.calls.find(([path]) => String(path).includes('rpc/admin_add_youtube_media'));
     expect(JSON.parse(call?.[1].body as string)).toMatchObject({
-      exercise_id: 'exercise-1',
-      media_type: 'youtube',
-      external_url: 'https://youtu.be/abc123xyz00',
+      p_exercise_id: 'exercise-1',
+      p_video_id: 'abc123xyz00',
     });
   });
 
@@ -267,3 +311,4 @@ describe('administrator exercise media lifecycle', () => {
     });
   });
 });
+

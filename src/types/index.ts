@@ -152,7 +152,8 @@ export interface ExerciseMedia {
   provider: 'youtube' | 'supabase_storage' | 'external';
   title?: string;
   description?: string;
-  externalUrl?: string;
+    externalUrl?: string;
+    youtubeVideoId?: string;
   storagePath?: string;
   thumbnailUrl?: string;
   mimeType?: string;
