@@ -39,7 +39,7 @@ describe('workout flow', () => {
   it('completes a set and starts timer', () => {
     useAppStore.getState().startWorkout(t);
     useAppStore.getState().completeSet(0, 10);
-    expect(useAppStore.getState().activeWorkout?.exercises[0].sets[0].value).toBe(10);
+    expect(useAppStore.getState().activeWorkout?.exercises[0].sets[0].reps).toBe(10);
     expect(useAppStore.getState().restTimer.endsAt).toBeGreaterThan(Date.now());
   });
   it('stops after the final planned set, skips rest and never creates a fourth set', () => {
@@ -116,5 +116,52 @@ describe('workout flow', () => {
     expect(useAppStore.getState().workoutSessions[0].status).toBe('completed');
     expect(useAppStore.getState().activeWorkout).toBeNull();
     vi.useRealTimers();
+  });
+  it('logs duration sets and preserves the normal rest flow', () => {
+    const durationTemplate: WorkoutTemplate = {
+      ...t,
+      exercises: [{
+        ...t.exercises[0],
+        exerciseId: 'builtin-plank',
+        measurementType: 'duration',
+        targetMin: 20,
+        targetMax: 30,
+      }],
+    };
+    useAppStore.getState().startWorkout(durationTemplate);
+    useAppStore.getState().completeSet(0, { durationSeconds: 27 });
+    expect(useAppStore.getState().activeWorkout?.exercises[0].sets[0]).toMatchObject({
+      durationSeconds: 27,
+    });
+    expect(useAppStore.getState().activeWorkout?.exercises[0].sets[0]).not.toHaveProperty('reps');
+    expect(useAppStore.getState().restTimer.endsAt).toBeGreaterThan(Date.now());
+  });
+  it('logs decimal added weight separately from repetitions', () => {
+    const weightedTemplate: WorkoutTemplate = {
+      ...t,
+      exercises: [{
+        ...t.exercises[0],
+        exerciseId: 'builtin-weighted-pull-up',
+        measurementType: 'weighted_reps',
+        targetAddedWeightKg: 7.5,
+      }],
+    };
+    useAppStore.getState().startWorkout(weightedTemplate);
+    useAppStore.getState().completeSet(0, { reps: 6, addedWeightKg: 7.5 });
+    expect(useAppStore.getState().activeWorkout?.exercises[0].sets[0]).toMatchObject({
+      reps: 6,
+      addedWeightKg: 7.5,
+    });
+    expect(useAppStore.getState().activeWorkout?.exercises[0].sets[0]).not.toHaveProperty('durationSeconds');
+  });
+  it('rejects incomplete, zero and negative metric-specific sets', () => {
+    const weightedTemplate: WorkoutTemplate = {
+      ...t,
+      exercises: [{ ...t.exercises[0], measurementType: 'weighted_reps' }],
+    };
+    useAppStore.getState().startWorkout(weightedTemplate);
+    useAppStore.getState().completeSet(0, { reps: 5 });
+    useAppStore.getState().completeSet(0, { reps: 5, addedWeightKg: -2.5 });
+    expect(useAppStore.getState().activeWorkout?.exercises[0].sets).toHaveLength(0);
   });
 });

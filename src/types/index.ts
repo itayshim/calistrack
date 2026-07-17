@@ -1,6 +1,6 @@
 export type ExerciseCategory = 'push' | 'pull' | 'legs' | 'core' | 'mobility' | 'skill';
 export type Difficulty = 'beginner' | 'intermediate' | 'advanced';
-export type MeasurementType = 'reps' | 'time';
+export type MeasurementType = 'reps' | 'duration' | 'weighted_reps';
 export interface Exercise {
   id: string;
   nameHe: string;
@@ -38,8 +38,11 @@ export interface WorkoutExercise {
   targetSets: number;
   targetMin: number;
   targetMax: number;
+  targetAddedWeightKg?: number;
+  minimumAddedWeightKg?: number;
   restSeconds: number;
   notes?: string;
+  measurementType?: MeasurementType;
 }
 export interface WorkoutTemplate {
   id: string;
@@ -61,7 +64,12 @@ export interface Program {
 export interface WorkoutSet {
   id: string;
   setNumber: number;
-  value: number;
+  /** @deprecated Read only when migrating workout logs created before schema v5. */
+  value?: number;
+  reps?: number;
+  durationSeconds?: number;
+  addedWeightKg?: number;
+  notes?: string;
   completed: boolean;
   completedAt?: string;
 }
@@ -74,6 +82,7 @@ export interface ExerciseSession {
   notes?: string;
   skipped: boolean;
   extraSetCount?: number;
+  measurementType?: MeasurementType;
 }
 export interface WorkoutSession {
   id: string;
@@ -97,13 +106,20 @@ export interface UserSettings {
   theme: 'dark' | 'light';
   language: 'en' | 'he';
 }
-export type GoalType = 'weekly-workouts' | 'exercise-reps' | 'exercise-time' | 'first-skill';
+export type GoalType =
+  | 'weekly-workouts'
+  | 'exercise-reps'
+  | 'exercise-time'
+  | 'exercise-weighted-reps'
+  | 'first-skill';
 export interface UserGoal {
   id: string;
   type: GoalType;
   title: string;
   exerciseId?: string;
   targetValue: number;
+  targetReps?: number;
+  targetAddedWeightKg?: number;
   createdAt: string;
   completedAt?: string;
 }
@@ -122,6 +138,11 @@ export interface RestTimerState {
   duration: number;
   pausedRemaining: number | null;
 }
+
+export type WorkoutSetInput = Pick<
+  WorkoutSet,
+  'reps' | 'durationSeconds' | 'addedWeightKg' | 'notes'
+>;
 
 export type MediaType = 'youtube' | 'uploaded_video' | 'image' | 'external_link' | 'coaching_note' | 'equipment_note';
 export interface ExerciseMedia {

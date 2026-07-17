@@ -90,7 +90,12 @@ export function ExercisesPage() {
           label="Measurement"
           value={measure}
           set={setMeasure}
-          options={{ all: 'All', reps: 'Reps', time: 'Time' }}
+          options={{
+            all: t('all'),
+            reps: t('repetitionsMeasurement'),
+            duration: t('durationMeasurement'),
+            weighted_reps: t('weightedRepsMeasurement'),
+          }}
         />
       </div>
       <p className="mb-3 text-sm text-slate-400">Found {list.length} exercises</p>
@@ -135,7 +140,13 @@ export function ExercisesPage() {
               <div className="mt-3 flex gap-2 text-sm">
                 <span>{difficulties[e.difficulty]}</span>
                 <span>·</span>
-                <span>{e.measurementType === 'reps' ? 'Reps' : 'seconds'}</span>
+                <span>
+                  {e.measurementType === 'duration'
+                    ? t('durationMeasurement')
+                    : e.measurementType === 'weighted_reps'
+                      ? t('weightedRepsMeasurement')
+                      : t('repetitionsMeasurement')}
+                </span>
               </div>
             </Link>
           </article>
@@ -257,7 +268,11 @@ function ExerciseForm({
             label={t('measurementType')}
             value={measurementType}
             set={(v) => setM(v as MeasurementType)}
-            options={{ reps: t('reps'), time: t('timeSeconds') }}
+            options={{
+              reps: t('repetitionsMeasurement'),
+              duration: t('durationMeasurement'),
+              weighted_reps: t('weightedRepsMeasurement'),
+            }}
           />
         </div>
         {error && (

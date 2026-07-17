@@ -1,9 +1,19 @@
-import type { Exercise, WorkoutSession } from '../types';
+import type { Exercise, MeasurementType, WorkoutSession } from '../types';
+import {
+  getSetAddedWeight,
+  getSetDuration,
+  getSetReps,
+  normalizeMeasurementType,
+} from './performance';
 const completed = (sessions: WorkoutSession[]) => sessions.filter((s) => s.status === 'completed');
 export interface ExercisePoint {
   date: string;
   best: number;
   total: number;
+  measurementType: MeasurementType;
+  bestReps: number;
+  longestHold: number;
+  heaviestAddedWeight: number;
   sessionId: string;
 }
 export const exercisePoints = (sessions: WorkoutSession[], exerciseId: string): ExercisePoint[] =>
@@ -11,13 +21,22 @@ export const exercisePoints = (sessions: WorkoutSession[], exerciseId: string): 
     .flatMap((s) => {
       const ex = s.exercises.find((x) => x.exerciseId === exerciseId);
       if (!ex) return [];
-      const values = ex.sets.filter((x) => x.completed).map((x) => x.value);
+      const type = normalizeMeasurementType(ex.measurementType ?? ex.target?.measurementType);
+      const sets = ex.sets.filter((x) => x.completed);
+      const reps = sets.map((set) => getSetReps(set, type) ?? 0);
+      const durations = sets.map((set) => getSetDuration(set, type) ?? 0);
+      const weights = sets.map((set) => getSetAddedWeight(set) ?? 0);
+      const values = type === 'duration' ? durations : type === 'weighted_reps' ? weights : reps;
       return values.length
         ? [
             {
               date: s.completedAt ?? s.startedAt,
               best: Math.max(...values),
               total: values.reduce((a, b) => a + b, 0),
+              measurementType: type,
+              bestReps: Math.max(0, ...reps),
+              longestHold: Math.max(0, ...durations),
+              heaviestAddedWeight: Math.max(0, ...weights),
               sessionId: s.id,
             },
           ]
@@ -34,6 +53,8 @@ export const personalRecords = (sessions: WorkoutSession[], exercises: Exercise[
         measurementType: e.measurementType,
         bestSet: Math.max(...p.map((x) => x.best)),
         bestTotal: Math.max(...p.map((x) => x.total)),
+        longestHold: Math.max(...p.map((x) => x.longestHold)),
+        heaviestAddedWeight: Math.max(...p.map((x) => x.heaviestAddedWeight)),
         date: p.reduce((a, b) => (b.best > a.best ? b : a)).date,
       },
     ];
@@ -51,7 +72,25 @@ export const workoutSummary = (s: WorkoutSession) => {
     completedExercises: done.length,
     skippedExercises: s.exercises.filter((e) => e.skipped).length,
     totalSets: sets.length,
-    totalValue: sets.reduce((a, b) => a + b.value, 0),
+    totalValue: sets.reduce((total, set) => total + (set.reps ?? set.durationSeconds ?? set.value ?? 0), 0),
+    totalReps: done.reduce(
+      (total, exercise) =>
+        total +
+        exercise.sets.reduce(
+          (sum, set) => sum + (getSetReps(set, normalizeMeasurementType(exercise.measurementType ?? exercise.target?.measurementType)) ?? 0),
+          0,
+        ),
+      0,
+    ),
+    totalDurationSeconds: done.reduce(
+      (total, exercise) =>
+        total +
+        exercise.sets.reduce(
+          (sum, set) => sum + (getSetDuration(set, normalizeMeasurementType(exercise.measurementType ?? exercise.target?.measurementType)) ?? 0),
+          0,
+        ),
+      0,
+    ),
   };
 };
 export const weekStart = (d: Date) => {

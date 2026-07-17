@@ -228,7 +228,14 @@ export function AdminExerciseEditorPage() {
           <Field label={t('movementFamily')} value={form.movement_family} set={(value) => set('movement_family', value)} />
           <Select label={t('category')} value={form.category} values={['push','pull','legs','core','mobility','skill']} set={(value) => set('category', value)} />
           <Select label={t('difficulty')} value={form.difficulty} values={['beginner','intermediate','advanced']} set={(value) => set('difficulty', value)} />
-          <Select label={t('measurement')} value={form.measurement_type} values={['reps','time']} set={(value) => set('measurement_type', value)} />
+          <label>
+            <span className="label">{t('measurementType')}</span>
+            <select className="field" value={form.measurement_type} onChange={(event) => set('measurement_type', event.target.value)}>
+              <option value="reps">{t('repetitionsMeasurement')}</option>
+              <option value="duration">{t('durationMeasurement')}</option>
+              <option value="weighted_reps">{t('weightedRepsMeasurement')}</option>
+            </select>
+          </label>
           <Field label={t('muscles')} value={form.muscles} set={(value) => set('muscles', value)} />
           <Field label={t('aliases')} value={form.aliases} set={(value) => set('aliases', value)} />
           <Field label={t('keywords')} value={form.keywords} set={(value) => set('keywords', value)} />

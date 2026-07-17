@@ -1,7 +1,7 @@
-import { render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createInitialData } from '../data/seed';
 import { useAppStore } from '../store/useAppStore';
 import type { Program } from '../types';
@@ -20,6 +20,7 @@ function renderEditor(path = '/program/new') {
 }
 
 describe('program weekday selection', () => {
+  afterEach(cleanup);
   beforeEach(() => {
     localStorage.clear();
     useAppStore.setState({ ...createInitialData(), hydrated: true, toast: null });
@@ -66,5 +67,26 @@ describe('program weekday selection', () => {
       'aria-pressed',
       'true',
     );
+  });
+  it('shows duration targets when a timed hold is added', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await user.click(screen.getByRole('button', { name: 'Add workout day' }));
+    await user.click(screen.getByRole('button', { name: 'Add exercise' }));
+    await user.type(screen.getByPlaceholderText('Search squats, dips, handstands...'), 'Tuck L-Sit');
+    await user.click(screen.getAllByRole('button', { name: /Tuck L-Sit/ })[0]);
+    expect(screen.getByText(/Target duration.*Minimum/)).toBeInTheDocument();
+    expect(screen.getByText(/Target duration.*Maximum/)).toBeInTheDocument();
+  });
+  it('shows decimal added-weight targets only for weighted repetitions', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await user.click(screen.getByRole('button', { name: 'Add workout day' }));
+    await user.click(screen.getByRole('button', { name: 'Add exercise' }));
+    await user.type(screen.getByPlaceholderText('Search squats, dips, handstands...'), 'Weighted Pull-Up');
+    await user.click(screen.getAllByRole('button', { name: /Weighted Pull-Up/ })[0]);
+    const weight = screen.getByLabelText('Target added weight');
+    expect(weight).toHaveAttribute('step', '0.5');
+    expect(weight).toHaveAttribute('min', '0');
   });
 });

@@ -9,10 +9,16 @@ import type {
   UserGoal,
   UserSettings,
   WorkoutSession,
+  WorkoutSetInput,
   WorkoutTemplate,
 } from '../types';
 import { createId } from '../utils/id';
 import { translations, type TranslationKey } from '../locales/translations';
+import {
+  isValidSetInput,
+  normalizeMeasurementType,
+  normalizeSetInput,
+} from '../utils/performance';
 interface Store extends AppData {
   hydrated: boolean;
   toast: string | null;
@@ -27,9 +33,9 @@ interface Store extends AppData {
   deleteProgram: (id: string) => void;
   adoptBeginner: () => void;
   startWorkout: (t: WorkoutTemplate) => boolean;
-  completeSet: (exerciseIndex: number, value: number) => void;
+  completeSet: (exerciseIndex: number, value: WorkoutSetInput | number) => void;
   addExtraSet: (exerciseIndex: number) => void;
-  editSet: (exerciseIndex: number, setId: string, value: number) => void;
+  editSet: (exerciseIndex: number, setId: string, value: WorkoutSetInput | number) => void;
   deleteSet: (exerciseIndex: number, setId: string) => void;
   skipExercise: (exerciseIndex: number) => void;
   setCurrentExercise: (i: number) => void;
@@ -136,6 +142,10 @@ export const useAppStore = create<Store>((set, get) => ({
       exercises: t.exercises
         .sort((a, b) => a.order - b.order)
         .map((x) => ({
+          measurementType:
+            x.measurementType ??
+            get().exercises.find((exercise) => exercise.id === x.exerciseId)?.measurementType ??
+            'reps',
           id: createId(),
           exerciseId: x.exerciseId,
           workoutExerciseId: x.id,
@@ -160,13 +170,23 @@ export const useAppStore = create<Store>((set, get) => ({
     if (!a) return;
     const ex = a.exercises[i];
     if (!ex || ex.skipped) return;
+    const measurementType = normalizeMeasurementType(
+      ex.measurementType ??
+        ex.target?.measurementType ??
+        get().exercises.find((exercise) => exercise.id === ex.exerciseId)?.measurementType,
+    );
+    const input = normalizeSetInput(value, measurementType);
+    if (!isValidSetInput(input, measurementType, ex.target?.minimumAddedWeightKg)) {
+      set({ toast: localized(get().settings.language, 'invalidSetValue') });
+      return;
+    }
     const planned = ex.target?.targetSets ?? 0;
     const allowed = planned + (ex.extraSetCount ?? 0);
     if (ex.sets.filter((item) => item.completed).length >= allowed) return;
     ex.sets.push({
       id: createId(),
       setNumber: ex.sets.length + 1,
-      value,
+      ...input,
       completed: true,
       completedAt: new Date().toISOString(),
     });
@@ -202,7 +222,13 @@ export const useAppStore = create<Store>((set, get) => ({
     const a = structuredClone(get().activeWorkout);
     if (!a) return;
     const st = a.exercises[i].sets.find((x) => x.id === id);
-    if (st) st.value = value;
+    const ex = a.exercises[i];
+    const measurementType = normalizeMeasurementType(ex.measurementType ?? ex.target?.measurementType);
+    const input = normalizeSetInput(value, measurementType);
+    if (st && isValidSetInput(input, measurementType, ex.target?.minimumAddedWeightKg)) {
+      Object.assign(st, input);
+      delete st.value;
+    }
     set({ activeWorkout: a });
     get().persist();
   },

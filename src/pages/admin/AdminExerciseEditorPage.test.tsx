@@ -215,4 +215,20 @@ describe('administrator exercise media lifecycle', () => {
       );
     });
   });
+  it('edits and persists the global measurement type', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await ready();
+    await user.selectOptions(screen.getByLabelText('Measurement type'), 'weighted_reps');
+    await user.click(screen.getByRole('button', { name: 'Save exercise' }));
+    await waitFor(() => {
+      const call = api.request.mock.calls.find(([path, options]) =>
+        String(path).startsWith('/rest/v1/global_exercises?on_conflict=stable_key') &&
+        options?.method === 'POST',
+      );
+      expect(JSON.parse(call?.[1].body as string)).toMatchObject({
+        measurement_type: 'weighted_reps',
+      });
+    });
+  });
 });

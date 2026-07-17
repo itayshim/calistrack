@@ -60,15 +60,18 @@ export function ProgramEditorPage() {
       ],
     }));
   const addExercise = (wid: string, eid: string) => {
+    const exercise = exercises.find((item) => item.id === eid);
+    const measurementType = exercise?.measurementType ?? 'reps';
     updateWorkout(wid, (w) =>
       w.exercises.push({
         id: createId(),
         exerciseId: eid,
         order: w.exercises.length,
         targetSets: 3,
-        targetMin: 8,
-        targetMax: 12,
+        targetMin: measurementType === 'duration' ? 20 : 8,
+        targetMax: measurementType === 'duration' ? 30 : 12,
         restSeconds: 75,
+        measurementType,
       }),
     );
     setChooser(null);
@@ -219,6 +222,7 @@ export function ProgramEditorPage() {
                       </div>
                       <TargetFields
                         we={we}
+                        exercise={e}
                         update={(patch) =>
                           updateWorkout(w.id, (x) => {
                             x.exercises = x.exercises.map((v) =>
@@ -448,7 +452,7 @@ function CustomExerciseForm({
         <input className="field" value={name} onChange={(event) => setName(event.target.value)} />
       </label>
       <div className="grid grid-cols-2 gap-3">
-        <label><span className="label">{t('measurement')}</span><select className="field" value={measurementType} onChange={(event) => setMeasurementType(event.target.value as MeasurementType)}><option value="reps">{t('repetitions')}</option><option value="time">{t('time')}</option></select></label>
+        <label><span className="label">{t('measurementType')}</span><select className="field" value={measurementType} onChange={(event) => setMeasurementType(event.target.value as MeasurementType)}><option value="reps">{t('repetitionsMeasurement')}</option><option value="duration">{t('durationMeasurement')}</option><option value="weighted_reps">{t('weightedRepsMeasurement')}</option></select></label>
         <label><span className="label">{t('difficulty')}</span><select className="field" value={difficulty} onChange={(event) => setDifficulty(event.target.value as Difficulty)}><option value="beginner">{t('beginner')}</option><option value="intermediate">{t('intermediate')}</option><option value="advanced">{t('advanced')}</option></select></label>
       </div>
       <label className="block"><span className="label">{t('movementFamily')}</span><input className="field" value={movementFamily} onChange={(event) => setMovementFamily(event.target.value)} /></label>
@@ -464,17 +468,30 @@ function CustomExerciseForm({
 }
 function TargetFields({
   we,
+  exercise,
   update,
 }: {
   we: WorkoutExercise;
+  exercise?: Exercise;
   update: (p: Partial<WorkoutExercise>) => void;
 }) {
   const { t } = useI18n();
+  const measurementType = we.measurementType ?? exercise?.measurementType ?? 'reps';
+  const targetLabel = measurementType === 'duration' ? t('targetDuration') : t('repetitions');
   return (
     <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
       <Num label={t('sets')} value={we.targetSets} set={(v) => update({ targetSets: v })} />
-      <Num label={t('minimum')} value={we.targetMin} set={(v) => update({ targetMin: v })} />
-      <Num label={t('maximum')} value={we.targetMax} set={(v) => update({ targetMax: v })} />
+      <Num label={`${targetLabel} · ${t('minimum')}`} value={we.targetMin} set={(v) => update({ targetMin: v })} />
+      <Num label={`${targetLabel} · ${t('maximum')}`} value={we.targetMax} set={(v) => update({ targetMax: v })} />
+      {measurementType === 'weighted_reps' && (
+        <Num
+          label={t('targetAddedWeight')}
+          value={we.targetAddedWeightKg ?? 0}
+          set={(v) => update({ targetAddedWeightKg: v })}
+          min={0}
+          step={0.5}
+        />
+      )}
       <Num label={t('restSeconds')} value={we.restSeconds} set={(v) => update({ restSeconds: v })} />
       <label>
         <span className="label">{t('note')}</span>
@@ -487,16 +504,17 @@ function TargetFields({
     </div>
   );
 }
-function Num({ label, value, set }: { label: string; value: number; set: (v: number) => void }) {
+function Num({ label, value, set, min = 1, step = 1 }: { label: string; value: number; set: (v: number) => void; min?: number; step?: number }) {
   return (
     <label>
       <span className="label">{label}</span>
       <input
         type="number"
-        min="1"
+        min={min}
+        step={step}
         className="field"
         value={value}
-        onChange={(e) => set(Math.max(1, +e.target.value))}
+        onChange={(e) => set(Math.max(min, +e.target.value))}
       />
     </label>
   );

@@ -1,4 +1,5 @@
 import type { WorkoutSession } from '../types';
+import { getSetReps } from './performance';
 export interface Recommendation {
   kind: 'progress' | 'regress';
   message: string;
@@ -19,7 +20,7 @@ export const getRecommendation = (
       s.exercises
         .find((e) => e.exerciseId === exerciseId)!
         .sets.filter((x) => x.completed)
-        .map((x) => x.value),
+        .map((x) => getSetReps(x, 'reps') ?? 0),
     );
   if (
     recent.length >= 2 &&

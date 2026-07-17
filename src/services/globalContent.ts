@@ -1,6 +1,7 @@
 import { builtInExercises } from '../data/exercises';
 import type { Exercise, ExerciseMedia } from '../types';
 import { supabaseConfigured, supabaseRequest } from './supabase';
+import { normalizeMeasurementType } from '../utils/performance';
 
 const CACHE_KEY = 'calistrack.global-content.v1';
 
@@ -64,7 +65,7 @@ function toExercise(row: GlobalRow): Exercise {
     movementFamily: row.movement_family,
     category: row.category,
     difficulty: row.difficulty,
-    measurementType: row.measurement_type,
+    measurementType: normalizeMeasurementType(row.measurement_type),
     muscles: row.muscles ?? [],
     aliases: [...(row.aliases ?? []), ...(en?.aliases ?? [])],
     aliasesHe: he?.aliases ?? [],

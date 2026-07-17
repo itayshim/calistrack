@@ -9,8 +9,9 @@ const config = (name: string, order: number): WorkoutExercise => {
     exerciseId: e.id,
     order,
     targetSets: warm ? 1 : 3,
-    targetMin: e.measurementType === 'time' ? 20 : 8,
-    targetMax: e.measurementType === 'time' ? 30 : 12,
+    targetMin: e.measurementType === 'duration' ? 20 : 8,
+    targetMax: e.measurementType === 'duration' ? 30 : 12,
+    measurementType: e.measurementType,
     restSeconds: warm ? 30 : 75,
   };
 };
@@ -57,7 +58,7 @@ export const beginnerProgram: Program = {
   ],
 };
 export const createInitialData = (): AppData => ({
-  schemaVersion: 4,
+    schemaVersion: 5,
   exercises: builtInExercises,
   programs: [],
   workoutSessions: [],

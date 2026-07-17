@@ -11,7 +11,7 @@ describe('storage', () => {
   it('rejects invalid imports', () => expect(() => service.importData('{"hello":1}')).toThrow());
   it('handles malformed local storage safely', () => {
     localStorage.setItem(STORAGE_KEY, 'broken');
-    expect(service.loadAppData().schemaVersion).toBe(4);
+    expect(service.loadAppData().schemaVersion).toBe(5);
   });
   it('migrates schema 1 exercises and preserves their IDs and saved data', () => {
     const current = createInitialData();
@@ -37,7 +37,7 @@ describe('storage', () => {
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(legacy));
     const migrated = service.loadAppData();
-    expect(migrated.schemaVersion).toBe(4);
+    expect(migrated.schemaVersion).toBe(5);
     expect(migrated.settings.language).toBe('en');
     expect(migrated.exercises.find((exercise) => exercise.id === 'custom-legacy')).toMatchObject({
       movementFamily: 'push',
@@ -106,5 +106,35 @@ describe('storage', () => {
     expect(migrated.programs[0].workouts[0].exercises[0].exerciseId).toBe(pushUp.id);
     expect(migrated.workoutSessions[0].exercises[0].exerciseId).toBe(pushUp.id);
     expect(migrated.goals[0].exerciseId).toBe(pushUp.id);
+  });
+  it('migrates legacy time sets while preserving reps, programs, goals and active state', () => {
+    const data = createInitialData();
+    const plank = builtInExercises.find((exercise) => exercise.nameEn === 'Plank')!;
+    data.schemaVersion = 4;
+    data.activeWorkout = {
+      id: 'active-duration',
+      workoutName: 'Hold session',
+      startedAt: '2026-01-01T00:00:00Z',
+      status: 'active',
+      currentExerciseIndex: 0,
+      exercises: [{
+        id: 'session-exercise',
+        exerciseId: plank.id,
+        measurementType: 'time' as never,
+        skipped: false,
+        sets: [{ id: 'legacy-set', setNumber: 1, value: 42, completed: true }],
+      }],
+    };
+    const migrated = service.importData(JSON.stringify(data));
+    expect(migrated.activeWorkout?.exercises[0]).toMatchObject({
+      exerciseId: plank.id,
+      measurementType: 'duration',
+    });
+    expect(migrated.activeWorkout?.exercises[0].sets[0]).toMatchObject({
+      durationSeconds: 42,
+      completed: true,
+    });
+    expect(migrated.programs).toHaveLength(data.programs.length);
+    expect(migrated.goals).toHaveLength(data.goals.length);
   });
 });

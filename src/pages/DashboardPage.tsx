@@ -29,6 +29,7 @@ import {
 } from '../utils/stats';
 import { useI18n } from '../hooks/useI18n';
 import { resolveExerciseName } from '../utils/exerciseLocalization';
+import { formatAddedWeight, formatDuration, formatReps } from '../utils/performance';
 
 export function DashboardPage() {
   const { t, language } = useI18n();
@@ -196,10 +197,13 @@ export function DashboardPage() {
                         )}
                       </p>
                       <p className="text-3xl font-black">
-                        {topRecord.bestSet}{' '}
-                        <span className="text-base text-slate-500">
-                          {topRecord.measurementType === 'time' ? t('secondsShort') : t('repsShort')}
-                        </span>
+                        <bdi>
+                          {topRecord.measurementType === 'duration'
+                            ? formatDuration(topRecord.longestHold, language)
+                            : topRecord.measurementType === 'weighted_reps'
+                              ? formatAddedWeight(topRecord.heaviestAddedWeight, language)
+                              : formatReps(topRecord.bestSet, language)}
+                        </bdi>
                       </p>
                     </>
                   ) : (

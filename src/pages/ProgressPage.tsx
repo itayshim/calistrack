@@ -15,6 +15,7 @@ import { exercisePoints } from '../utils/stats';
 import { getRecommendation } from '../utils/recommendations';
 import { useI18n } from '../hooks/useI18n';
 import { getExerciseName } from '../utils/exerciseLocalization';
+import { formatAddedWeight, formatDuration, formatReps } from '../utils/performance';
 export function ProgressPage() {
   const { t, language } = useI18n();
   const exercises = useAppStore((s) => s.exercises),
@@ -35,9 +36,15 @@ export function ProgressPage() {
     best = all.length ? Math.max(...all.map((x) => x.best)) : 0,
     latest = all.at(-1),
     target = sessions.flatMap((s) => s.exercises).find((x) => x.exerciseId === id)?.target,
-    recommendation = target
+    recommendation = target && exercise?.measurementType === 'reps'
       ? getRecommendation(sessions, id, target.targetMin, target.targetMax, target.targetSets)
       : null;
+  const formatMetric = (value: number) =>
+    exercise?.measurementType === 'duration'
+      ? formatDuration(value, language)
+      : exercise?.measurementType === 'weighted_reps'
+        ? formatAddedWeight(value, language)
+        : formatReps(value, language);
   return (
     <div className="space-y-8">
       <header>
@@ -65,8 +72,8 @@ export function ProgressPage() {
       <div className="grid grid-cols-3 gap-3">
         {[
           [<Flame />, all.length, 'SESSIONS'],
-          [<TrendingUp />, latest?.[mode] ?? 0, 'LATEST'],
-          [<Trophy />, best, 'PERSONAL BEST'],
+          [<TrendingUp />, formatMetric(latest?.[mode] ?? 0), 'LATEST'],
+          [<Trophy />, formatMetric(best), exercise?.measurementType === 'duration' ? t('longestHold') : exercise?.measurementType === 'weighted_reps' ? t('heaviestAddedWeight') : 'PERSONAL BEST'],
         ].map(([icon, value, label]) => (
           <div key={String(label)} className="card p-4 sm:p-5">
             <span className="text-brand">{icon}</span>

@@ -5,6 +5,12 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { useAppStore } from '../store/useAppStore';
 import { useI18n } from '../hooks/useI18n';
 import { getExerciseName } from '../utils/exerciseLocalization';
+import {
+  getSetAddedWeight,
+  getSetDuration,
+  getSetReps,
+  normalizeMeasurementType,
+} from '../utils/performance';
 export function HistoryDetailPage() {
   const { t, language } = useI18n();
   const { id } = useParams(),
@@ -34,6 +40,9 @@ export function HistoryDetailPage() {
       <div className="space-y-4">
         {session.exercises.map((es, ei) => {
           const ex = store.exercises.find((e) => e.id === es.exerciseId);
+          const measurementType = normalizeMeasurementType(
+            es.measurementType ?? es.target?.measurementType ?? ex?.measurementType,
+          );
           return (
             <section className="card" key={es.id}>
               <div className="flex justify-between">
@@ -44,20 +53,33 @@ export function HistoryDetailPage() {
                 {es.sets.map((st, si) => (
                   <label key={st.id}>
                     <span className="label">{t('set')} <bdi>{st.setNumber}</bdi></span>
-                    <input
-                      className="field"
-                      type="number"
-                      min="0"
-                      value={st.value}
-                      onChange={(e) =>
-                        setSession((s) => {
-                          if (!s) return s;
-                          const n = structuredClone(s);
-                          n.exercises[ei].sets[si].value = +e.target.value;
-                          return n;
-                        })
-                      }
+                    <HistoryMetricInput
+                      label={measurementType === 'duration' ? t('holdTime') : t('repetitionsMeasurement')}
+                      value={measurementType === 'duration' ? getSetDuration(st, measurementType) ?? 0 : getSetReps(st, measurementType) ?? 0}
+                      unit={measurementType === 'duration' ? t('seconds') : t('reps')}
+                      onChange={(value) => setSession((current) => {
+                        if (!current) return current;
+                        const next = structuredClone(current);
+                        if (measurementType === 'duration') next.exercises[ei].sets[si].durationSeconds = value;
+                        else next.exercises[ei].sets[si].reps = value;
+                        delete next.exercises[ei].sets[si].value;
+                        return next;
+                      })}
                     />
+                    {measurementType === 'weighted_reps' && (
+                      <HistoryMetricInput
+                        label={t('addedWeightKg')}
+                        value={getSetAddedWeight(st) ?? 0}
+                        unit="kg"
+                        step={0.5}
+                        onChange={(value) => setSession((current) => {
+                          if (!current) return current;
+                          const next = structuredClone(current);
+                          next.exercises[ei].sets[si].addedWeightKg = value;
+                          return next;
+                        })}
+                      />
+                    )}
                   </label>
                 ))}
               </div>
@@ -136,5 +158,22 @@ function Rate({ label, value, set }: { label: string; value: number; set: (v: nu
         ))}
       </select>
     </label>
+  );
+}
+function HistoryMetricInput({ label, value, unit, onChange, step = 1 }: { label: string; value: number; unit: string; onChange: (value: number) => void; step?: number }) {
+  return (
+    <span className="mt-1 flex items-center gap-2">
+      <input
+        aria-label={label}
+        className="field"
+        type="number"
+        min="0"
+        step={step}
+        inputMode={step < 1 ? 'decimal' : 'numeric'}
+        value={value}
+        onChange={(event) => onChange(Math.max(0, Number(event.target.value)))}
+      />
+      <span className="whitespace-nowrap text-sm text-slate-500">{unit}</span>
+    </span>
   );
 }

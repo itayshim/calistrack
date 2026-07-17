@@ -187,6 +187,63 @@ describe('exercise demonstration viewer', () => {
     expect(screen.getByText('User workout')).toBeInTheDocument();
   });
 
+  it.each([
+    {
+      type: 'duration' as const,
+      targetMin: 20,
+      targetMax: 30,
+      mainLabel: /Hold time.*Set 1/i,
+      mainValue: '24',
+      weightValue: null,
+    },
+    {
+      type: 'weighted_reps' as const,
+      targetMin: 5,
+      targetMax: 8,
+      mainLabel: /reps.*Set 1/i,
+      mainValue: '6',
+      weightValue: '7.5',
+    },
+  ])('preserves $type values while opening demonstration media', async ({ type, targetMin, targetMax, mainLabel, mainValue, weightValue }) => {
+    const user = userEvent.setup();
+    const metricExercise = { ...exerciseWithMedia, measurementType: type };
+    useAppStore.setState({
+      exercises: [metricExercise],
+      activeWorkout: {
+        id: `active-${type}`,
+        workoutName: 'Metric workout',
+        startedAt: new Date().toISOString(),
+        status: 'active',
+        currentExerciseIndex: 0,
+        exercises: [{
+          id: `session-${type}`,
+          exerciseId: metricExercise.id,
+          measurementType: type,
+          target: {
+            id: `target-${type}`,
+            exerciseId: metricExercise.id,
+            order: 0,
+            targetSets: 3,
+            targetMin,
+            targetMax,
+            restSeconds: 60,
+            measurementType: type,
+          },
+          sets: [],
+          skipped: false,
+        }],
+      },
+    });
+    render(<MemoryRouter><I18nProvider><WorkoutPage /></I18nProvider></MemoryRouter>);
+    const mainInput = screen.getByLabelText(mainLabel);
+    await user.type(mainInput, mainValue);
+    if (weightValue) await user.type(screen.getByLabelText('Added weight (kg)'), weightValue);
+    await user.click(screen.getByRole('button', { name: 'How to perform it' }));
+    await user.click(screen.getByRole('button', { name: 'Dismiss' }));
+    expect(mainInput).toHaveValue(Number(mainValue));
+    if (weightValue) expect(screen.getByLabelText('Added weight (kg)')).toHaveValue(Number(weightValue));
+  });
+
   it('renders the Hebrew action and localized exercise name', async () => {
     useAppStore.setState({
       settings: { ...useAppStore.getState().settings, language: 'he' },

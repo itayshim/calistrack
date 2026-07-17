@@ -20,6 +20,13 @@ import { workoutSummary } from '../utils/stats';
 import { useI18n } from '../hooks/useI18n';
 import { ExerciseDemonstrationButton } from '../components/ExerciseDemonstration';
 import { getExerciseName } from '../utils/exerciseLocalization';
+import {
+  formatSetPerformance,
+  getSetAddedWeight,
+  getSetDuration,
+  getSetReps,
+  normalizeMeasurementType,
+} from '../utils/performance';
 
 export function WorkoutPage() {
   const { t, language } = useI18n();
@@ -27,7 +34,9 @@ export function WorkoutPage() {
     store = useAppStore(),
     nav = useNavigate(),
     [now, setNow] = useState(Date.now()),
-    [value, setValue] = useState(''),
+    [reps, setReps] = useState(''),
+    [duration, setDuration] = useState(''),
+    [addedWeight, setAddedWeight] = useState(''),
     [finish, setFinish] = useState(false),
     [cancel, setCancel] = useState(false),
     [notes, setNotes] = useState(''),
@@ -87,6 +96,9 @@ export function WorkoutPage() {
     plannedSets = target?.targetSets ?? 0,
     allowedSets = plannedSets + (sessionExercise.extraSetCount ?? 0),
     canEnterSet = done < allowedSets,
+    measurementType = normalizeMeasurementType(
+      sessionExercise.measurementType ?? target?.measurementType ?? exercise?.measurementType,
+    ),
     previous = store.workoutSessions
       .find(
         (s) =>
@@ -95,11 +107,25 @@ export function WorkoutPage() {
       )
       ?.exercises.find((e) => e.exerciseId === sessionExercise.exerciseId)
       ?.sets.filter((s) => s.completed)
-      .map((s) => s.value);
+      .map((set) => formatSetPerformance(set, measurementType, language));
+  const setInput =
+    measurementType === 'duration'
+      ? { durationSeconds: Number(duration) }
+      : measurementType === 'weighted_reps'
+        ? { reps: Number(reps), addedWeightKg: Number(addedWeight) }
+        : { reps: Number(reps) };
+  const validInput =
+    measurementType === 'duration'
+      ? Number(duration) > 0
+      : Number(reps) > 0 &&
+        (measurementType !== 'weighted_reps' ||
+          (addedWeight !== '' && Number(addedWeight) >= (target?.minimumAddedWeightKg ?? 0)));
   const complete = () => {
-    if (!value || restLocked || !canEnterSet) return;
-    store.completeSet(i, +value);
-    setValue('');
+    if (!validInput || restLocked || !canEnterSet) return;
+    store.completeSet(i, setInput);
+    setReps('');
+    setDuration('');
+    setAddedWeight('');
   };
   return (
     <div className="mx-auto max-w-3xl pb-28 md:pb-0">
@@ -179,7 +205,10 @@ export function WorkoutPage() {
           {exercise && <ExerciseDemonstrationButton exercise={exercise} className="shrink-0" />}
         </div>
         <p className="mt-4 text-lg font-bold text-slate-400">
-          <span><bdi>{target?.targetSets}</bdi> {t('sets')}</span><span aria-hidden="true"> · </span><span><bdi>{target?.targetMin}–{target?.targetMax}</bdi> {exercise?.measurementType === 'time' ? t('seconds') : t('reps')}</span>
+          <span><bdi>{target?.targetSets}</bdi> {t('sets')}</span><span aria-hidden="true"> · </span><span><bdi>{target?.targetMin}–{target?.targetMax}</bdi> {measurementType === 'duration' ? t('seconds') : t('reps')}</span>
+          {measurementType === 'weighted_reps' && target?.targetAddedWeightKg !== undefined && (
+            <><span aria-hidden="true"> · </span><span>{t('targetAddedWeight')}: <bdi>+{target.targetAddedWeightKg} kg</bdi></span></>
+          )}
         </p>
         {previous?.length ? (
           <div className="surface-subtle mt-6 flex items-center justify-between rounded-2xl px-4 py-3">
@@ -187,7 +216,7 @@ export function WorkoutPage() {
               {t('lastTime')}
             </span>
             <span className="font-black text-slate-200">
-              <bdi>{previous.join(' · ')}</bdi> {exercise?.measurementType === 'time' ? t('seconds') : t('reps')}
+              <bdi>{previous.join(' · ')}</bdi>
             </span>
           </div>
         ) : null}
@@ -201,17 +230,40 @@ export function WorkoutPage() {
                 <Check size={18} strokeWidth={3} />
               </span>
               <span className="w-16 text-sm font-black text-slate-400">{t('set')} <bdi>{set.setNumber}</bdi></span>
-              <input
-                aria-label={`Set value ${set.setNumber}`}
-                type="number"
-                min="0"
-                value={set.value}
-                onChange={(e) => store.editSet(i, set.id, +e.target.value)}
-                className="min-w-0 flex-1 bg-transparent text-right text-2xl font-black outline-none"
-              />
-              <span className="text-sm font-bold text-slate-500">
-                {exercise?.measurementType === 'time' ? t('seconds') : t('reps')}
-              </span>
+              {measurementType === 'duration' ? (
+                <MetricInput
+                  label={t('holdTime')}
+                  value={getSetDuration(set, measurementType) ?? 0}
+                  unit={t('seconds')}
+                  onChange={(next) => store.editSet(i, set.id, { durationSeconds: next })}
+                />
+              ) : (
+                <>
+                  <MetricInput
+                    label={t('repetitionsMeasurement')}
+                    value={getSetReps(set, measurementType) ?? 0}
+                    unit={t('reps')}
+                    onChange={(next) => store.editSet(i, set.id, {
+                      reps: next,
+                      ...(measurementType === 'weighted_reps'
+                        ? { addedWeightKg: getSetAddedWeight(set) ?? 0 }
+                        : {}),
+                    })}
+                  />
+                  {measurementType === 'weighted_reps' && (
+                    <MetricInput
+                      label={t('addedWeight')}
+                      value={getSetAddedWeight(set) ?? 0}
+                      unit="kg"
+                      step={0.5}
+                      onChange={(next) => store.editSet(i, set.id, {
+                        reps: getSetReps(set, measurementType) ?? 0,
+                        addedWeightKg: next,
+                      })}
+                    />
+                  )}
+                </>
+              )}
               <button
                 aria-label={`Delete set ${set.setNumber}`}
                 className="p-2 text-slate-600 hover:text-red-400"
@@ -224,7 +276,7 @@ export function WorkoutPage() {
         </section>
         <div className="mt-8 text-center">
           <label htmlFor="set-value" className="label">
-            {exercise?.measurementType === 'time' ? t('seconds') : t('reps')} — {t('set')} <bdi>{done + 1}</bdi>
+            {measurementType === 'duration' ? t('holdTime') : t('reps')} — {t('set')} <bdi>{done + 1}</bdi>
           </label>
           <input
             id="set-value"
@@ -232,17 +284,45 @@ export function WorkoutPage() {
             inputMode="numeric"
             type="number"
             min="0"
-            value={value}
+            value={measurementType === 'duration' ? duration : reps}
             disabled={restLocked || !canEnterSet}
-            onChange={(e) => setValue(e.target.value)}
+            onChange={(e) => measurementType === 'duration' ? setDuration(e.target.value) : setReps(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && complete()}
             placeholder="0"
             className="mx-auto block w-full bg-transparent text-center text-[6.5rem] font-black leading-none tabular-nums tracking-[-.08em] text-slate-950 outline-none placeholder:text-slate-300 disabled:cursor-not-allowed disabled:opacity-30 dark:text-white dark:placeholder:text-white/[.08] sm:text-9xl"
           />
+          <p className="text-center text-sm font-bold text-slate-500">
+            {measurementType === 'duration' ? t('seconds') : t('reps')}
+          </p>
+          {measurementType === 'duration' && (
+            <div className="mt-3 flex justify-center gap-2">
+              {[5, 10, 30].map((amount) => (
+                <button key={amount} type="button" className="chip" disabled={restLocked} onClick={() => setDuration(String(Number(duration || 0) + amount))}>+{amount}s</button>
+              ))}
+            </div>
+          )}
+          {measurementType === 'weighted_reps' && (
+            <label className="mx-auto mt-5 block max-w-sm">
+              <span className="label">{t('addedWeightKg')}</span>
+              <input
+                aria-label={t('addedWeightKg')}
+                className="field text-center text-3xl font-black"
+                type="number"
+                min="0"
+                step="0.5"
+                inputMode="decimal"
+                value={addedWeight}
+                disabled={restLocked || !canEnterSet}
+                onChange={(event) => setAddedWeight(event.target.value)}
+                onKeyDown={(event) => event.key === 'Enter' && complete()}
+                placeholder="0"
+              />
+            </label>
+          )}
         </div>
         {canEnterSet ? (
           <button
-            disabled={!value || restLocked}
+            disabled={!validInput || restLocked}
             onClick={complete}
             className="btn-primary mt-4 min-h-16 w-full text-lg disabled:cursor-not-allowed disabled:opacity-40"
           >
@@ -423,6 +503,36 @@ function Rating({ label, value, set }: { label: string; value: number; set: (v: 
         ))}
       </div>
     </fieldset>
+  );
+}
+function MetricInput({
+  label,
+  value,
+  unit,
+  onChange,
+  step = 1,
+}: {
+  label: string;
+  value: number;
+  unit: string;
+  onChange: (value: number) => void;
+  step?: number;
+}) {
+  return (
+    <label className="flex min-w-0 flex-1 items-center gap-2">
+      <span className="sr-only">{label}</span>
+      <input
+        aria-label={label}
+        type="number"
+        min="0"
+        step={step}
+        inputMode={step < 1 ? 'decimal' : 'numeric'}
+        value={value}
+        onChange={(event) => onChange(Math.max(0, Number(event.target.value)))}
+        className="min-w-0 flex-1 bg-transparent text-end text-xl font-black outline-none"
+      />
+      <span className="whitespace-nowrap text-xs font-bold text-slate-500">{unit}</span>
+    </label>
   );
 }
 const formatTime = (seconds: number) =>

@@ -43,4 +43,38 @@ describe('progress stats', () => {
     edit.exercises[0].sets[0].value = 15;
     expect(exercisePoints([edit], 'e')[0].best).toBe(15);
   });
+  it('calculates the longest hold from duration fields', () => {
+    const durationExercise = { ...e, id: 'hold', measurementType: 'duration' as const };
+    const durationSession = structuredClone(s);
+    durationSession.exercises[0] = {
+      ...durationSession.exercises[0],
+      exerciseId: 'hold',
+      measurementType: 'duration',
+      sets: [
+        { id: 'd1', setNumber: 1, durationSeconds: 18, completed: true },
+        { id: 'd2', setNumber: 2, durationSeconds: 31, completed: true },
+      ],
+    };
+    expect(personalRecords([durationSession], [durationExercise])[0]).toMatchObject({
+      longestHold: 31,
+      bestSet: 31,
+    });
+  });
+  it('calculates the heaviest added weight independently from repetitions', () => {
+    const weightedExercise = { ...e, id: 'weighted', measurementType: 'weighted_reps' as const };
+    const weightedSession = structuredClone(s);
+    weightedSession.exercises[0] = {
+      ...weightedSession.exercises[0],
+      exerciseId: 'weighted',
+      measurementType: 'weighted_reps',
+      sets: [
+        { id: 'w1', setNumber: 1, reps: 6, addedWeightKg: 7.5, completed: true },
+        { id: 'w2', setNumber: 2, reps: 3, addedWeightKg: 12.5, completed: true },
+      ],
+    };
+    expect(personalRecords([weightedSession], [weightedExercise])[0]).toMatchObject({
+      heaviestAddedWeight: 12.5,
+      bestSet: 12.5,
+    });
+  });
 });

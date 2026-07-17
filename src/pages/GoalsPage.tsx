@@ -7,10 +7,12 @@ import { createId } from '../utils/id';
 import { exercisePoints, weeklyCompleted } from '../utils/stats';
 import { useI18n } from '../hooks/useI18n';
 import { getExerciseName } from '../utils/exerciseLocalization';
+import { formatAddedWeight, formatDuration, formatReps, getSetAddedWeight, getSetReps } from '../utils/performance';
 const icons = {
   'weekly-workouts': Dumbbell,
   'exercise-reps': Target,
   'exercise-time': Timer,
+  'exercise-weighted-reps': Dumbbell,
   'first-skill': Trophy,
 };
 export function GoalsPage() {
@@ -20,7 +22,8 @@ export function GoalsPage() {
     [title, setTitle] = useState(''),
     [type, setType] = useState<GoalType>('weekly-workouts'),
     [exerciseId, setExercise] = useState(store.exercises[0]?.id ?? ''),
-    [target, setTarget] = useState(3);
+    [target, setTarget] = useState(3),
+    [targetWeight, setTargetWeight] = useState(0);
   const save = () => {
     if (!title.trim()) return;
     store.addGoal({
@@ -29,6 +32,8 @@ export function GoalsPage() {
       title,
       exerciseId: type === 'weekly-workouts' ? undefined : exerciseId,
       targetValue: target,
+      targetReps: type === 'exercise-weighted-reps' ? target : undefined,
+      targetAddedWeightKg: type === 'exercise-weighted-reps' ? targetWeight : undefined,
       createdAt: new Date().toISOString(),
     });
     setTitle('');
@@ -53,16 +58,33 @@ export function GoalsPage() {
       {store.goals.length ? (
         <div className="grid gap-4 md:grid-cols-2">
           {store.goals.map((goal) => {
+            const weightedCurrent = goal.type === 'exercise-weighted-reps'
+              ? Math.max(
+                  0,
+                  ...store.workoutSessions.flatMap((session) =>
+                    session.exercises
+                      .filter((exercise) => exercise.exerciseId === goal.exerciseId)
+                      .flatMap((exercise) =>
+                        exercise.sets
+                          .filter((set) => (getSetReps(set, 'weighted_reps') ?? 0) >= (goal.targetReps ?? goal.targetValue))
+                          .map((set) => getSetAddedWeight(set) ?? 0),
+                      ),
+                  ),
+                )
+              : 0;
             const current =
                 goal.type === 'weekly-workouts'
                   ? weeklyCompleted(store.workoutSessions)
+                  : goal.type === 'exercise-weighted-reps'
+                    ? weightedCurrent
                   : Math.max(
                       0,
                       ...exercisePoints(store.workoutSessions, goal.exerciseId ?? '').map(
                         (x) => x.best,
                       ),
                     ),
-              pct = Math.min(100, (current / goal.targetValue) * 100),
+              goalTarget = goal.type === 'exercise-weighted-reps' ? goal.targetAddedWeightKg ?? 0 : goal.targetValue,
+              pct = goalTarget > 0 ? Math.min(100, (current / goalTarget) * 100) : 0,
               Icon = icons[goal.type];
             return (
               <article key={goal.id} className="card group relative overflow-hidden p-6">
@@ -80,7 +102,13 @@ export function GoalsPage() {
                 </div>
                 <h2 className="mt-6 text-2xl font-black tracking-[-.035em]">{goal.title}</h2>
                 <p className="mt-1 text-sm font-semibold text-slate-400">
-                  {current} of {goal.targetValue}
+                  <bdi>
+                    {goal.type === 'exercise-time'
+                      ? `${formatDuration(current, language)} / ${formatDuration(goal.targetValue, language)}`
+                      : goal.type === 'exercise-weighted-reps'
+                        ? `${formatReps(goal.targetReps ?? goal.targetValue, language)} · ${formatAddedWeight(current, language)} / ${formatAddedWeight(goal.targetAddedWeightKg ?? 0, language)}`
+                        : `${current} / ${goal.targetValue}`}
+                  </bdi>
                 </p>
                 <div className="mt-6 grid grid-cols-[1fr_auto] items-center gap-5">
                   <div>
@@ -144,10 +172,11 @@ export function GoalsPage() {
                 <div className="grid grid-cols-2 gap-2">
                   {(
                     [
-                      ['weekly-workouts', 'Weekly workouts'],
-                      ['exercise-reps', 'Rep target'],
-                      ['exercise-time', 'Hold target'],
-                      ['first-skill', 'First skill'],
+                      ['weekly-workouts', t('weeklyWorkoutsGoal')],
+                      ['exercise-reps', t('repetitionsGoal')],
+                      ['exercise-time', t('durationGoal')],
+                      ['exercise-weighted-reps', t('weightedRepsGoal')],
+                      ['first-skill', t('firstSkillGoal')],
                     ] as const
                   ).map(([value, label]) => (
                     <button
@@ -177,7 +206,7 @@ export function GoalsPage() {
                 </label>
               )}
               <label>
-                <span className="label">{t('target')}</span>
+                <span className="label">{type === 'exercise-time' ? t('targetDuration') : t('target')}</span>
                 <input
                   className="field text-2xl font-black"
                   type="number"
@@ -186,6 +215,20 @@ export function GoalsPage() {
                   onChange={(e) => setTarget(+e.target.value)}
                 />
               </label>
+              {type === 'exercise-weighted-reps' && (
+                <label>
+                  <span className="label">{t('targetAddedWeight')}</span>
+                  <input
+                    className="field text-2xl font-black"
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    inputMode="decimal"
+                    value={targetWeight}
+                    onChange={(event) => setTargetWeight(Math.max(0, Number(event.target.value)))}
+                  />
+                </label>
+              )}
               <button
                 disabled={!title.trim()}
                 className="btn-primary w-full text-lg"
