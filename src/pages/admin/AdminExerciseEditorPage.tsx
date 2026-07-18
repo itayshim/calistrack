@@ -16,6 +16,7 @@ import {
   findDuplicateYouTubeMedia,
 } from '../../services/adminExerciseMedia';
 import { useAppStore } from '../../store/useAppStore';
+import { isValidStableKey, normalizeStableKey, normalizeStableKeyDraft } from '../../utils/stableKey';
 
 const empty = {
   id: '',
@@ -47,6 +48,8 @@ export function AdminExerciseEditorPage() {
   const [youtube, setYoutube] = useState('');
   const [externalUrl, setExternalUrl] = useState('');
   const [error, setError] = useState('');
+  const [stableKeyError, setStableKeyError] = useState('');
+  const [stableKeyManuallyEdited, setStableKeyManuallyEdited] = useState(false);
   const [saving, setSaving] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [media, setMedia] = useState<ExerciseMedia[]>([]);
@@ -58,6 +61,7 @@ export function AdminExerciseEditorPage() {
   const loadForm = (next: typeof empty) => {
     setForm(next);
     setBaseline(JSON.stringify(next));
+    setStableKeyManuallyEdited(true);
   };
   useEffect(() => {
     if (!exerciseId || exerciseId === 'new' || !token) return;
@@ -127,11 +131,20 @@ export function AdminExerciseEditorPage() {
   }, [exerciseId, token]);
   const list = (value: string) => value.split(/[\n,]/).map((item) => item.trim()).filter(Boolean);
   const save = async () => {
-    if (!token || !form.stable_key || !form.nameEn || !form.measurement_type) {
+    const stableKey = normalizeStableKey(form.stable_key);
+    if (!token || !stableKey || !form.nameEn || !form.measurement_type) {
+      if (!stableKey) setStableKeyError(t('invalidStableKey'));
       setError(t('requiredExerciseFields'));
       return;
     }
+    if (!isValidStableKey(stableKey)) {
+      setStableKeyError(t('invalidStableKey'));
+      setError('');
+      return;
+    }
     setSaving(true);
+    setStableKeyError('');
+    setForm((current) => ({ ...current, stable_key: stableKey }));
     setError('');
     try {
       const id = form.id || createId();
@@ -140,7 +153,7 @@ export function AdminExerciseEditorPage() {
         headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
         body: JSON.stringify({
           id,
-          stable_key: form.stable_key,
+          stable_key: stableKey,
           movement_family: form.movement_family,
           category: form.category,
           difficulty: form.difficulty,
@@ -164,12 +177,23 @@ export function AdminExerciseEditorPage() {
       }, token);
       invalidatePublishedExerciseMedia({
         canonicalExerciseId: id,
-        stableKey: form.stable_key,
+        stableKey,
       });
       setBaseline(JSON.stringify(form));
       navigate('/admin/exercises');
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : t('unableToSave'));
+      const code =
+        reason && typeof reason === 'object' && 'code' in reason
+          ? String(reason.code)
+          : reason instanceof Error
+            ? reason.message
+            : '';
+      if (code === '23514') {
+        setStableKeyError(t('invalidStableKey'));
+        setError('');
+      } else {
+        setError(reason instanceof Error ? reason.message : t('unableToSave'));
+      }
     } finally {
       setSaving(false);
     }
@@ -253,7 +277,19 @@ export function AdminExerciseEditorPage() {
       await reloadMedia();
     } catch { setError(t('mediaReplaceFailed')); } finally { setProgress(null); }
   };
-  const set = (key: keyof typeof empty, value: string | boolean) => setForm((current) => ({ ...current, [key]: value }));
+  const set = (key: keyof typeof empty, value: string | boolean) =>
+    setForm((current) => {
+      if (key === 'nameEn' && typeof value === 'string' && !stableKeyManuallyEdited && !current.id) {
+        return { ...current, nameEn: value, stable_key: normalizeStableKey(value) };
+      }
+      return { ...current, [key]: value };
+    });
+  const setStableKey = (value: string) => {
+    const normalized = normalizeStableKeyDraft(value);
+    setStableKeyManuallyEdited(true);
+    setStableKeyError(normalized && !isValidStableKey(normalized) ? t('invalidStableKey') : '');
+    set('stable_key', normalized);
+  };
   const videoId = parseYouTubeVideoId(youtube);
   return (
     <main className="mx-auto max-w-4xl">
@@ -270,7 +306,14 @@ export function AdminExerciseEditorPage() {
       <div className="mt-6 grid gap-5">
         <section className="card grid gap-3 sm:grid-cols-2">
           <h2 className="sm:col-span-2 text-xl font-black">{t('exerciseMetadata')}</h2>
-          <Field label={t('stableKey')} value={form.stable_key} set={(value) => set('stable_key', value)} ltr />
+          <Field
+            label={t('stableKey')}
+            value={form.stable_key}
+            set={setStableKey}
+            onBlur={() => set('stable_key', normalizeStableKey(form.stable_key))}
+            error={stableKeyError}
+            ltr
+          />
           <Field label={t('movementFamily')} value={form.movement_family} set={(value) => set('movement_family', value)} />
           <Select label={t('category')} value={form.category} values={['push','pull','legs','core','mobility','skill']} set={(value) => set('category', value)} />
           <Select label={t('difficulty')} value={form.difficulty} values={['beginner','intermediate','advanced']} set={(value) => set('difficulty', value)} />
@@ -312,6 +355,24 @@ export function AdminExerciseEditorPage() {
   );
 }
 
-function Field({ label, value, set, ltr = false }: { label: string; value: string; set: (value: string) => void; ltr?: boolean }) { return <label><span className="label">{label}</span><input dir={ltr ? 'ltr' : 'auto'} className="field" value={value} onChange={(event) => set(event.target.value)} /></label>; }
+function Field({ label, value, set, ltr = false, error, onBlur }: { label: string; value: string; set: (value: string) => void; ltr?: boolean; error?: string; onBlur?: () => void }) {
+  const errorId = error ? `${label.toLowerCase().replace(/\s+/g, '-')}-error` : undefined;
+  return (
+    <label>
+      <span className="label">{label}</span>
+      <input
+        dir={ltr ? 'ltr' : 'auto'}
+        className="field"
+        value={value}
+        aria-label={label}
+        aria-invalid={!!error}
+        aria-describedby={errorId}
+        onChange={(event) => set(event.target.value)}
+        onBlur={onBlur}
+      />
+      {error && <span id={errorId} className="mt-1 block text-sm font-bold text-red-500">{error}</span>}
+    </label>
+  );
+}
 function Select({ label, value, values, set }: { label: string; value: string; values: string[]; set: (value: string) => void }) { return <label><span className="label">{label}</span><select className="field" value={value} onChange={(event) => set(event.target.value)}>{values.map((item) => <option key={item}>{item}</option>)}</select></label>; }
 function TranslationCard({ title, name, description, instructions, mistakes, set, labels, rtl = false }: { title: string; name: string; description: string; instructions: string; mistakes: string; set: (key: 'name' | 'description' | 'instructions' | 'mistakes', value: string) => void; labels: { name: string; description: string; instructions: string; mistakes: string }; rtl?: boolean }) { return <section className="card space-y-3" dir={rtl ? 'rtl' : 'ltr'}><h2 className="text-xl font-black">{title}</h2><Field label={labels.name} value={name} set={(value) => set('name', value)} /><label><span className="label">{labels.description}</span><textarea dir="auto" className="field" value={description} onChange={(event) => set('description', event.target.value)} /></label><label><span className="label">{labels.instructions}</span><textarea dir="auto" className="field min-h-32" value={instructions} onChange={(event) => set('instructions', event.target.value)} /></label><label><span className="label">{labels.mistakes}</span><textarea dir="auto" className="field" value={mistakes} onChange={(event) => set('mistakes', event.target.value)} /></label></section>; }

@@ -177,4 +177,79 @@ describe('program weekday selection', () => {
     expect(screen.queryByText('Discard unsaved changes?')).not.toBeInTheDocument();
     expect(screen.getByText('Programs')).toBeInTheDocument();
   });
+
+  it('keeps only one workout expanded and preserves values while collapsing', async () => {
+    const now = '2026-01-01';
+    const workouts = ['A', 'B', 'C'].map((name) => ({
+      id: `workout-${name}`,
+      programId: 'accordion-program',
+      name: `Workout ${name}`,
+      scheduledDays: [],
+      exercises: [],
+      createdAt: now,
+      updatedAt: now,
+    }));
+    useAppStore.setState({
+      programs: [{ id: 'accordion-program', name: 'Accordion', workouts, createdAt: now, updatedAt: now }],
+    });
+    const user = userEvent.setup();
+    renderEditor('/program/accordion-program');
+    expect(screen.getByRole('button', { name: 'Collapse workout' })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getAllByRole('button', { name: 'Expand workout' })).toHaveLength(2);
+    const name = screen.getByLabelText('Workout day name');
+    await user.clear(name);
+    await user.type(name, 'Edited A');
+    await user.click(screen.getAllByRole('button', { name: 'Expand workout' })[0]);
+    expect(screen.getAllByRole('button', { name: 'Expand workout' })).toHaveLength(2);
+    await user.click(screen.getAllByRole('button', { name: 'Expand workout' })[0]);
+    expect(screen.getByLabelText('Workout day name')).toHaveValue('Edited A');
+  });
+
+  it('opens newly added and duplicated workouts and supports collapse all', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await user.click(screen.getByRole('button', { name: 'Add workout day' }));
+    expect(screen.getByRole('button', { name: 'Collapse workout' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Duplicate workout' }));
+    expect(screen.getByLabelText('Workout day name')).toHaveValue('Workout A — Copy');
+    await user.click(screen.getByRole('button', { name: 'Collapse all' }));
+    expect(screen.queryByLabelText('Workout day name')).not.toBeInTheDocument();
+  });
+
+  it('allows an empty numeric draft, blocks save, and preserves other edits', async () => {
+    useAppStore.setState({
+      settings: { ...useAppStore.getState().settings, allowEmptyNumericFields: true },
+    });
+    const user = userEvent.setup();
+    renderEditor();
+    await user.click(screen.getByRole('button', { name: 'Add workout day' }));
+    await user.click(screen.getByRole('button', { name: 'Add exercise' }));
+    await user.type(screen.getByPlaceholderText('Search squats, dips, handstands...'), 'Pull-Up');
+    await user.click(screen.getAllByRole('button', { name: /Pull-UpPull-Up/ })[0]);
+    const sets = screen.getByLabelText('Sets');
+    await user.clear(sets);
+    expect(sets).toHaveValue(null);
+    const programName = screen.getByLabelText('Program name');
+    await user.clear(programName);
+    await user.type(programName, 'Still here');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(screen.getByText('Enter the number of sets.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Program name')).toHaveValue('Still here');
+    expect(useAppStore.getState().programs).toHaveLength(0);
+    await user.type(sets, '4');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(useAppStore.getState().programs[0].workouts[0].exercises[0].targetSets).toBe(4);
+  });
+
+  it('keeps the established minimum behavior when empty numeric editing is disabled', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await user.click(screen.getByRole('button', { name: 'Add workout day' }));
+    await user.click(screen.getByRole('button', { name: 'Add exercise' }));
+    await user.type(screen.getByPlaceholderText('Search squats, dips, handstands...'), 'Pull-Up');
+    await user.click(screen.getAllByRole('button', { name: /Pull-UpPull-Up/ })[0]);
+    const sets = screen.getByLabelText('Sets');
+    await user.clear(sets);
+    expect(sets).toHaveValue(1);
+  });
 });

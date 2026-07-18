@@ -34,6 +34,7 @@ import { formatAddedWeight, formatDuration, formatReps } from '../utils/performa
 export function DashboardPage() {
   const { t, language } = useI18n();
   const programs = useAppStore((s) => s.programs),
+    activeProgramId = useAppStore((s) => s.activeProgramId),
     sessions = useAppStore((s) => s.workoutSessions),
     exercises = useAppStore((s) => s.exercises),
     active = useAppStore((s) => s.activeWorkout),
@@ -43,7 +44,7 @@ export function DashboardPage() {
     nav = useNavigate();
   const weekly = weeklyCompleted(sessions),
     streak = consistencyStreak(sessions, goal),
-    workouts = programs.flatMap((p) => p.workouts),
+    workouts = programs.find((program) => program.id === activeProgramId)?.workouts ?? [],
     next = workouts.find((w) => w.scheduledDays.includes(new Date().getDay())) ?? workouts[0],
     last = sessions[0],
     records = personalRecords(sessions, exercises),

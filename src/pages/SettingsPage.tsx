@@ -24,6 +24,7 @@ export function SettingsPage() {
           schemaVersion: store.schemaVersion,
           exercises: store.exercises,
           programs: store.programs,
+          activeProgramId: store.activeProgramId,
           workoutSessions: store.workoutSessions,
           activeWorkout: store.activeWorkout,
           settings: store.settings,
@@ -121,6 +122,16 @@ export function SettingsPage() {
           checked={settings.restTimerVibration}
           set={(v) => setSettings({ ...settings, restTimerVibration: v })}
         />
+        <Toggle
+          label={t('allowEmptyNumericFields')}
+          description={t('allowEmptyNumericFieldsDescription')}
+          checked={settings.allowEmptyNumericFields}
+          set={(v) => {
+            const next = { ...settings, allowEmptyNumericFields: v };
+            setSettings(next);
+            store.setSettings(next);
+          }}
+        />
         <button className="btn-primary w-full" onClick={() => store.setSettings(settings)}>
           {t('saveSettings')}
         </button>
@@ -184,17 +195,23 @@ export function SettingsPage() {
 }
 function Toggle({
   label,
+  description,
   checked,
   set,
 }: {
   label: string;
+  description?: string;
   checked: boolean;
   set: (v: boolean) => void;
 }) {
   return (
     <label className="surface-subtle flex min-h-16 items-center justify-between rounded-2xl px-4">
-      <span className="font-bold">{label}</span>
+      <span className="pe-4">
+        <span className="block font-bold">{label}</span>
+        {description && <span className="mt-1 block text-sm leading-relaxed text-slate-500">{description}</span>}
+      </span>
       <input
+        aria-label={label}
         className="h-5 w-5 accent-brand"
         type="checkbox"
         checked={checked}

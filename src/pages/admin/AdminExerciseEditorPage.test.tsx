@@ -89,6 +89,20 @@ function renderEditor(media: Record<string, unknown>[] = []) {
   );
 }
 
+function renderNewEditor() {
+  api.request.mockResolvedValue([]);
+  return render(
+    <MemoryRouter initialEntries={['/admin/exercises/new/edit']}>
+      <I18nProvider>
+        <Routes>
+          <Route path="/admin/exercises/:exerciseId/edit" element={<AdminExerciseEditorPage />} />
+          <Route path="/admin/exercises" element={<div>Exercise list</div>} />
+        </Routes>
+      </I18nProvider>
+    </MemoryRouter>,
+  );
+}
+
 async function ready() {
   await screen.findByDisplayValue('push-up');
 }
@@ -108,6 +122,47 @@ describe('administrator exercise media lifecycle', () => {
       'href',
       '/admin/exercises',
     );
+  });
+
+  it('auto-generates and submits a valid kebab-case stable key', async () => {
+    const user = userEvent.setup();
+    renderNewEditor();
+    const englishSection = screen.getByRole('heading', { name: 'English' }).closest('section')!;
+    await user.type(within(englishSection).getByLabelText('Name'), 'L-Sit Pull-Up');
+    expect(screen.getByLabelText('Stable key')).toHaveValue('l-sit-pull-up');
+
+    await user.clear(screen.getByLabelText('Stable key'));
+    await user.type(screen.getByLabelText('Stable key'), 'l_sit_pull_up');
+    expect(screen.getByLabelText('Stable key')).toHaveValue('l-sit-pull-up');
+    await user.click(screen.getByRole('button', { name: 'Save exercise' }));
+
+    await waitFor(() => {
+      const call = api.request.mock.calls.find(([path, options]) =>
+        String(path).startsWith('/rest/v1/global_exercises?on_conflict=stable_key') &&
+        options?.method === 'POST',
+      );
+      expect(JSON.parse(call?.[1].body as string).stable_key).toBe('l-sit-pull-up');
+    });
+  });
+
+  it('shows a localized inline error instead of PostgreSQL code 23514', async () => {
+    const user = userEvent.setup();
+    api.request.mockRejectedValue(Object.assign(new Error('23514'), { code: '23514' }));
+    render(
+      <MemoryRouter initialEntries={['/admin/exercises/new/edit']}>
+        <I18nProvider>
+          <Routes>
+            <Route path="/admin/exercises/:exerciseId/edit" element={<AdminExerciseEditorPage />} />
+          </Routes>
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+    const englishSection = screen.getByRole('heading', { name: 'English' }).closest('section')!;
+    await user.type(within(englishSection).getByLabelText('Name'), 'L-Sit Pull-Up');
+    await user.click(screen.getByRole('button', { name: 'Save exercise' }));
+    expect(await screen.findByText(/lowercase letters, numbers, and single hyphens/)).toBeInTheDocument();
+    expect(screen.queryByText('23514')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Stable key')).toHaveAttribute('aria-invalid', 'true');
   });
 
   it('uses the canonical English name and publishes the first selected suggestion as primary', async () => {

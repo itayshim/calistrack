@@ -107,6 +107,7 @@ export interface UserSettings {
   defaultRestSeconds: number;
   theme: 'dark' | 'light';
   language: 'en' | 'he';
+  allowEmptyNumericFields: boolean;
 }
 export type GoalType =
   | 'weekly-workouts'
@@ -129,6 +130,7 @@ export interface AppData {
   schemaVersion: number;
   exercises: Exercise[];
   programs: Program[];
+  activeProgramId: string | null;
   workoutSessions: WorkoutSession[];
   activeWorkout: WorkoutSession | null;
   settings: UserSettings;

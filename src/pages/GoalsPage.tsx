@@ -23,24 +23,32 @@ export function GoalsPage() {
     [title, setTitle] = useState(''),
     [type, setType] = useState<GoalType>('weekly-workouts'),
     [exerciseId, setExercise] = useState(store.exercises[0]?.id ?? ''),
-    [target, setTarget] = useState(3),
-    [targetWeight, setTargetWeight] = useState(0);
-  const goalDirty = open && Boolean(title || type !== 'weekly-workouts' || target !== 3 || targetWeight !== 0);
+    [target, setTarget] = useState('3'),
+    [targetWeight, setTargetWeight] = useState('0'),
+    [numericError, setNumericError] = useState(''),
+    allowEmpty = store.settings.allowEmptyNumericFields;
+  const goalDirty = open && Boolean(title || type !== 'weekly-workouts' || target !== '3' || targetWeight !== '0');
   const unsaved = useUnsavedChangesGuard(goalDirty);
   const closeEditor = () => unsaved.request(() => setOpen(false));
   const save = () => {
-    if (!title.trim()) return;
+    const parsedTarget = Number(target);
+    const parsedWeight = Number(targetWeight);
+    if (!title.trim() || !Number.isFinite(parsedTarget) || parsedTarget < 1 || (type === 'exercise-weighted-reps' && (!Number.isFinite(parsedWeight) || parsedWeight < 0))) {
+      setNumericError(t('enterValidGoalTarget'));
+      return;
+    }
     store.addGoal({
       id: createId(),
       type,
       title,
       exerciseId: type === 'weekly-workouts' ? undefined : exerciseId,
-      targetValue: target,
-      targetReps: type === 'exercise-weighted-reps' ? target : undefined,
-      targetAddedWeightKg: type === 'exercise-weighted-reps' ? targetWeight : undefined,
+      targetValue: parsedTarget,
+      targetReps: type === 'exercise-weighted-reps' ? parsedTarget : undefined,
+      targetAddedWeightKg: type === 'exercise-weighted-reps' ? parsedWeight : undefined,
       createdAt: new Date().toISOString(),
     });
     setTitle('');
+    setNumericError('');
     setOpen(false);
   };
   return (
@@ -216,8 +224,14 @@ export function GoalsPage() {
                   type="number"
                   min="1"
                   value={target}
-                  onChange={(e) => setTarget(+e.target.value)}
+                  aria-invalid={!!numericError}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    setTarget(allowEmpty ? raw : String(Math.max(1, Number(raw) || 1)));
+                    setNumericError('');
+                  }}
                 />
+                {numericError && <span className="mt-1 block text-sm font-bold text-red-500">{numericError}</span>}
               </label>
               {type === 'exercise-weighted-reps' && (
                 <label>
@@ -228,8 +242,12 @@ export function GoalsPage() {
                     min="0"
                     step="0.5"
                     inputMode="decimal"
-                    value={targetWeight}
-                    onChange={(event) => setTargetWeight(Math.max(0, Number(event.target.value)))}
+                  value={targetWeight}
+                  onChange={(event) => {
+                    const raw = event.target.value;
+                    setTargetWeight(allowEmpty ? raw : String(Math.max(0, Number(raw) || 0)));
+                    setNumericError('');
+                  }}
                   />
                 </label>
               )}

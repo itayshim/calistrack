@@ -31,6 +31,9 @@ interface Store extends AppData {
   updateExercise: (e: Exercise) => void;
   deleteExercise: (id: string) => void;
   saveProgram: (p: Program) => void;
+  renameProgram: (id: string, name: string) => void;
+  duplicateProgram: (id: string) => string | null;
+  setActiveProgram: (id: string) => void;
   deleteProgram: (id: string) => void;
   adoptBeginner: () => void;
   startWorkout: (t: WorkoutTemplate) => boolean;
@@ -75,6 +78,7 @@ export const useAppStore = create<Store>((set, get) => ({
       schemaVersion: get().schemaVersion,
       exercises: get().exercises,
       programs: get().programs,
+      activeProgramId: get().activeProgramId,
       workoutSessions: get().workoutSessions,
       activeWorkout: get().activeWorkout,
       settings: get().settings,
@@ -111,13 +115,72 @@ export const useAppStore = create<Store>((set, get) => ({
   },
   saveProgram: (p) => {
     set((s) => ({
-      programs: [...s.programs.filter((x) => x.id !== p.id), p],
+      programs: s.programs.some((program) => program.id === p.id)
+        ? s.programs.map((program) => (program.id === p.id ? p : program))
+        : [...s.programs, p],
+      activeProgramId: s.activeProgramId ?? (s.programs.length === 0 ? p.id : null),
       toast: localized(get().settings.language, 'programSaved'),
     }));
     get().persist();
   },
+  renameProgram: (id, name) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    set((s) => ({
+      programs: s.programs.map((program) =>
+        program.id === id
+          ? { ...program, name: trimmed, updatedAt: new Date().toISOString() }
+          : program,
+      ),
+      toast: localized(get().settings.language, 'programRenamed'),
+    }));
+    get().persist();
+  },
+  duplicateProgram: (id) => {
+    const source = get().programs.find((program) => program.id === id);
+    if (!source) return null;
+    const language = get().settings.language;
+    const suffix = language === 'he' ? 'עותק' : 'Copy';
+    const existingNames = new Set(get().programs.map((program) => program.name));
+    let name = `${source.name} — ${suffix}`;
+    let index = 2;
+    while (existingNames.has(name)) name = `${source.name} — ${suffix} ${index++}`;
+    const now = new Date().toISOString();
+    const programId = createId();
+    const duplicate: Program = {
+      ...structuredClone(source),
+      id: programId,
+      name,
+      isBuiltIn: false,
+      createdAt: now,
+      updatedAt: now,
+      workouts: source.workouts.map((workout) => ({
+        ...structuredClone(workout),
+        id: createId(),
+        programId,
+        createdAt: now,
+        updatedAt: now,
+        exercises: workout.exercises.map((exercise) => ({ ...structuredClone(exercise), id: createId() })),
+      })),
+    };
+    set((s) => ({
+      programs: [...s.programs, duplicate],
+      toast: localized(language, 'programDuplicated'),
+    }));
+    get().persist();
+    return programId;
+  },
+  setActiveProgram: (id) => {
+    if (!get().programs.some((program) => program.id === id)) return;
+    set({ activeProgramId: id, toast: localized(get().settings.language, 'activeProgramUpdated') });
+    get().persist();
+  },
   deleteProgram: (id) => {
-    set((s) => ({ programs: s.programs.filter((p) => p.id !== id) }));
+    set((s) => ({
+      programs: s.programs.filter((p) => p.id !== id),
+      activeProgramId: s.activeProgramId === id ? null : s.activeProgramId,
+      toast: localized(get().settings.language, 'programDeleted'),
+    }));
     get().persist();
   },
   adoptBeginner: () => {
