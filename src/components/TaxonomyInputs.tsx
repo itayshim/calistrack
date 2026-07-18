@@ -1,6 +1,27 @@
-import { useId, useMemo, useState, type KeyboardEvent } from 'react';
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+} from 'react';
+import { createPortal } from 'react-dom';
 import { Check, Plus, Search, X } from 'lucide-react';
 import { taxonomyIdentity, type TaxonomyKind, uniqueTaxonomyValues } from '../utils/taxonomy';
+
+const TAXONOMY_OPEN_EVENT = 'calistrack:taxonomy-open';
+const VIEWPORT_GUTTER = 12;
+
+interface PopoverPosition {
+  left: number;
+  top?: number;
+  bottom?: number;
+  width: number;
+  maxHeight: number;
+}
 
 interface ComboboxProps {
   label: string;
@@ -26,14 +47,112 @@ export function TaxonomyCombobox({
   error,
 }: ComboboxProps) {
   const id = useId();
+  const instanceId = useRef(id);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [creating, setCreating] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const [position, setPosition] = useState<PopoverPosition | null>(null);
   const filtered = useMemo(() => {
     const comparable = taxonomyIdentity(query, kind);
     return options.filter((option) => !comparable || taxonomyIdentity(option, kind).includes(comparable));
   }, [kind, options, query]);
   const exact = options.some((option) => taxonomyIdentity(option, kind) === taxonomyIdentity(query, kind));
+  const close = (returnFocus = false) => {
+    setOpen(false);
+    setActiveIndex(-1);
+    if (returnFocus) triggerRef.current?.focus();
+  };
+  const choose = (option: string) => {
+    onChange(option);
+    setQuery('');
+    close(true);
+  };
+  const updatePosition = () => {
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const availableWidth = Math.max(280, viewportWidth - VIEWPORT_GUTTER * 2);
+    const width = Math.min(Math.max(rect.width, 280), Math.min(480, availableWidth));
+    const preferredLeft =
+      document.documentElement.dir === 'rtl' ? rect.right - width : rect.left;
+    const left = Math.min(
+      Math.max(VIEWPORT_GUTTER, preferredLeft),
+      viewportWidth - width - VIEWPORT_GUTTER,
+    );
+    const below = viewportHeight - rect.bottom - VIEWPORT_GUTTER;
+    const above = rect.top - VIEWPORT_GUTTER;
+    const idealHeight = Math.min(Math.round(viewportHeight * 0.52), 420);
+    const placeAbove = below < Math.min(280, idealHeight) && above > below;
+    const maxHeight = Math.max(180, Math.min(idealHeight, placeAbove ? above - 8 : below - 8));
+    setPosition({
+      left,
+      width,
+      maxHeight,
+      ...(placeAbove
+        ? { bottom: viewportHeight - rect.top + 8 }
+        : { top: rect.bottom + 8 }),
+    });
+  };
+  useLayoutEffect(() => {
+    if (!open) return;
+    updatePosition();
+    requestAnimationFrame(() => searchRef.current?.focus());
+  }, [open]);
+  useEffect(() => {
+    if (!open) return;
+    const onOtherOpen = (event: Event) => {
+      if ((event as CustomEvent<string>).detail !== instanceId.current) close();
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!triggerRef.current?.contains(target) && !popoverRef.current?.contains(target)) close();
+    };
+    const onViewportChange = () => updatePosition();
+    document.addEventListener(TAXONOMY_OPEN_EVENT, onOtherOpen);
+    document.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('resize', onViewportChange);
+    window.addEventListener('scroll', onViewportChange, true);
+    return () => {
+      document.removeEventListener(TAXONOMY_OPEN_EVENT, onOtherOpen);
+      document.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('resize', onViewportChange);
+      window.removeEventListener('scroll', onViewportChange, true);
+    };
+  }, [open]);
+  const openMenu = () => {
+    if (open) return close();
+    document.dispatchEvent(new CustomEvent(TAXONOMY_OPEN_EVENT, { detail: instanceId.current }));
+    setOpen(true);
+    setActiveIndex(filtered.findIndex((option) => option === value));
+  };
+  const handleMenuKey = (event: KeyboardEvent<HTMLInputElement | HTMLButtonElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      close(true);
+      return;
+    }
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      if (!open) return openMenu();
+      const direction = event.key === 'ArrowDown' ? 1 : -1;
+      setActiveIndex((current) => {
+        if (!filtered.length) return -1;
+        if (current < 0) return direction > 0 ? 0 : filtered.length - 1;
+        return (current + direction + filtered.length) % filtered.length;
+      });
+      return;
+    }
+    if (event.key === 'Enter' && activeIndex >= 0 && filtered[activeIndex]) {
+      event.preventDefault();
+      choose(filtered[activeIndex]);
+    }
+  };
   const create = async () => {
     if (!query.trim() || exact || creating) return;
     setCreating(true);
@@ -41,59 +160,88 @@ export function TaxonomyCombobox({
       const created = await onCreate(query);
       onChange(created);
       setQuery('');
-      setOpen(false);
+      close(true);
     } finally {
       setCreating(false);
     }
   };
   return (
-    <div className="relative">
+    <div>
       <label className="label" id={`${id}-label`}>{label}</label>
       <button
+        ref={triggerRef}
         type="button"
         className="field flex w-full items-center justify-between text-start"
+        role="combobox"
         aria-labelledby={`${id}-label`}
         aria-expanded={open}
         aria-haspopup="listbox"
+        aria-controls={`${id}-listbox`}
+        aria-activedescendant={activeIndex >= 0 ? `${id}-option-${activeIndex}` : undefined}
         aria-invalid={!!error}
-        onClick={() => setOpen((current) => !current)}
+        onClick={openMenu}
+        onKeyDown={handleMenuKey}
       >
         <span dir="auto" className="truncate">{value || searchLabel}</span>
         <span aria-hidden="true">⌄</span>
       </button>
       {error && <p role="alert" className="mt-1 text-sm font-bold text-red-500">{error}</p>}
-      {open && (
-        <div className="surface absolute inset-x-0 z-30 mt-2 max-h-80 overflow-auto rounded-2xl border border-slate-200 p-2 shadow-xl dark:border-white/10">
-          <label className="field flex items-center gap-2">
-            <Search size={18} aria-hidden="true" />
-            <span className="sr-only">{searchLabel}</span>
-            <input
-              autoFocus
-              className="min-w-0 flex-1 bg-transparent outline-none"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Escape') setOpen(false);
-                if (event.key === 'Enter' && !exact) {
-                  event.preventDefault();
-                  void create();
-                }
-              }}
-            />
-          </label>
-          <div role="listbox" aria-labelledby={`${id}-label`} className="mt-2 grid gap-1">
-            {filtered.map((option) => (
+      {open && position && createPortal(
+        <div
+          ref={popoverRef}
+          data-testid="taxonomy-popover"
+          data-theme-surface="opaque-elevated"
+          dir={document.documentElement.dir || 'ltr'}
+          className="taxonomy-popover modal-surface fixed z-[1000] isolate flex overflow-hidden rounded-2xl"
+          style={{
+            left: position.left,
+            top: position.top,
+            bottom: position.bottom,
+            width: position.width,
+            maxHeight: position.maxHeight,
+          } satisfies CSSProperties}
+        >
+          <div className="taxonomy-search-header shrink-0 border-b border-slate-200 bg-white p-2 dark:border-white/10 dark:bg-elevated">
+            <label className="flex min-h-12 items-center gap-2 rounded-xl border border-slate-200 bg-slate-100 px-3 focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/30 dark:border-white/10 dark:bg-panel">
+              <Search size={18} aria-hidden="true" className="shrink-0" />
+              <span className="sr-only">{searchLabel}</span>
+              <input
+                ref={searchRef}
+                className="min-w-0 flex-1 bg-transparent outline-none"
+                value={query}
+                aria-controls={`${id}-listbox`}
+                aria-activedescendant={activeIndex >= 0 ? `${id}-option-${activeIndex}` : undefined}
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  setActiveIndex(-1);
+                }}
+                onKeyDown={(event) => {
+                  handleMenuKey(event);
+                  if (event.key === 'Enter' && activeIndex < 0 && !exact) {
+                    event.preventDefault();
+                    void create();
+                  }
+                }}
+              />
+            </label>
+          </div>
+          <div id={`${id}-listbox`} role="listbox" aria-labelledby={`${id}-label`} className="taxonomy-options grid min-h-0 flex-1 gap-1 overflow-y-auto overscroll-contain p-2">
+            {filtered.map((option, index) => (
               <button
                 type="button"
                 role="option"
+                id={`${id}-option-${index}`}
                 aria-selected={option === value}
                 key={option}
-                className={`flex min-h-11 items-center justify-between rounded-xl px-3 text-start hover:bg-brand/10 ${option === value ? 'bg-brand/15 font-bold text-brand-dark dark:text-brand' : ''}`}
-                onClick={() => {
-                  onChange(option);
-                  setQuery('');
-                  setOpen(false);
-                }}
+                className={`flex min-h-11 items-center justify-between rounded-xl px-3 text-start ${
+                  index === activeIndex
+                    ? 'bg-slate-200 text-slate-950 dark:bg-slate-700 dark:text-white'
+                    : option === value
+                      ? 'bg-brand/25 font-bold text-slate-950 dark:bg-brand/20 dark:text-brand'
+                      : 'bg-white text-slate-800 hover:bg-slate-100 dark:bg-elevated dark:text-slate-100 dark:hover:bg-panel'
+                }`}
+                onPointerMove={() => setActiveIndex(index)}
+                onClick={() => choose(option)}
               >
                 <span dir="auto" className="truncate">{option}</span>
                 {option === value && <Check size={18} aria-hidden="true" />}
@@ -101,12 +249,15 @@ export function TaxonomyCombobox({
             ))}
           </div>
           {query.trim() && !exact && (
-            <button type="button" className="mt-2 flex min-h-11 w-full items-center gap-2 rounded-xl px-3 font-bold text-brand-dark hover:bg-brand/10 dark:text-brand" disabled={creating} onClick={() => void create()}>
-              <Plus size={18} aria-hidden="true" />
-              <span>{createLabel}: <bdi>{query.trim()}</bdi></span>
-            </button>
+            <div className="shrink-0 border-t border-slate-200 bg-white p-2 dark:border-white/10 dark:bg-elevated">
+              <button type="button" className="flex min-h-11 w-full items-center gap-2 rounded-xl bg-brand/20 px-3 font-bold text-slate-950 hover:bg-brand/30 disabled:opacity-50 dark:text-brand" disabled={creating} onClick={() => void create()}>
+                <Plus size={18} aria-hidden="true" />
+                <span>{createLabel}: <bdi>{query.trim()}</bdi></span>
+              </button>
+            </div>
           )}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

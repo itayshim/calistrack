@@ -109,6 +109,36 @@ textarea:not(.control-input):focus-visible {
   .modal-surface {
     @apply border border-slate-200 bg-white text-slate-950 shadow-xl dark:border-white/[.08] dark:bg-elevated dark:text-white dark:shadow-soft;
   }
+  .taxonomy-popover {
+    flex-direction: column;
+    opacity: 1;
+    isolation: isolate;
+    box-shadow:
+      0 24px 60px rgba(15, 23, 42, 0.24),
+      0 8px 20px rgba(15, 23, 42, 0.14);
+  }
+  .dark .taxonomy-popover {
+    box-shadow:
+      0 24px 60px rgba(0, 0, 0, 0.65),
+      0 8px 20px rgba(0, 0, 0, 0.4);
+  }
+  .taxonomy-options {
+    scrollbar-color: #94a3b8 transparent;
+    scrollbar-width: thin;
+  }
+  .taxonomy-options::-webkit-scrollbar {
+    width: 0.5rem;
+  }
+  .taxonomy-options::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 9999px;
+    background: #94a3b8;
+    background-clip: padding-box;
+  }
+  .dark .taxonomy-options::-webkit-scrollbar-thumb {
+    background: #64748b;
+    background-clip: padding-box;
+  }
 }
 
 @keyframes rise {

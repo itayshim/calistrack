@@ -198,7 +198,7 @@ describe('administrator exercise media lifecycle', () => {
       </MemoryRouter>,
     );
     await screen.findByDisplayValue('l-sit-pull-up');
-    await user.click(screen.getByRole('button', { name: 'Category' }));
+    await user.click(screen.getByRole('combobox', { name: 'Category' }));
     await user.click(screen.getByRole('option', { name: 'pull' }));
     await user.click(screen.getByRole('button', { name: 'Save exercise' }));
     await waitFor(() => {
