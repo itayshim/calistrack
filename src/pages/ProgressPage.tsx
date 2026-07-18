@@ -16,6 +16,7 @@ import { getRecommendation } from '../utils/recommendations';
 import { useI18n } from '../hooks/useI18n';
 import { getExerciseName } from '../utils/exerciseLocalization';
 import { formatAddedWeight, formatDuration, formatReps } from '../utils/performance';
+import { Select } from '../components/SelectMenu';
 export function ProgressPage() {
   const { t, language } = useI18n();
   const exercises = useAppStore((s) => s.exercises),
@@ -53,21 +54,14 @@ export function ProgressPage() {
         <p className="mt-2 text-slate-400">{t('progressSubtitle')}</p>
       </header>
       <section className="card p-4">
-        <label className="sr-only" htmlFor="progress-exercise">
-          Exercise
-        </label>
-        <select
-          id="progress-exercise"
-          className="field text-xl font-black"
+        <Select
+          label={t('exercise')}
           value={id}
-          onChange={(e) => setId(e.target.value)}
-        >
-          {exercises.map((e) => (
-            <option key={e.id} value={e.id}>
-              {getExerciseName(e, language)}
-            </option>
-          ))}
-        </select>
+          onChange={setId}
+          searchable
+          searchLabel={t('searchExercises')}
+          options={exercises.map((exerciseItem) => ({ value: exerciseItem.id, label: getExerciseName(exerciseItem, language) }))}
+        />
       </section>
       <div className="grid grid-cols-3 gap-3">
         {[

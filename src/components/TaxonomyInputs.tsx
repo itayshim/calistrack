@@ -12,7 +12,7 @@ import { createPortal } from 'react-dom';
 import { Check, Plus, Search, X } from 'lucide-react';
 import { taxonomyIdentity, type TaxonomyKind, uniqueTaxonomyValues } from '../utils/taxonomy';
 
-const TAXONOMY_OPEN_EVENT = 'calistrack:taxonomy-open';
+const TAXONOMY_OPEN_EVENT = 'calistrack:floating-menu-open';
 const VIEWPORT_GUTTER = 12;
 
 interface PopoverPosition {

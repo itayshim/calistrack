@@ -7,6 +7,7 @@ import { createId } from '../utils/id';
 import { exercisePoints, weeklyCompleted } from '../utils/stats';
 import { useI18n } from '../hooks/useI18n';
 import { getExerciseName } from '../utils/exerciseLocalization';
+import { Select } from '../components/SelectMenu';
 import { formatAddedWeight, formatDuration, formatReps, getSetAddedWeight, getSetReps } from '../utils/performance';
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard';
 const icons = {
@@ -202,20 +203,14 @@ export function GoalsPage() {
                 </div>
               </fieldset>
               {type !== 'weekly-workouts' && (
-                <label>
-                  <span className="label">{t('exercise')}</span>
-                  <select
-                    className="field"
-                    value={exerciseId}
-                    onChange={(e) => setExercise(e.target.value)}
-                  >
-                    {store.exercises.map((e) => (
-                      <option key={e.id} value={e.id}>
-                        {getExerciseName(e, language)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <Select
+                  label={t('exercise')}
+                  value={exerciseId}
+                  onChange={setExercise}
+                  searchable
+                  searchLabel={t('searchExercises')}
+                  options={store.exercises.map((exercise) => ({ value: exercise.id, label: getExerciseName(exercise, language) }))}
+                />
               )}
               <label>
                 <span className="label">{type === 'exercise-time' ? t('targetDuration') : t('target')}</span>

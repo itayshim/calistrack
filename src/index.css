@@ -109,7 +109,8 @@ textarea:not(.control-input):focus-visible {
   .modal-surface {
     @apply border border-slate-200 bg-white text-slate-950 shadow-xl dark:border-white/[.08] dark:bg-elevated dark:text-white dark:shadow-soft;
   }
-  .taxonomy-popover {
+  .taxonomy-popover,
+  .floating-menu-surface {
     flex-direction: column;
     opacity: 1;
     isolation: isolate;
@@ -117,27 +118,48 @@ textarea:not(.control-input):focus-visible {
       0 24px 60px rgba(15, 23, 42, 0.24),
       0 8px 20px rgba(15, 23, 42, 0.14);
   }
-  .dark .taxonomy-popover {
+  .dark .taxonomy-popover,
+  .dark .floating-menu-surface {
     box-shadow:
       0 24px 60px rgba(0, 0, 0, 0.65),
       0 8px 20px rgba(0, 0, 0, 0.4);
   }
-  .taxonomy-options {
+  .taxonomy-options,
+  .floating-menu-options {
     scrollbar-color: #94a3b8 transparent;
     scrollbar-width: thin;
   }
-  .taxonomy-options::-webkit-scrollbar {
+  .taxonomy-options::-webkit-scrollbar,
+  .floating-menu-options::-webkit-scrollbar {
     width: 0.5rem;
   }
-  .taxonomy-options::-webkit-scrollbar-thumb {
+  .taxonomy-options::-webkit-scrollbar-thumb,
+  .floating-menu-options::-webkit-scrollbar-thumb {
     border: 2px solid transparent;
     border-radius: 9999px;
     background: #94a3b8;
     background-clip: padding-box;
   }
-  .dark .taxonomy-options::-webkit-scrollbar-thumb {
+  .dark .taxonomy-options::-webkit-scrollbar-thumb,
+  .dark .floating-menu-options::-webkit-scrollbar-thumb {
     background: #64748b;
     background-clip: padding-box;
+  }
+  .floating-menu-row {
+    @apply flex min-h-11 w-full items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-start text-slate-700 dark:text-slate-100;
+  }
+  .floating-menu-row:hover,
+  .floating-menu-row.is-highlighted {
+    @apply bg-slate-200 text-slate-950 dark:bg-slate-700 dark:text-white;
+  }
+  .floating-menu-row.is-selected {
+    @apply bg-brand/25 font-bold text-slate-950 dark:bg-brand/20 dark:text-brand;
+  }
+  .floating-menu-row.is-destructive {
+    @apply text-red-600 dark:text-red-400;
+  }
+  .floating-menu-row:disabled {
+    @apply cursor-not-allowed opacity-50;
   }
 }
 

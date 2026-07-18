@@ -2,6 +2,7 @@ import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { Select } from '../components/SelectMenu';
 import { useAppStore } from '../store/useAppStore';
 import type { Difficulty, Exercise, ExerciseCategory, MeasurementType } from '../types';
 import { createId } from '../utils/id';
@@ -198,18 +199,7 @@ function Filter({
   set: (v: string) => void;
   options: Record<string, string>;
 }) {
-  return (
-    <label>
-      <span className="label">{label}</span>
-      <select className="field" value={value} onChange={(e) => set(e.target.value)}>
-        {Object.entries(options).map(([v, l]) => (
-          <option key={v} value={v}>
-            {l}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
+  return <Select label={label} value={value} onChange={set} options={Object.entries(options).map(([optionValue, optionLabel]) => ({ value: optionValue, label: optionLabel }))} />;
 }
 function ExerciseForm({
   onClose,

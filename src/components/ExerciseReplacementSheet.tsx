@@ -9,6 +9,7 @@ import {
   completedSetCount,
   rankReplacementExercises,
 } from '../utils/workoutExperience';
+import { Select } from './SelectMenu';
 
 export function ExerciseReplacementSheet({
   open,
@@ -80,10 +81,15 @@ export function ExerciseReplacementSheet({
           <Search className="pointer-events-none absolute start-4 top-1/2 -translate-y-1/2 text-slate-500" size={19} />
           <input className="field ps-12" placeholder={t('searchAlternatives')} value={query} onChange={(event) => setQuery(event.target.value)} />
         </label>
-        <select className="field mt-3" aria-label={t('movementFamily')} value={family} onChange={(event) => setFamily(event.target.value)}>
-          <option value="">{t('allMovementFamilies')}</option>
-          {families.map((item) => <option key={item} value={item}>{item}</option>)}
-        </select>
+        <Select
+          className="mt-3"
+          label={t('movementFamily')}
+          value={family}
+          onChange={setFamily}
+          searchable
+          searchLabel={t('searchAlternatives')}
+          options={[{ value: '', label: t('allMovementFamilies') }, ...families.map((item) => ({ value: item, label: item }))]}
+        />
         <div className="mt-4 grid gap-3">
           {candidates.slice(0, 30).map((exercise) => {
             const sameType = exercise.measurementType === current.measurementType;

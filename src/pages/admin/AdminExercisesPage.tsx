@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useI18n } from '../../hooks/useI18n';
 import { getAdminSession, supabaseRequest } from '../../services/supabase';
 import { builtInExercises } from '../../data/exercises';
+import { Select } from '../../components/SelectMenu';
 
 interface AdminExercise {
   id: string;
@@ -70,10 +71,10 @@ export function AdminExercisesPage() {
       <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="eyebrow">{t('exerciseManagement')}</p><h1 className="text-4xl font-black">{t('exercises')}</h1></div><Link className="btn-secondary" to="/admin/exercises/new">{t('newSharedExercise')}</Link></div>
       <div className="my-5 grid gap-2 sm:grid-cols-3 lg:grid-cols-5">
         <input aria-label={t('searchSharedExercises')} className="field" placeholder={t('search')} value={query} onChange={(event) => setQuery(event.target.value)} />
-        <select aria-label={t('published')} className="field" value={status} onChange={(event) => setStatus(event.target.value)}><option value="all">{t('allPublicationStates')}</option><option value="published">{t('publishedOnly')}</option><option value="draft">{t('draftsOnly')}</option></select>
-        <select aria-label={t('missingHebrew')} className="field" value={missing} onChange={(event) => setMissing(event.target.value)}><option value="all">{t('allContent')}</option><option value="video">{t('missingVideo')}</option><option value="hebrew">{t('missingHebrew')}</option></select>
-        <select aria-label={t('category')} className="field" value={category} onChange={(event) => setCategory(event.target.value)}><option value="all">{t('allCategories')}</option>{['push','pull','legs','core','mobility','skill'].map((value) => <option key={value} value={value}>{value}</option>)}</select>
-        <select aria-label={t('difficulty')} className="field" value={difficulty} onChange={(event) => setDifficulty(event.target.value)}><option value="all">{t('allDifficulties')}</option>{['beginner','intermediate','advanced'].map((value) => <option key={value} value={value}>{value}</option>)}</select>
+        <Select label={t('published')} value={status} onChange={setStatus} options={[{ value: 'all', label: t('allPublicationStates') }, { value: 'published', label: t('publishedOnly') }, { value: 'draft', label: t('draftsOnly') }]} />
+        <Select label={t('missingHebrew')} value={missing} onChange={setMissing} options={[{ value: 'all', label: t('allContent') }, { value: 'video', label: t('missingVideo') }, { value: 'hebrew', label: t('missingHebrew') }]} />
+        <Select searchable searchLabel={t('search')} label={t('category')} value={category} onChange={setCategory} options={[{ value: 'all', label: t('allCategories') }, ...['push','pull','legs','core','mobility','skill'].map((value) => ({ value, label: value }))]} />
+        <Select label={t('difficulty')} value={difficulty} onChange={setDifficulty} options={[{ value: 'all', label: t('allDifficulties') }, ...['beginner','intermediate','advanced'].map((value) => ({ value, label: value }))]} />
       </div>
       {error && <p role="alert" className="text-red-400">{error}</p>}
       <div className="grid gap-3 sm:grid-cols-2">

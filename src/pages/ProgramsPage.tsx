@@ -9,15 +9,15 @@ import {
   Plus,
   Sparkles,
   Trash2,
-  X,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Badge, EmptyState, ProgressBar } from '../components/ui';
 import { useI18n } from '../hooks/useI18n';
 import { useAppStore } from '../store/useAppStore';
 import type { Program } from '../types';
+import { ActionMenu } from '../components/SelectMenu';
 
 export function ProgramsPage() {
   const { t } = useI18n();
@@ -30,7 +30,6 @@ export function ProgramsPage() {
   const setActiveProgram = useAppStore((s) => s.setActiveProgram);
   const deleteProgram = useAppStore((s) => s.deleteProgram);
   const nav = useNavigate();
-  const [menuProgram, setMenuProgram] = useState<Program | null>(null);
   const [renameTarget, setRenameTarget] = useState<Program | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<Program | null>(null);
@@ -40,7 +39,6 @@ export function ProgramsPage() {
     nav(`/workout/${useAppStore.getState().activeWorkout?.id}`);
   };
   const openRename = (program: Program) => {
-    setMenuProgram(null);
     setRenameTarget(program);
     setRenameValue(program.name);
   };
@@ -81,16 +79,19 @@ export function ProgramsPage() {
                 </Badge>
                 <h2 className="mt-2 break-words text-3xl font-black tracking-[-.04em]">{program.name}</h2>
               </div>
-              <button
-                type="button"
-                aria-label={`${t('programActions')}: ${program.name}`}
-                aria-haspopup="menu"
-                aria-expanded={menuProgram?.id === program.id}
+              <ActionMenu
+                label={`${t('programActions')}: ${program.name}`}
+                menuLabel={t('programActions')}
+                trigger={<MoreHorizontal />}
                 className="icon-button shrink-0"
-                onClick={() => setMenuProgram(program)}
-              >
-                <MoreHorizontal />
-              </button>
+                items={[
+                  { id: 'edit', label: t('editProgramAction'), icon: <Pencil size={19} />, onSelect: () => nav(`/program/${program.id}`) },
+                  { id: 'rename', label: t('renameProgram'), icon: <Pencil size={19} />, onSelect: () => openRename(program) },
+                  { id: 'duplicate', label: t('duplicateProgram'), icon: <Copy size={19} />, onSelect: () => duplicateProgram(program.id) },
+                  ...(program.id !== activeProgramId ? [{ id: 'activate', label: t('setActiveProgram'), icon: <CheckCircle2 size={19} />, onSelect: () => setActiveProgram(program.id) }] : []),
+                  { id: 'delete', label: t('deleteProgram'), icon: <Trash2 size={19} />, destructive: true, onSelect: () => setDeleteTarget(program) },
+                ]}
+              />
             </div>
             <div className="space-y-3">
               {program.workouts.map((workout, index) => (
@@ -114,31 +115,6 @@ export function ProgramsPage() {
           </section>
         ))
       )}
-
-      <ProgramActionSheet
-        program={menuProgram}
-        active={menuProgram?.id === activeProgramId}
-        close={() => setMenuProgram(null)}
-        edit={() => {
-          if (!menuProgram) return;
-          const id = menuProgram.id;
-          setMenuProgram(null);
-          nav(`/program/${id}`);
-        }}
-        rename={() => menuProgram && openRename(menuProgram)}
-        duplicate={() => {
-          if (menuProgram) duplicateProgram(menuProgram.id);
-          setMenuProgram(null);
-        }}
-        activate={() => {
-          if (menuProgram) setActiveProgram(menuProgram.id);
-          setMenuProgram(null);
-        }}
-        remove={() => {
-          setDeleteTarget(menuProgram);
-          setMenuProgram(null);
-        }}
-      />
 
       {renameTarget && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setRenameTarget(null)}>
@@ -168,52 +144,6 @@ export function ProgramsPage() {
         onClose={() => setDeleteTarget(null)}
         onConfirm={() => deleteTarget && deleteProgram(deleteTarget.id)}
       />
-    </div>
-  );
-}
-
-function ProgramActionSheet({
-  program, active, close, edit, rename, duplicate, activate, remove,
-}: {
-  program: Program | null;
-  active: boolean;
-  close: () => void;
-  edit: () => void;
-  rename: () => void;
-  duplicate: () => void;
-  activate: () => void;
-  remove: () => void;
-}) {
-  const { t } = useI18n();
-  const first = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    if (!program) return;
-    first.current?.focus();
-    const escape = (event: KeyboardEvent) => event.key === 'Escape' && close();
-    window.addEventListener('keydown', escape);
-    return () => window.removeEventListener('keydown', escape);
-  }, [close, program]);
-  if (!program) return null;
-  const actions = [
-    { label: t('editProgramAction'), icon: Pencil, action: edit, ref: first },
-    { label: t('renameProgram'), icon: Pencil, action: rename },
-    { label: t('duplicateProgram'), icon: Copy, action: duplicate },
-    ...(!active ? [{ label: t('setActiveProgram'), icon: CheckCircle2, action: activate }] : []),
-  ];
-  return (
-    <div className="fixed inset-0 z-50 flex items-end bg-black/60 sm:items-center sm:justify-center sm:p-4" onMouseDown={(event) => event.target === event.currentTarget && close()}>
-      <section role="menu" aria-label={t('programActions')} className="modal-surface max-h-[calc(100dvh-1rem)] w-full overflow-y-auto rounded-t-[2rem] p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:max-w-sm sm:rounded-[2rem]">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <div className="min-w-0"><p className="eyebrow">{t('programActions')}</p><h2 className="truncate text-2xl font-black">{program.name}</h2></div>
-          <button className="icon-button" aria-label={t('close')} onClick={close}><X /></button>
-        </div>
-        <div className="space-y-2">
-          {actions.map(({ label, icon: Icon, action, ref }) => (
-            <button ref={ref} role="menuitem" key={label} className="btn-secondary w-full justify-start" onClick={action}><Icon size={19} />{label}</button>
-          ))}
-          <button role="menuitem" className="btn-danger w-full justify-start" onClick={remove}><Trash2 size={19} />{t('deleteProgram')}</button>
-        </div>
-      </section>
     </div>
   );
 }

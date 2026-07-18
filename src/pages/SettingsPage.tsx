@@ -6,6 +6,7 @@ import { storageService } from '../services/storage';
 import { useAppStore } from '../store/useAppStore';
 import { useI18n } from '../hooks/useI18n';
 import { getAdminSession } from '../services/supabase';
+import { Select } from '../components/SelectMenu';
 export function SettingsPage() {
   const store = useAppStore(),
     [settings, setSettings] = useState(store.settings),
@@ -99,19 +100,12 @@ export function SettingsPage() {
             onChange={(e) => setSettings({ ...settings, defaultRestSeconds: +e.target.value })}
           />
         </label>
-        <label>
-          <span className="label">{t('theme')}</span>
-          <select
-            className="field"
-            value={settings.theme}
-            onChange={(e) =>
-              setSettings({ ...settings, theme: e.target.value as 'dark' | 'light' })
-            }
-          >
-            <option value="dark">{t('dark')}</option>
-            <option value="light">{t('light')}</option>
-          </select>
-        </label>
+        <Select
+          label={t('theme')}
+          value={settings.theme}
+          onChange={(theme) => setSettings({ ...settings, theme: theme as 'dark' | 'light' })}
+          options={[{ value: 'dark', label: t('dark') }, { value: 'light', label: t('light') }]}
+        />
         <Toggle
           label={t('restTimerSound')}
           checked={settings.restTimerSound}

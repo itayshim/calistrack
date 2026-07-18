@@ -18,6 +18,7 @@ import {
 import { useAppStore } from '../../store/useAppStore';
 import { isValidStableKey, normalizeStableKey, normalizeStableKeyDraft } from '../../utils/stableKey';
 import { ChipInput, TaxonomyCombobox } from '../../components/TaxonomyInputs';
+import { Select as SharedSelect } from '../../components/SelectMenu';
 import {
   createExerciseTaxonomyValue,
   deriveExerciseTaxonomy,
@@ -411,14 +412,11 @@ export function AdminExerciseEditorPage() {
             )}
           </div>
           <Select label={t('difficulty')} value={form.difficulty} values={['beginner','intermediate','advanced']} set={(value) => set('difficulty', value)} />
-          <label>
-            <span className="label">{t('measurementType')}</span>
-            <select className="field" value={form.measurement_type} onChange={(event) => set('measurement_type', event.target.value)}>
-              <option value="reps">{t('repetitionsMeasurement')}</option>
-              <option value="duration">{t('durationMeasurement')}</option>
-              <option value="weighted_reps">{t('weightedRepsMeasurement')}</option>
-            </select>
-          </label>
+          <SharedSelect label={t('measurementType')} value={form.measurement_type} onChange={(value) => set('measurement_type', value)} options={[
+            { value: 'reps', label: t('repetitionsMeasurement') },
+            { value: 'duration', label: t('durationMeasurement') },
+            { value: 'weighted_reps', label: t('weightedRepsMeasurement') },
+          ]} />
           <ChipInput
             label={t('muscles')}
             values={list(form.muscles)}
@@ -493,5 +491,7 @@ function Field({ label, value, set, ltr = false, error, onBlur }: { label: strin
     </label>
   );
 }
-function Select({ label, value, values, set }: { label: string; value: string; values: string[]; set: (value: string) => void }) { return <label><span className="label">{label}</span><select className="field" value={value} onChange={(event) => set(event.target.value)}>{values.map((item) => <option key={item}>{item}</option>)}</select></label>; }
+function Select({ label, value, values, set }: { label: string; value: string; values: string[]; set: (value: string) => void }) {
+  return <SharedSelect label={label} value={value} onChange={set} options={values.map((item) => ({ value: item, label: item }))} />;
+}
 function TranslationCard({ title, name, description, instructions, mistakes, set, labels, rtl = false }: { title: string; name: string; description: string; instructions: string; mistakes: string; set: (key: 'name' | 'description' | 'instructions' | 'mistakes', value: string) => void; labels: { name: string; description: string; instructions: string; mistakes: string }; rtl?: boolean }) { return <section className="card space-y-3" dir={rtl ? 'rtl' : 'ltr'}><h2 className="text-xl font-black">{title}</h2><Field label={labels.name} value={name} set={(value) => set('name', value)} /><label><span className="label">{labels.description}</span><textarea dir="auto" className="field" value={description} onChange={(event) => set('description', event.target.value)} /></label><label><span className="label">{labels.instructions}</span><textarea dir="auto" className="field min-h-32" value={instructions} onChange={(event) => set('instructions', event.target.value)} /></label><label><span className="label">{labels.mistakes}</span><textarea dir="auto" className="field" value={mistakes} onChange={(event) => set('mistakes', event.target.value)} /></label></section>; }

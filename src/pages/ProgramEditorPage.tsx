@@ -19,6 +19,7 @@ import { getExerciseName } from '../utils/exerciseLocalization';
 import { PageBackLink } from '../components/PageBackLink';
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard';
 import type { TranslationKey } from '../locales/translations';
+import { Select } from '../components/SelectMenu';
 const dayKeys: TranslationKey[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 type NumericField = 'targetSets' | 'targetMin' | 'targetMax' | 'targetAddedWeightKg' | 'restSeconds';
 type NumericDrafts = Record<string, string>;
@@ -577,28 +578,16 @@ function ExercisePicker({
                 ))}
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <select
-                  aria-label={t('filterByCategory')}
-                  className="field"
-                  value={category}
-                  onChange={(event) => setCategory(event.target.value as typeof category)}
-                >
-                  <option value="all">{t('allCategories')}</option>
-                  {['push', 'pull', 'legs', 'core', 'mobility', 'skill'].map((item) => (
-                    <option key={item} value={item}>{item}</option>
-                  ))}
-                </select>
-                <select
-                  aria-label={t('filterByDifficulty')}
-                  className="field"
-                  value={difficulty}
-                  onChange={(event) => setDifficulty(event.target.value as typeof difficulty)}
-                >
-                  <option value="all">{t('allLevels')}</option>
-                  <option value="beginner">{t('beginner')}</option>
-                  <option value="intermediate">{t('intermediate')}</option>
-                  <option value="advanced">{t('advanced')}</option>
-                </select>
+                <Select label={t('filterByCategory')} value={category} onChange={(value) => setCategory(value as typeof category)} options={[
+                  { value: 'all', label: t('allCategories') },
+                  ...['push', 'pull', 'legs', 'core', 'mobility', 'skill'].map((value) => ({ value, label: value })),
+                ]} />
+                <Select label={t('filterByDifficulty')} value={difficulty} onChange={(value) => setDifficulty(value as typeof difficulty)} options={[
+                  { value: 'all', label: t('allLevels') },
+                  { value: 'beginner', label: t('beginner') },
+                  { value: 'intermediate', label: t('intermediate') },
+                  { value: 'advanced', label: t('advanced') },
+                ]} />
               </div>
             </div>
             <div className="max-h-[50dvh] overflow-y-auto px-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
@@ -681,11 +670,11 @@ function CustomExerciseForm({
         <input className="field" value={name} onChange={(event) => setName(event.target.value)} />
       </label>
       <div className="grid grid-cols-2 gap-3">
-        <label><span className="label">{t('measurementType')}</span><select className="field" value={measurementType} onChange={(event) => setMeasurementType(event.target.value as MeasurementType)}><option value="reps">{t('repetitionsMeasurement')}</option><option value="duration">{t('durationMeasurement')}</option><option value="weighted_reps">{t('weightedRepsMeasurement')}</option></select></label>
-        <label><span className="label">{t('difficulty')}</span><select className="field" value={difficulty} onChange={(event) => setDifficulty(event.target.value as Difficulty)}><option value="beginner">{t('beginner')}</option><option value="intermediate">{t('intermediate')}</option><option value="advanced">{t('advanced')}</option></select></label>
+        <Select label={t('measurementType')} value={measurementType} onChange={(value) => setMeasurementType(value as MeasurementType)} options={[{ value: 'reps', label: t('repetitionsMeasurement') }, { value: 'duration', label: t('durationMeasurement') }, { value: 'weighted_reps', label: t('weightedRepsMeasurement') }]} />
+        <Select label={t('difficulty')} value={difficulty} onChange={(value) => setDifficulty(value as Difficulty)} options={[{ value: 'beginner', label: t('beginner') }, { value: 'intermediate', label: t('intermediate') }, { value: 'advanced', label: t('advanced') }]} />
       </div>
       <label className="block"><span className="label">{t('movementFamily')}</span><input className="field" value={movementFamily} onChange={(event) => setMovementFamily(event.target.value)} /></label>
-      <label className="block"><span className="label">{t('category')}</span><select className="field" value={category} onChange={(event) => setCategory(event.target.value as ExerciseCategory)}>{['push', 'pull', 'legs', 'core', 'mobility', 'skill'].map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+      <Select label={t('category')} value={category} onChange={(value) => setCategory(value as ExerciseCategory)} options={['push', 'pull', 'legs', 'core', 'mobility', 'skill'].map((value) => ({ value, label: value }))} />
       <label className="block"><span className="label">{t('targetMuscles')}</span><input className="field" value={muscles} onChange={(event) => setMuscles(event.target.value)} /></label>
       <label className="block"><span className="label">{t('notes')}</span><textarea className="field" value={notes} onChange={(event) => setNotes(event.target.value)} /></label>
       <div className="grid grid-cols-2 gap-3">

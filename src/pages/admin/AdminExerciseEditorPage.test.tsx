@@ -403,7 +403,8 @@ describe('administrator exercise media lifecycle', () => {
     const user = userEvent.setup();
     renderEditor();
     await ready();
-    await user.selectOptions(screen.getByLabelText('Measurement type'), 'weighted_reps');
+    await user.click(screen.getByRole('combobox', { name: 'Measurement type' }));
+    await user.click(screen.getByRole('option', { name: 'Weighted repetitions' }));
     await user.click(screen.getByRole('button', { name: 'Save exercise' }));
     await waitFor(() => {
       const call = api.request.mock.calls.find(([path, options]) =>
