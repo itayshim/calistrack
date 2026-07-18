@@ -1,12 +1,31 @@
 import { ArrowLeft, LogOut, Plus } from 'lucide-react';
-import { Link, Outlet, useNavigate } from 'react-router-dom';
+import { Link, Outlet } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { BrandLogo } from '../../components/BrandLogo';
 import { useI18n } from '../../hooks/useI18n';
-import { signOutAdmin } from '../../services/supabase';
+import {
+  getAdminSession,
+  monitorAdminSession,
+  onAdminAuthStateChange,
+  signOutAdmin,
+} from '../../services/supabase';
+import { AdminSessionExpiredDialog } from '../../components/AdminSessionExpiredDialog';
 
 export function AdminLayout() {
   const { t } = useI18n();
-  const navigate = useNavigate();
+  const [sessionInvalid, setSessionInvalid] = useState(() => !getAdminSession());
+  useEffect(() => {
+    const unsubscribe = onAdminAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') setSessionInvalid(false);
+      else setSessionInvalid(true);
+    });
+    const stopMonitoring = monitorAdminSession();
+    return () => {
+      unsubscribe();
+      stopMonitoring();
+    };
+  }, []);
+  if (sessionInvalid) return <AdminSessionExpiredDialog />;
   return (
     <div className="min-h-screen p-4 pb-24 sm:p-8">
       <header className="mx-auto mb-6 flex max-w-5xl flex-wrap items-center justify-between gap-4">
@@ -28,7 +47,6 @@ export function AdminLayout() {
             aria-label={t('logout')}
             onClick={() => {
               signOutAdmin();
-              navigate('/admin/login');
             }}
           >
             <LogOut size={18} />

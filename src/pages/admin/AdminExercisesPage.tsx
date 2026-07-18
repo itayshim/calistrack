@@ -68,7 +68,7 @@ export function AdminExercisesPage() {
   }), [category, difficulty, items, missing, query, status]);
   return (
     <main className="mx-auto max-w-5xl">
-      <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="eyebrow">{t('exerciseManagement')}</p><h1 className="text-4xl font-black">{t('exercises')}</h1></div><Link className="btn-secondary" to="/admin/exercises/new">{t('newSharedExercise')}</Link></div>
+      <div><p className="eyebrow">{t('exerciseManagement')}</p><h1 className="text-4xl font-black">{t('exercises')}</h1></div>
       <div className="my-5 grid gap-2 sm:grid-cols-3 lg:grid-cols-5">
         <input aria-label={t('searchSharedExercises')} className="field" placeholder={t('search')} value={query} onChange={(event) => setQuery(event.target.value)} />
         <Select label={t('published')} value={status} onChange={setStatus} options={[{ value: 'all', label: t('allPublicationStates') }, { value: 'published', label: t('publishedOnly') }, { value: 'draft', label: t('draftsOnly') }]} />
