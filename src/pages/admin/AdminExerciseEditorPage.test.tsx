@@ -165,6 +165,56 @@ describe('administrator exercise media lifecycle', () => {
     expect(screen.getByLabelText('Stable key')).toHaveAttribute('aria-invalid', 'true');
   });
 
+  it('edits L-Sit Pull-Up from skill to pull without creating a duplicate identity', async () => {
+    const user = userEvent.setup();
+    const lSitPullUp = {
+      ...exerciseRow,
+      id: 'existing-l-sit-pull-up-id',
+      stable_key: 'l-sit-pull-up',
+      movement_family: 'Pull-Up',
+      category: 'skill',
+      exercise_translations: [
+        { locale: 'en', name: 'L-Sit Pull-Up', description: '', instructions: [], common_mistakes: [] },
+        { locale: 'he', name: 'L-Sit Pull-Up', description: '', instructions: [], common_mistakes: [] },
+      ],
+    };
+    api.request.mockImplementation((path: string) => {
+      if (path.includes('global_exercises') && path.includes('id=eq.')) {
+        return Promise.resolve([lSitPullUp]);
+      }
+      if (path.includes('global_exercises') && path.includes('select=movement_family')) {
+        return Promise.resolve([lSitPullUp]);
+      }
+      return Promise.resolve([]);
+    });
+    render(
+      <MemoryRouter initialEntries={['/admin/exercises/existing-l-sit-pull-up-id/edit']}>
+        <I18nProvider>
+          <Routes>
+            <Route path="/admin/exercises/:exerciseId/edit" element={<AdminExerciseEditorPage />} />
+            <Route path="/admin/exercises" element={<div>Exercise list</div>} />
+          </Routes>
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+    await screen.findByDisplayValue('l-sit-pull-up');
+    await user.click(screen.getByRole('button', { name: 'Category' }));
+    await user.click(screen.getByRole('option', { name: 'pull' }));
+    await user.click(screen.getByRole('button', { name: 'Save exercise' }));
+    await waitFor(() => {
+      const call = api.request.mock.calls.find(([path, options]) =>
+        String(path).startsWith('/rest/v1/global_exercises?on_conflict=stable_key') &&
+        options?.method === 'POST',
+      );
+      expect(JSON.parse(call?.[1].body as string)).toMatchObject({
+        id: 'existing-l-sit-pull-up-id',
+        stable_key: 'l-sit-pull-up',
+        movement_family: 'Pull-Up',
+        category: 'pull',
+      });
+    });
+  });
+
   it('uses the canonical English name and publishes the first selected suggestion as primary', async () => {
     const user = userEvent.setup();
     renderEditor();

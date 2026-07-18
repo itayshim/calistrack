@@ -1,4 +1,4 @@
-export type ExerciseCategory = 'push' | 'pull' | 'legs' | 'core' | 'mobility' | 'skill';
+export type ExerciseCategory = string;
 export type Difficulty = 'beginner' | 'intermediate' | 'advanced';
 export type MeasurementType = 'reps' | 'duration' | 'weighted_reps';
 export interface Exercise {

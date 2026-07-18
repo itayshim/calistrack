@@ -17,6 +17,19 @@ import {
 } from '../../services/adminExerciseMedia';
 import { useAppStore } from '../../store/useAppStore';
 import { isValidStableKey, normalizeStableKey, normalizeStableKeyDraft } from '../../utils/stableKey';
+import { ChipInput, TaxonomyCombobox } from '../../components/TaxonomyInputs';
+import {
+  createExerciseTaxonomyValue,
+  deriveExerciseTaxonomy,
+  loadExerciseTaxonomy,
+  type ExerciseTaxonomy,
+} from '../../services/exerciseTaxonomy';
+import {
+  keywordSuggestions,
+  suggestedCategory,
+  uniqueTaxonomyValues,
+  type TaxonomyKind,
+} from '../../utils/taxonomy';
 
 const empty = {
   id: '',
@@ -50,6 +63,9 @@ export function AdminExerciseEditorPage() {
   const [error, setError] = useState('');
   const [stableKeyError, setStableKeyError] = useState('');
   const [stableKeyManuallyEdited, setStableKeyManuallyEdited] = useState(false);
+  const [taxonomy, setTaxonomy] = useState<ExerciseTaxonomy>(() => deriveExerciseTaxonomy());
+  const [categoryError, setCategoryError] = useState('');
+  const [familyError, setFamilyError] = useState('');
   const [saving, setSaving] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [media, setMedia] = useState<ExerciseMedia[]>([]);
@@ -63,6 +79,10 @@ export function AdminExerciseEditorPage() {
     setBaseline(JSON.stringify(next));
     setStableKeyManuallyEdited(true);
   };
+  useEffect(() => {
+    if (!token) return;
+    loadExerciseTaxonomy().then(setTaxonomy).catch(() => undefined);
+  }, [token]);
   useEffect(() => {
     if (!exerciseId || exerciseId === 'new' || !token) return;
     if (exerciseId.startsWith('builtin:')) {
@@ -130,9 +150,28 @@ export function AdminExerciseEditorPage() {
     }).catch((reason: Error) => setError(reason.message));
   }, [exerciseId, token]);
   const list = (value: string) => value.split(/[\n,]/).map((item) => item.trim()).filter(Boolean);
+  const updateList = (key: 'muscles' | 'aliases' | 'keywords', values: string[]) =>
+    set(key, values.join(', '));
+  const createTaxonomy = async (kind: TaxonomyKind, value: string) => {
+    const created = await createExerciseTaxonomyValue(kind, value);
+    setTaxonomy((current) => ({
+      ...current,
+      categories: kind === 'category' ? uniqueTaxonomyValues([...current.categories, created], kind) : current.categories,
+      movementFamilies: kind === 'movement_family' ? uniqueTaxonomyValues([...current.movementFamilies, created], kind) : current.movementFamilies,
+      muscles: kind === 'muscle' ? uniqueTaxonomyValues([...current.muscles, created], kind) : current.muscles,
+      keywords: kind === 'keyword' ? uniqueTaxonomyValues([...current.keywords, created], kind) : current.keywords,
+    }));
+    return created;
+  };
   const save = async () => {
     const stableKey = normalizeStableKey(form.stable_key);
-    if (!token || !stableKey || !form.nameEn || !form.measurement_type) {
+    const validDifficulty = ['beginner', 'intermediate', 'advanced'].includes(form.difficulty);
+    const validMeasurement = ['reps', 'duration', 'weighted_reps'].includes(form.measurement_type);
+    const categoryKnown = taxonomy.categories.includes(form.category);
+    const familyKnown = taxonomy.movementFamilies.includes(form.movement_family);
+    setCategoryError(!form.category ? t('categoryRequired') : !categoryKnown ? t('selectValidCategory') : '');
+    setFamilyError(!form.movement_family ? t('movementFamilyRequired') : !familyKnown ? t('selectValidMovementFamily') : '');
+    if (!token || !stableKey || !form.nameEn || !validMeasurement || !validDifficulty || !categoryKnown || !familyKnown) {
       if (!stableKey) setStableKeyError(t('invalidStableKey'));
       setError(t('requiredExerciseFields'));
       return;
@@ -158,9 +197,9 @@ export function AdminExerciseEditorPage() {
           category: form.category,
           difficulty: form.difficulty,
           measurement_type: form.measurement_type,
-          muscles: list(form.muscles),
-          aliases: list(form.aliases),
-          keywords: list(form.keywords),
+          muscles: uniqueTaxonomyValues(list(form.muscles), 'muscle'),
+          aliases: Array.from(new Map(list(form.aliases).map((value) => [value.toLocaleLowerCase(), value])).values()),
+          keywords: uniqueTaxonomyValues(list(form.keywords), 'keyword'),
           is_published: form.is_published,
           created_by: getAdminSession()?.userId,
           updated_by: getAdminSession()?.userId,
@@ -190,7 +229,9 @@ export function AdminExerciseEditorPage() {
             : '';
       if (code === '23514') {
         setStableKeyError(t('invalidStableKey'));
-        setError('');
+        setError(t('invalidTaxonomySelection'));
+      } else if (code === '23503') {
+        setError(t('invalidTaxonomySelection'));
       } else {
         setError(reason instanceof Error ? reason.message : t('unableToSave'));
       }
@@ -280,7 +321,16 @@ export function AdminExerciseEditorPage() {
   const set = (key: keyof typeof empty, value: string | boolean) =>
     setForm((current) => {
       if (key === 'nameEn' && typeof value === 'string' && !stableKeyManuallyEdited && !current.id) {
-        return { ...current, nameEn: value, stable_key: normalizeStableKey(value) };
+        const comparableName = value.toLocaleLowerCase().replace(/[^a-z0-9]+/g, '');
+        const matchingFamily = taxonomy.movementFamilies
+          .filter((family) => comparableName.includes(family.toLocaleLowerCase().replace(/[^a-z0-9]+/g, '')))
+          .sort((a, b) => b.length - a.length)[0];
+        return {
+          ...current,
+          nameEn: value,
+          stable_key: normalizeStableKey(value),
+          movement_family: current.movement_family || matchingFamily || '',
+        };
       }
       return { ...current, [key]: value };
     });
@@ -291,6 +341,7 @@ export function AdminExerciseEditorPage() {
     set('stable_key', normalized);
   };
   const videoId = parseYouTubeVideoId(youtube);
+  const categorySuggestion = suggestedCategory(form.movement_family);
   return (
     <main className="mx-auto max-w-4xl">
       <div onClick={(event) => {
@@ -314,8 +365,51 @@ export function AdminExerciseEditorPage() {
             error={stableKeyError}
             ltr
           />
-          <Field label={t('movementFamily')} value={form.movement_family} set={(value) => set('movement_family', value)} />
-          <Select label={t('category')} value={form.category} values={['push','pull','legs','core','mobility','skill']} set={(value) => set('category', value)} />
+          <TaxonomyCombobox
+            label={t('movementFamily')}
+            value={form.movement_family}
+            options={taxonomy.movementFamilies}
+            kind="movement_family"
+            onChange={(value) => {
+              set('movement_family', value);
+              setFamilyError('');
+            }}
+            onCreate={(value) => createTaxonomy('movement_family', value)}
+            createLabel={t('createNewMovementFamily')}
+            searchLabel={t('searchMovementFamilies')}
+            error={familyError}
+          />
+          <div>
+            <TaxonomyCombobox
+              label={t('category')}
+              value={form.category}
+              options={taxonomy.categories}
+              kind="category"
+              onChange={(value) => {
+                set('category', value);
+                setCategoryError('');
+              }}
+              onCreate={(value) => createTaxonomy('category', value)}
+              createLabel={t('createNewCategory')}
+              searchLabel={t('searchCategories')}
+              error={categoryError}
+            />
+            {categorySuggestion && categorySuggestion !== form.category && (
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+                <span>{t('suggestedCategory')}: <bdi className="font-bold">{categorySuggestion}</bdi></span>
+                <button
+                  className="font-bold text-brand-dark underline-offset-4 hover:underline dark:text-brand"
+                  type="button"
+                  onClick={() => {
+                    set('category', categorySuggestion);
+                    setCategoryError('');
+                  }}
+                >
+                  {t('useSuggestion')}
+                </button>
+              </div>
+            )}
+          </div>
           <Select label={t('difficulty')} value={form.difficulty} values={['beginner','intermediate','advanced']} set={(value) => set('difficulty', value)} />
           <label>
             <span className="label">{t('measurementType')}</span>
@@ -325,9 +419,34 @@ export function AdminExerciseEditorPage() {
               <option value="weighted_reps">{t('weightedRepsMeasurement')}</option>
             </select>
           </label>
-          <Field label={t('muscles')} value={form.muscles} set={(value) => set('muscles', value)} />
-          <Field label={t('aliases')} value={form.aliases} set={(value) => set('aliases', value)} />
-          <Field label={t('keywords')} value={form.keywords} set={(value) => set('keywords', value)} />
+          <ChipInput
+            label={t('muscles')}
+            values={list(form.muscles)}
+            options={taxonomy.muscles}
+            kind="muscle"
+            onChange={(values) => updateList('muscles', values)}
+            onCreate={(value) => createTaxonomy('muscle', value)}
+            placeholder={t('searchMuscles')}
+            createLabel={t('createNewMuscle')}
+          />
+          <ChipInput
+            label={t('aliases')}
+            values={list(form.aliases)}
+            kind="alias"
+            onChange={(values) => updateList('aliases', values)}
+            placeholder={t('addAlias')}
+          />
+          <ChipInput
+            label={t('keywords')}
+            values={list(form.keywords)}
+            options={taxonomy.keywords}
+            kind="keyword"
+            onChange={(values) => updateList('keywords', values)}
+            onCreate={(value) => createTaxonomy('keyword', value)}
+            placeholder={t('addKeyword')}
+            createLabel={t('createNewKeyword')}
+            suggestions={keywordSuggestions(form.category, form.movement_family)}
+          />
         </section>
         <div className="grid gap-5 lg:grid-cols-2">
           <TranslationCard title={t('englishContent')} name={form.nameEn} description={form.descriptionEn} instructions={form.instructionsEn} mistakes={form.mistakesEn} set={(key, value) => set(`${key}En` as keyof typeof empty, value)} labels={{ name: t('name'), description: t('description'), instructions: t('instructionsPerLine'), mistakes: t('mistakesPerLine') }} />
