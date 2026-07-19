@@ -10,6 +10,7 @@ import { useAppStore } from '../store/useAppStore';
 import { isTabActive } from '../utils/navigation';
 import { useI18n } from '../hooks/useI18n';
 import { BrandLogo } from '../components/BrandLogo';
+import { OnboardingExperience } from '../features/onboarding/OnboardingExperience';
 
 const tabs = [
   ['/', 'home', Home],
@@ -38,6 +39,7 @@ export function AppLayout() {
               <Link
                 key={to}
                 to={destination}
+                data-tour-id={`nav-${labelKey}`}
                 aria-current={isTabActive(to, location.pathname) ? 'page' : undefined}
                 className={`flex min-h-14 items-center gap-4 rounded-2xl px-4 font-extrabold transition ${
                   isTabActive(to, location.pathname)
@@ -95,6 +97,7 @@ export function AppLayout() {
             <Link
               key={to}
               to={destination}
+              data-tour-id={`nav-${labelKey}`}
               aria-label={t(labelKey)}
               aria-current={isTabActive(to, location.pathname) ? 'page' : undefined}
               className={`relative flex min-h-[3.7rem] flex-col items-center justify-center gap-1 rounded-2xl text-[10px] font-extrabold transition ${
@@ -110,6 +113,7 @@ export function AppLayout() {
           );
         })}
       </nav>
+      <OnboardingExperience />
     </div>
   );
 }

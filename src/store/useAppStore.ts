@@ -58,6 +58,9 @@ interface Store extends AppData {
   updateSession: (s: WorkoutSession) => void;
   deleteSession: (id: string) => void;
   setSettings: (s: UserSettings) => void;
+  setOnboardingCompleted: (completed: boolean) => void;
+  requestOnboardingReplay: () => void;
+  onboardingReplayRequest: number;
   addGoal: (g: UserGoal) => void;
   deleteGoal: (id: string) => void;
   importData: (d: AppData) => void;
@@ -72,6 +75,7 @@ export const useAppStore = create<Store>((set, get) => ({
   ...initial,
   hydrated: false,
   toast: null,
+  onboardingReplayRequest: 0,
   hydrate: () => set({ ...storageService.loadAppData(), hydrated: true }),
   persist: () =>
     storageService.saveAppData({
@@ -449,6 +453,15 @@ export const useAppStore = create<Store>((set, get) => ({
     set({ settings, toast: localized(settings.language, 'settingsSaved') });
     get().persist();
   },
+  setOnboardingCompleted: (onboardingCompleted) => {
+    set((state) => ({
+      settings: { ...state.settings, onboardingCompleted },
+    }));
+    get().persist();
+  },
+  requestOnboardingReplay: () => {
+    set((state) => ({ onboardingReplayRequest: state.onboardingReplayRequest + 1 }));
+  },
   addGoal: (g) => {
     set((s) => ({ goals: [...s.goals, g] }));
     get().persist();
@@ -464,7 +477,11 @@ export const useAppStore = create<Store>((set, get) => ({
   reset: () => {
     storageService.resetData();
     const data = createInitialData();
-    set({ ...data, toast: localized(data.settings.language, 'dataReset') });
+    set({
+      ...data,
+      onboardingReplayRequest: get().onboardingReplayRequest,
+      toast: localized(data.settings.language, 'dataReset'),
+    });
   },
   pauseTimer: () => {
     const r = get().restTimer;

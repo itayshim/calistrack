@@ -1,4 +1,4 @@
-import { Download, RotateCcw, ShieldCheck, Upload } from 'lucide-react';
+import { CircleHelp, Download, Play, RotateCcw, ShieldCheck, Upload } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -15,6 +15,8 @@ export function SettingsPage() {
     file = useRef<HTMLInputElement>(null),
     { t } = useI18n(),
     adminSession = getAdminSession();
+  const requestOnboardingReplay = useAppStore((state) => state.requestOnboardingReplay);
+  const setOnboardingCompleted = useAppStore((state) => state.setOnboardingCompleted);
   useEffect(() => {
     document.documentElement.classList.toggle('dark', settings.theme === 'dark');
   }, [settings.theme]);
@@ -50,7 +52,7 @@ export function SettingsPage() {
     }
   };
   return (
-    <div className="space-y-7">
+    <div className="space-y-7" data-tour-id="settings">
       <header>
         <p className="eyebrow">{t('settingsEyebrow')}</p>
         <h1 className="mt-2 text-4xl font-black tracking-[-.05em]">{t('settings')}</h1>
@@ -129,6 +131,29 @@ export function SettingsPage() {
         <button className="btn-primary w-full" onClick={() => store.setSettings(settings)}>
           {t('saveSettings')}
         </button>
+      </section>
+      <section className="card max-w-2xl">
+        <div className="flex items-start gap-4">
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-brand/15 text-brand">
+            <CircleHelp aria-hidden="true" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-xl font-black">{t('help')}</h2>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              {t('tutorialHelpDescription')}
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button className="btn-primary" onClick={requestOnboardingReplay}>
+                <Play size={18} fill="currentColor" />
+                {t('replayTutorial')}
+              </button>
+              <button className="btn-secondary" onClick={() => setOnboardingCompleted(false)}>
+                <RotateCcw size={18} />
+                {t('resetOnboarding')}
+              </button>
+            </div>
+          </div>
+        </div>
       </section>
       <section className="card max-w-2xl">
         <div className="flex items-start gap-4">

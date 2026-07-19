@@ -44,7 +44,7 @@ export function ProgramsPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8" data-tour-id="programs">
       <header className="flex items-end justify-between gap-3">
         <div>
           <p className="eyebrow">{t('programEyebrow')}</p>

@@ -47,7 +47,7 @@ export function ProgressPage() {
         ? formatAddedWeight(value, language)
         : formatReps(value, language);
   return (
-    <div className="space-y-8">
+    <div className="space-y-8" data-tour-id="progress">
       <header>
         <p className="eyebrow">{t('progressEyebrow')}</p>
         <h1 className="mt-2 text-4xl font-black tracking-[-.05em]">{t('progress')}</h1>

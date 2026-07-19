@@ -11,7 +11,7 @@ describe('storage', () => {
   it('rejects invalid imports', () => expect(() => service.importData('{"hello":1}')).toThrow());
   it('handles malformed local storage safely', () => {
     localStorage.setItem(STORAGE_KEY, 'broken');
-    expect(service.loadAppData().schemaVersion).toBe(7);
+    expect(service.loadAppData().schemaVersion).toBe(8);
   });
   it('migrates schema 1 exercises and preserves their IDs and saved data', () => {
     const current = createInitialData();
@@ -37,7 +37,8 @@ describe('storage', () => {
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(legacy));
     const migrated = service.loadAppData();
-    expect(migrated.schemaVersion).toBe(7);
+    expect(migrated.schemaVersion).toBe(8);
+    expect(migrated.settings.onboardingCompleted).toBe(true);
     expect(migrated.settings.allowEmptyNumericFields).toBe(false);
     expect(migrated.settings.language).toBe('en');
     expect(migrated.exercises.find((exercise) => exercise.id === 'custom-legacy')).toMatchObject({
@@ -46,6 +47,13 @@ describe('storage', () => {
       keywords: [],
     });
     expect(migrated.restTimer.endsAt).toBeNull();
+  });
+  it('keeps onboarding incomplete only for genuinely fresh application data', () => {
+    expect(createInitialData().settings.onboardingCompleted).toBe(false);
+    const current = createInitialData();
+    current.settings.onboardingCompleted = true;
+    const imported = service.importData(service.exportData(current));
+    expect(imported.settings.onboardingCompleted).toBe(true);
   });
   it('resets application', () => {
     service.saveAppData(createInitialData());

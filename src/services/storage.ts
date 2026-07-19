@@ -8,7 +8,7 @@ const valid = (v: unknown): v is AppData => {
   if (!v || typeof v !== 'object') return false;
   const d = v as Partial<AppData>;
   return (
-    [1, 2, 3, 4, 5, 6, 7].includes(d.schemaVersion ?? 0) &&
+    [1, 2, 3, 4, 5, 6, 7, 8].includes(d.schemaVersion ?? 0) &&
     Array.isArray(d.exercises) &&
     Array.isArray(d.programs) &&
     Array.isArray(d.workoutSessions) &&
@@ -72,6 +72,7 @@ export function normalizeExercise(exercise: Exercise): Exercise {
 }
 
 export function migrateAppData(data: AppData): AppData {
+  const wasExistingInstallation = data.schemaVersion < 8;
   const customExercises = data.exercises.filter((exercise) => exercise.isCustom).map(normalizeExercise);
   const exercises = [...builtInExercises, ...customExercises];
   const exerciseId = (reference: string) =>
@@ -118,11 +119,13 @@ export function migrateAppData(data: AppData): AppData {
   });
   return {
     ...data,
-    schemaVersion: 7,
+    schemaVersion: 8,
     settings: {
       ...data.settings,
       language: data.settings.language ?? 'en',
       allowEmptyNumericFields: data.settings.allowEmptyNumericFields ?? false,
+      onboardingCompleted:
+        wasExistingInstallation ? true : (data.settings.onboardingCompleted ?? false),
     },
     activeProgramId:
       data.activeProgramId && data.programs.some((program) => program.id === data.activeProgramId)

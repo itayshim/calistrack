@@ -52,6 +52,7 @@ describe('administrator session experience', () => {
   it('shows only one creation action on the exercise manager', () => {
     setSession();
     renderAdmin(<AdminExercisesPage />);
+    expect(screen.getByTestId('admin-safe-area-shell')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Exercises' })).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: 'New' })).toHaveLength(1);
     expect(screen.queryByRole('link', { name: 'New shared exercise' })).not.toBeInTheDocument();

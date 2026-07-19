@@ -59,7 +59,7 @@ export function DashboardPage() {
       nav(`/workout/${useAppStore.getState().activeWorkout?.id}`);
   };
   return (
-    <div className="space-y-8">
+    <div className="space-y-8" data-tour-id="dashboard">
       <header className="animate-rise">
         <p className="eyebrow">
           {new Date().toLocaleDateString(language === 'he' ? 'he-IL' : 'en-US', {

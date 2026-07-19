@@ -61,7 +61,7 @@ export function ExercisesPage() {
   );
   return (
     <>
-      <div className="mb-7 flex items-end justify-between">
+      <div data-tour-id="exercise-library" className="mb-7 flex items-end justify-between">
         <div>
           <p className="eyebrow">{t('movementLibrary')}</p>
           <h1 className="mt-2 text-4xl font-black tracking-[-.05em]">{t('exercises')}</h1>

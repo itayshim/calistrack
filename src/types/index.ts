@@ -108,6 +108,7 @@ export interface UserSettings {
   theme: 'dark' | 'light';
   language: 'en' | 'he';
   allowEmptyNumericFields: boolean;
+  onboardingCompleted: boolean;
 }
 export type GoalType =
   | 'weekly-workouts'
