@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useI18n } from '../../hooks/useI18n';
 import { useAppStore } from '../../store/useAppStore';
 import { TourDirectionalIcon } from './TourDirectionalIcon';
+import { chooseTourCardPlacement, type TourCardPlacement } from './tourPlacement';
 import { tourSteps } from './tourSteps';
 import { isVisibleInViewport, resolveTourTarget } from './tourTargeting';
 
@@ -13,19 +14,6 @@ interface SpotlightRect {
   width: number;
   height: number;
   borderRadius: string;
-}
-
-function cardPlacement(spotlight: SpotlightRect | null, centered: boolean) {
-  if (centered || !spotlight) return 'onboarding-tour-card-center';
-  if (window.innerWidth < 640) {
-    return spotlight.top + spotlight.height > window.innerHeight * 0.58
-      ? 'onboarding-tour-card-mobile-top'
-      : 'onboarding-tour-card-mobile-bottom';
-  }
-  const midpoint = spotlight.left + spotlight.width / 2;
-  return midpoint < window.innerWidth / 2
-    ? 'onboarding-tour-card-desktop-end'
-    : 'onboarding-tour-card-desktop-start';
 }
 
 export function OnboardingExperience() {
@@ -42,6 +30,8 @@ export function OnboardingExperience() {
   const [spotlight, setSpotlight] = useState<SpotlightRect | null>(null);
   const [readyStepId, setReadyStepId] = useState<string>();
   const [activeTargetId, setActiveTargetId] = useState<string>();
+  const [cardPlacement, setCardPlacement] = useState<(TourCardPlacement & { stepId: string }) | null>(null);
+  const layerRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLElement>(null);
   const welcomeRef = useRef<HTMLElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
@@ -105,7 +95,13 @@ export function OnboardingExperience() {
           resizeObserver.observe(target);
         }
       }
-      target.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'center', inline: 'nearest' });
+      const targetRect = target.getBoundingClientRect();
+      const largeOnMobile = window.innerWidth < 640 && targetRect.height > 150;
+      target.scrollIntoView({
+        behavior: reducedMotion ? 'auto' : 'smooth',
+        block: largeOnMobile ? 'start' : 'center',
+        inline: 'nearest',
+      });
       window.cancelAnimationFrame(settleFrame);
       settleFrame = window.requestAnimationFrame(() => window.requestAnimationFrame(measure));
       return true;
@@ -147,6 +143,65 @@ export function OnboardingExperience() {
       window.removeEventListener('scroll', onLayout, true);
     };
   }, [location.pathname, step, tourActive]);
+
+  useEffect(() => {
+    if (!tourActive || step.placement === 'center' || readyStepId !== step.id || !spotlight) return;
+    let frame = 0;
+    const measureCard = () => {
+      const card = dialogRef.current;
+      const layer = layerRef.current;
+      if (!card || !layer) return;
+      const cardRect = card.getBoundingClientRect();
+      const layerStyle = window.getComputedStyle(layer);
+      const bottomNavigation = Array.from(document.querySelectorAll<HTMLElement>('.mobile-bottom-nav')).find(
+        isVisibleInViewport,
+      );
+      const next = chooseTourCardPlacement(
+        {
+          ...spotlight,
+          right: spotlight.left + spotlight.width,
+          bottom: spotlight.top + spotlight.height,
+        },
+        {
+          width: Math.min(window.innerWidth < 640 ? window.innerWidth - 24 : 480, cardRect.width || 480),
+          height: cardRect.height,
+        },
+        {
+          width: window.innerWidth,
+          height: window.innerHeight,
+          safeTop: Number.parseFloat(layerStyle.paddingTop) || 0,
+          safeRight: Number.parseFloat(layerStyle.paddingRight) || 0,
+          safeBottom: Number.parseFloat(layerStyle.paddingBottom) || 0,
+          safeLeft: Number.parseFloat(layerStyle.paddingLeft) || 0,
+          bottomNavigationTop: bottomNavigation?.getBoundingClientRect().top,
+        },
+      );
+      setCardPlacement((current) => {
+        const positioned = { ...next, stepId: step.id };
+        return current &&
+          current.stepId === positioned.stepId &&
+          current.top === positioned.top &&
+          current.left === positioned.left &&
+          current.width === positioned.width &&
+          current.compact === positioned.compact
+          ? current
+          : positioned;
+      });
+    };
+    frame = window.requestAnimationFrame(measureCard);
+    const observer = 'ResizeObserver' in window ? new ResizeObserver(measureCard) : undefined;
+    if (dialogRef.current) {
+      observer?.observe(dialogRef.current);
+    }
+    window.addEventListener('resize', measureCard);
+    window.addEventListener('orientationchange', measureCard);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer?.disconnect();
+      window.removeEventListener('resize', measureCard);
+      window.removeEventListener('orientationchange', measureCard);
+    };
+  }, [readyStepId, spotlight, step.id, step.placement, tourActive]);
 
   const welcomeOpen = !completed && !tourActive;
   useEffect(() => {
@@ -226,17 +281,41 @@ export function OnboardingExperience() {
 
   if (!tourActive) return null;
   const finalStep = stepIndex === tourSteps.length - 1;
-  const placementClass = cardPlacement(spotlight, step.placement === 'center');
   const targetReady = !step.targets?.length || readyStepId === step.id;
+  const placementReady = step.placement === 'center' || cardPlacement?.stepId === step.id;
 
   return (
-    <div className="onboarding-tour-layer" aria-live="polite">
+    <div ref={layerRef} className="onboarding-tour-layer" aria-live="polite">
       <div className={`onboarding-tour-blocker ${spotlight ? 'has-spotlight' : ''}`} aria-hidden="true" />
       {spotlight && <div data-testid="tour-spotlight" data-active-target={activeTargetId} className="onboarding-spotlight" style={spotlight} aria-hidden="true" />}
       {!targetReady ? (
         <div className="modal-surface onboarding-tour-loading" role="status">{t('preparingTourStep')}</div>
       ) : (
-        <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="tour-step-title" aria-describedby="tour-step-description" className={`modal-surface onboarding-tour-card rounded-4xl p-5 sm:p-6 ${placementClass}`}>
+        <section
+          ref={dialogRef}
+          tabIndex={-1}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="tour-step-title"
+          aria-describedby="tour-step-description"
+          data-placement={step.placement === 'center' ? 'center' : cardPlacement?.side}
+          data-overlap-ratio={cardPlacement?.overlapRatio}
+          style={
+            step.placement === 'center'
+              ? undefined
+              : {
+                  top: cardPlacement?.top ?? 0,
+                  left: cardPlacement?.left ?? 0,
+                  bottom: 'auto',
+                  right: 'auto',
+                  width: cardPlacement?.width,
+                  opacity: placementReady ? 1 : 0,
+                }
+          }
+          className={`modal-surface onboarding-tour-card rounded-4xl ${
+            step.placement === 'center' ? 'onboarding-tour-card-center' : 'onboarding-tour-card-positioned'
+          } ${cardPlacement?.compact ? 'onboarding-tour-card-compact' : ''} p-5 sm:p-6`}
+        >
           <div className="flex items-center justify-between gap-3">
             <span className="text-xs font-black uppercase tracking-widest text-brand">{t('tourStepProgress').replace('{current}', String(stepIndex + 1)).replace('{total}', String(tourSteps.length))}</span>
             <button className="icon-button h-10 w-10" aria-label={t('skipTour')} onClick={() => finish()}><X size={18} /></button>

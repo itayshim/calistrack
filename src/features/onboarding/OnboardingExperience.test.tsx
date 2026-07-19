@@ -21,9 +21,12 @@ function RouteSurface() {
       <div data-tour-id="nav-program">Program navigation</div>
       <button data-tour-id="create-program-action">Create program action</button>
       <div data-tour-id="exercise-search-filters">Exercise search filters</div>
+      <label data-tour-id="exercise-search-control">Exercise search</label>
+      <div data-tour-id="exercise-filter-controls">Category Difficulty Measurement</div>
       <div data-tour-id="nav-workout">Workout navigation</div>
       <div data-tour-id="progress-summary">Progress summary</div>
       <div data-tour-id="settings-preferences">Settings preferences</div>
+      <div data-tour-id="settings-theme-preference">Theme preference</div>
       <div data-tour-id="settings-help">Settings help</div>
       <div data-admin-entry>Administrator sign in</div>
       <OnboardingExperience />
@@ -94,17 +97,17 @@ describe('first-run onboarding', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('starts a ten-step tour and navigates automatically between exact route targets', async () => {
+  it('starts an eleven-step tour and navigates automatically between exact route targets', async () => {
     const user = userEvent.setup();
     renderExperience();
     await user.click(screen.getByRole('button', { name: 'Start tour' }));
-    expect(screen.getByText('Step 1 of 10')).toBeInTheDocument();
+    expect(screen.getByText('Step 1 of 11')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Train with structure' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Next' }));
-    expect(await screen.findByText('Step 2 of 10')).toBeInTheDocument();
+    expect(await screen.findByText('Step 2 of 11')).toBeInTheDocument();
     expect(await screen.findByTestId('tour-spotlight')).toHaveAttribute('data-active-target', 'dashboard-primary-action');
     await user.click(screen.getByRole('button', { name: 'Next' }));
-    expect(await screen.findByText('Step 3 of 10')).toBeInTheDocument();
+    expect(await screen.findByText('Step 3 of 11')).toBeInTheDocument();
     expect(await screen.findByTestId('tour-spotlight')).toHaveAttribute('data-active-target', 'nav-program');
   });
 
@@ -131,11 +134,11 @@ describe('first-run onboarding', () => {
       </MemoryRouter>,
     );
     await user.click(screen.getByRole('button', { name: 'Replay tutorial' }));
-    expect(screen.getByText('Step 1 of 10')).toBeInTheDocument();
+    expect(screen.getByText('Step 1 of 11')).toBeInTheDocument();
     expect(useAppStore.getState().settings.onboardingCompleted).toBe(true);
   });
 
-  it('finishes all ten steps and persists completion', async () => {
+  it('finishes all eleven steps and persists completion', async () => {
     const user = userEvent.setup();
     renderExperience();
     await user.click(screen.getByRole('button', { name: 'Start tour' }));
@@ -144,9 +147,10 @@ describe('first-run onboarding', () => {
       'Your program starts here',
       'Build your routine',
       'Explore every movement',
+      'Narrow the library',
       'Start when you are ready',
       'See your work add up',
-      'Make CalisTrack yours',
+      'Personalize CalisTrack',
       'Help is always nearby',
       "You're ready!",
     ];
@@ -219,6 +223,43 @@ describe('first-run onboarding', () => {
     fallback.dataset.tourId = 'fallback';
     document.body.append(fallback);
     expect(resolveTourTarget(['preferred', 'fallback'])?.targetId).toBe('fallback');
+  });
+
+  it('uses focused search, filter, and settings targets instead of page-height sections', () => {
+    expect(tourSteps.find((tourStep) => tourStep.id === 'exercise-search')?.targets?.[0]).toBe(
+      'exercise-search-control',
+    );
+    expect(tourSteps.find((tourStep) => tourStep.id === 'exercise-filters')?.targets?.[0]).toBe(
+      'exercise-filter-controls',
+    );
+    expect(tourSteps.find((tourStep) => tourStep.id === 'settings-preferences')?.targets?.[0]).toBe(
+      'settings-theme-preference',
+    );
+  });
+
+  it('skips a giant preferred target when a focused child fallback is available', () => {
+    const giant = document.createElement('div');
+    giant.dataset.tourId = 'giant';
+    giant.getBoundingClientRect = vi.fn().mockReturnValue({
+      top: 20,
+      left: 10,
+      right: 380,
+      bottom: 800,
+      width: 370,
+      height: 780,
+    });
+    const focused = document.createElement('div');
+    focused.dataset.tourId = 'focused';
+    focused.getBoundingClientRect = vi.fn().mockReturnValue({
+      top: 180,
+      left: 20,
+      right: 370,
+      bottom: 272,
+      width: 350,
+      height: 92,
+    });
+    document.body.append(giant, focused);
+    expect(resolveTourTarget(['giant', 'focused'])?.targetId).toBe('focused');
   });
 
   it('contains no administrator route and hides the administrator entry while touring', async () => {

@@ -44,9 +44,17 @@ export const tourSteps: TourStep[] = [
   {
     id: 'exercise-search',
     route: '/exercises',
-    targets: ['exercise-search-filters'],
+    targets: ['exercise-search-control', 'exercise-search-filters'],
     titleKey: 'tourExercisesTitle',
     descriptionKey: 'tourExerciseSearchDescription',
+    placement: 'adaptive',
+  },
+  {
+    id: 'exercise-filters',
+    route: '/exercises',
+    targets: ['exercise-filter-controls', 'exercise-search-control'],
+    titleKey: 'tourExerciseFiltersTitle',
+    descriptionKey: 'tourExerciseFiltersDescription',
     placement: 'adaptive',
   },
   {
@@ -68,9 +76,9 @@ export const tourSteps: TourStep[] = [
   {
     id: 'settings-preferences',
     route: '/settings',
-    targets: ['settings-preferences', 'nav-settings'],
-    titleKey: 'tourSettingsTitle',
-    descriptionKey: 'tourSettingsPreferencesDescription',
+    targets: ['settings-theme-preference', 'settings-preferences', 'nav-settings'],
+    titleKey: 'tourSettingsPreferencesTitle',
+    descriptionKey: 'tourSettingsFocusedDescription',
     placement: 'adaptive',
   },
   {

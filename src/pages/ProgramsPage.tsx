@@ -25,6 +25,7 @@ export function ProgramsPage() {
   const activeProgramId = useAppStore((s) => s.activeProgramId);
   const adopt = useAppStore((s) => s.adoptBeginner);
   const start = useAppStore((s) => s.startWorkout);
+  const activeWorkout = useAppStore((s) => s.activeWorkout);
   const renameProgram = useAppStore((s) => s.renameProgram);
   const duplicateProgram = useAppStore((s) => s.duplicateProgram);
   const setActiveProgram = useAppStore((s) => s.setActiveProgram);
@@ -35,9 +36,15 @@ export function ProgramsPage() {
   const [deleteTarget, setDeleteTarget] = useState<Program | null>(null);
 
   const launch = (workout: Program['workouts'][number]) => {
+    if (activeWorkout?.workoutTemplateId === workout.id) {
+      nav(`/workout/${activeWorkout.id}`);
+      return;
+    }
     start(workout);
     nav(`/workout/${useAppStore.getState().activeWorkout?.id}`);
   };
+  const editWorkout = (programId: string, workoutId: string) =>
+    nav(`/program/${programId}?workout=${encodeURIComponent(workoutId)}`);
   const openRename = (program: Program) => {
     setRenameTarget(program);
     setRenameValue(program.name);
@@ -96,7 +103,7 @@ export function ProgramsPage() {
             <div className="space-y-3">
               {program.workouts.map((workout, index) => (
                 <article key={workout.id} className="card p-0 transition hover:-translate-y-0.5">
-                  <button onClick={() => launch(workout)} className="flex w-full items-center gap-4 p-5 text-start">
+                  <div className="flex w-full items-center gap-3 p-5 text-start sm:gap-4">
                     <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-brand/15 text-lime-700 dark:bg-white/[.06] dark:text-brand">
                       <span className="text-xl font-black">{String.fromCharCode(65 + index)}</span>
                     </span>
@@ -107,8 +114,27 @@ export function ProgramsPage() {
                       </p>
                       <div className="mt-3"><ProgressBar value={0} label={`${workout.name} progress`} /></div>
                     </div>
-                    <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-brand text-ink"><Play size={19} fill="currentColor" /></span>
-                  </button>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <button
+                        type="button"
+                        title={t('editWorkoutNamed').replace('{name}', workout.name)}
+                        aria-label={t('editWorkoutNamed').replace('{name}', workout.name)}
+                        className="icon-button h-12 w-12 bg-slate-100 dark:bg-white/[.07]"
+                        onClick={() => editWorkout(program.id, workout.id)}
+                      >
+                        <Pencil size={19} />
+                      </button>
+                      <button
+                        type="button"
+                        title={(activeWorkout?.workoutTemplateId === workout.id ? t('resumeWorkoutNamed') : t('startWorkoutNamed')).replace('{name}', workout.name)}
+                        aria-label={(activeWorkout?.workoutTemplateId === workout.id ? t('resumeWorkoutNamed') : t('startWorkoutNamed')).replace('{name}', workout.name)}
+                        className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-brand text-ink shadow-glow transition active:scale-95"
+                        onClick={() => launch(workout)}
+                      >
+                        <Play size={19} fill="currentColor" />
+                      </button>
+                    </div>
+                  </div>
                 </article>
               ))}
             </div>

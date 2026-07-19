@@ -15,11 +15,18 @@ export function isVisibleInViewport(element: HTMLElement) {
 }
 
 export function resolveTourTarget(targets: string[] = []) {
+  let largeFallback: { element: HTMLElement; targetId: string } | null = null;
   for (const target of targets) {
     const visible = Array.from(document.querySelectorAll<HTMLElement>(`[data-tour-id="${target}"]`)).find(
       isVisibleInViewport,
     );
-    if (visible) return { element: visible, targetId: target };
+    if (!visible) continue;
+    const rect = visible.getBoundingClientRect();
+    const tooLarge =
+      rect.height / window.innerHeight > 0.55 ||
+      (rect.width * rect.height) / (window.innerWidth * window.innerHeight) > 0.65;
+    if (!tooLarge) return { element: visible, targetId: target };
+    largeFallback ??= { element: visible, targetId: target };
   }
-  return null;
+  return largeFallback;
 }

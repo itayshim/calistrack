@@ -1,7 +1,7 @@
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '../app/I18nProvider';
 import { createInitialData } from '../data/seed';
 import { useAppStore } from '../store/useAppStore';
@@ -27,6 +27,7 @@ describe('program weekday selection', () => {
   beforeEach(() => {
     localStorage.clear();
     useAppStore.setState({ ...createInitialData(), hydrated: true, toast: null });
+    Element.prototype.scrollIntoView = vi.fn();
   });
 
   it('selects multiple days, deselects one and saves the selection', async () => {
@@ -203,6 +204,27 @@ describe('program weekday selection', () => {
     expect(screen.getAllByRole('button', { name: 'Expand workout' })).toHaveLength(2);
     await user.click(screen.getAllByRole('button', { name: 'Expand workout' })[0]);
     expect(screen.getByLabelText('Workout day name')).toHaveValue('Edited A');
+  });
+
+  it('opens, scrolls to, and focuses the workout selected by the deep-link query', async () => {
+    const now = '2026-01-01';
+    const workouts = ['A', 'B', 'C'].map((name) => ({
+      id: `workout-${name}`,
+      programId: 'deep-link-program',
+      name: `Workout ${name}`,
+      scheduledDays: [],
+      exercises: [],
+      createdAt: now,
+      updatedAt: now,
+    }));
+    useAppStore.setState({
+      programs: [{ id: 'deep-link-program', name: 'Deep link', workouts, createdAt: now, updatedAt: now }],
+    });
+    renderEditor('/program/deep-link-program?workout=workout-B');
+    await waitFor(() => expect(screen.getByText('Workout B')).toHaveFocus());
+    expect(screen.getByText('Workout B').closest('section')).toHaveClass('border-brand/60');
+    expect(screen.getByText('Workout A').closest('section')).not.toHaveClass('border-brand/60');
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
   });
 
   it('opens newly added and duplicated workouts and supports collapse all', async () => {

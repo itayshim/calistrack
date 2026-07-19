@@ -1,6 +1,6 @@
 import { ArrowDown, ArrowUp, Check, ChevronDown, Copy, Pencil, Plus, Search, Save, Trash2, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import type {
   Difficulty,
@@ -32,6 +32,7 @@ export function ProgramEditorPage() {
     save = useAppStore((s) => s.saveProgram),
     allowEmpty = useAppStore((s) => s.settings.allowEmptyNumericFields),
     location = useLocation(),
+    [searchParams] = useSearchParams(),
     nav = useNavigate();
   const now = new Date().toISOString();
   const [program, setProgram] = useState<Program>(() =>
@@ -42,12 +43,32 @@ export function ProgramEditorPage() {
   const [initialSnapshot, setInitialSnapshot] = useState(() => JSON.stringify(program));
   const [numericDrafts, setNumericDrafts] = useState<NumericDrafts>({});
   const [numericErrors, setNumericErrors] = useState<Record<string, string>>({});
-  const requestedWorkoutId = (location.state as { workoutId?: string } | null)?.workoutId;
+  const requestedWorkoutId =
+    searchParams.get('workout') ?? (location.state as { workoutId?: string } | null)?.workoutId;
   const [expandedWorkoutId, setExpandedWorkoutId] = useState<string | null>(
     requestedWorkoutId && program.workouts.some((workout) => workout.id === requestedWorkoutId)
       ? requestedWorkoutId
       : program.workouts[0]?.id ?? null,
   );
+  const deepLinkHandled = useRef<string | null>(null);
+  useEffect(() => {
+    if (
+      deepLinkHandled.current === requestedWorkoutId ||
+      !requestedWorkoutId ||
+      !program.workouts.some((workout) => workout.id === requestedWorkoutId)
+    ) return;
+    deepLinkHandled.current = requestedWorkoutId;
+    const frame = requestAnimationFrame(() => {
+      setExpandedWorkoutId(requestedWorkoutId);
+      requestAnimationFrame(() => {
+        const card = document.querySelector<HTMLElement>(`[data-workout-card="${requestedWorkoutId}"]`);
+        const heading = document.querySelector<HTMLElement>(`[data-workout-heading="${requestedWorkoutId}"]`);
+        card?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        heading?.focus({ preventScroll: true });
+      });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [program.workouts, requestedWorkoutId]);
   const dirty = JSON.stringify(program) !== initialSnapshot || Object.keys(numericDrafts).length > 0;
   const unsaved = useUnsavedChangesGuard(dirty);
   const [chooser, setChooser] = useState<string | null>(null);
@@ -271,7 +292,7 @@ export function ProgramEditorPage() {
           const scheduled = w.scheduledDays.map((day) => t(dayKeys[day])).join(' · ');
           const estimatedMinutes = Math.max(1, Math.round(w.exercises.reduce((total, exercise) => total + exercise.targetSets * (45 + exercise.restSeconds), 0) / 60));
           return (
-          <section className={`card overflow-hidden p-0 ${expanded ? 'border-brand/60 ring-1 ring-brand/20' : ''}`} key={w.id}>
+          <section data-workout-card={w.id} className={`card overflow-hidden p-0 ${expanded ? 'border-brand/60 ring-1 ring-brand/20' : ''}`} key={w.id}>
             <div className={`flex items-start gap-2 p-4 ${expanded ? 'bg-brand/[.08]' : ''}`}>
               <button
                 type="button"
@@ -282,7 +303,7 @@ export function ProgramEditorPage() {
               >
                 <span className="flex items-start justify-between gap-2">
                   <span className="min-w-0">
-                    <strong className="block break-words text-xl font-black">{w.name}</strong>
+                    <strong data-workout-heading={w.id} tabIndex={-1} className="block break-words text-xl font-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">{w.name}</strong>
                     {expanded && <span className="mt-1 inline-flex rounded-full bg-brand/20 px-2 py-0.5 text-xs font-black text-lime-700 dark:text-brand">{t('editing')}</span>}
                   </span>
                   <ChevronDown className={`mt-1 shrink-0 transition ${expanded ? 'rotate-180' : ''}`} />

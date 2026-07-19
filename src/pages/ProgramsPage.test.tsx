@@ -1,6 +1,6 @@
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { I18nProvider } from '../app/I18nProvider';
 import { createInitialData } from '../data/seed';
@@ -40,10 +40,20 @@ function renderPrograms() {
       <I18nProvider>
         <Routes>
           <Route path="/program" element={<ProgramsPage />} />
-          <Route path="/program/:id" element={<div>Program editor</div>} />
+          <Route path="/program/:id" element={<ProgramEditorRoute />} />
         </Routes>
       </I18nProvider>
     </MemoryRouter>,
+  );
+}
+
+function ProgramEditorRoute() {
+  const location = useLocation();
+  return (
+    <>
+      <div>Program editor</div>
+      <output data-testid="editor-location">{`${location.pathname}${location.search}`}</output>
+    </>
   );
 }
 
@@ -69,6 +79,25 @@ describe('program management actions', () => {
     expect(screen.queryByText('Program editor')).not.toBeInTheDocument();
     await user.click(within(menu).getByRole('menuitem', { name: 'Edit program' }));
     expect(screen.getByText('Program editor')).toBeInTheDocument();
+  });
+
+  it('shows separate workout Edit and Play actions and deep-links the selected workout', async () => {
+    const user = userEvent.setup();
+    renderPrograms();
+    const edit = screen.getByRole('button', { name: 'Edit workout: Workout A' });
+    const play = screen.getByRole('button', { name: 'Start workout: Workout A' });
+    expect(edit).toHaveAttribute('title', 'Edit workout: Workout A');
+    expect(play).toHaveClass('bg-brand');
+    await user.click(edit);
+    expect(screen.getByTestId('editor-location')).toHaveTextContent('/program/program-one?workout=workout-one');
+  });
+
+  it('keeps the program three-dot menu available beside workout-level actions', async () => {
+    const user = userEvent.setup();
+    renderPrograms();
+    expect(screen.getByRole('button', { name: 'Edit workout: Workout A' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Program actions/ }));
+    expect(screen.getByRole('menuitem', { name: 'Rename program' })).toBeInTheDocument();
   });
 
   it('renames without changing workout contents', async () => {

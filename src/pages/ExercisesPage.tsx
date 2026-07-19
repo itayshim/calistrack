@@ -73,7 +73,7 @@ export function ExercisesPage() {
         </button>
       </div>
       <div data-tour-id="exercise-search-filters" className="surface-subtle mb-5 grid gap-3 rounded-3xl p-4 md:grid-cols-4">
-        <label>
+        <label data-tour-id="exercise-search-control">
           <span className="label">{t('search')}</span>
           <span className="relative block">
             <Search className="absolute end-3 top-2.5" size={20} />
@@ -85,19 +85,21 @@ export function ExercisesPage() {
             />
           </span>
         </label>
-        <Filter label="Category" value={cat} set={setCat} options={categories} />
-        <Filter label="Difficulty" value={diff} set={setDiff} options={difficulties} />
-        <Filter
-          label="Measurement"
-          value={measure}
-          set={setMeasure}
-          options={{
-            all: t('all'),
-            reps: t('repetitionsMeasurement'),
-            duration: t('durationMeasurement'),
-            weighted_reps: t('weightedRepsMeasurement'),
-          }}
-        />
+        <div data-tour-id="exercise-filter-controls" className="grid gap-3 md:col-span-3 md:grid-cols-3">
+          <Filter label="Category" value={cat} set={setCat} options={categories} />
+          <Filter label="Difficulty" value={diff} set={setDiff} options={difficulties} />
+          <Filter
+            label="Measurement"
+            value={measure}
+            set={setMeasure}
+            options={{
+              all: t('all'),
+              reps: t('repetitionsMeasurement'),
+              duration: t('durationMeasurement'),
+              weighted_reps: t('weightedRepsMeasurement'),
+            }}
+          />
+        </div>
       </div>
       <p className="mb-3 text-sm text-slate-400">Found {list.length} exercises</p>
       <div className="space-y-8">

@@ -102,12 +102,14 @@ export function SettingsPage() {
             onChange={(e) => setSettings({ ...settings, defaultRestSeconds: +e.target.value })}
           />
         </label>
-        <Select
-          label={t('theme')}
-          value={settings.theme}
-          onChange={(theme) => setSettings({ ...settings, theme: theme as 'dark' | 'light' })}
-          options={[{ value: 'dark', label: t('dark') }, { value: 'light', label: t('light') }]}
-        />
+        <div data-tour-id="settings-theme-preference">
+          <Select
+            label={t('theme')}
+            value={settings.theme}
+            onChange={(theme) => setSettings({ ...settings, theme: theme as 'dark' | 'light' })}
+            options={[{ value: 'dark', label: t('dark') }, { value: 'light', label: t('light') }]}
+          />
+        </div>
         <Toggle
           label={t('restTimerSound')}
           checked={settings.restTimerSound}
