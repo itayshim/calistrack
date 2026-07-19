@@ -52,13 +52,13 @@ export function SettingsPage() {
     }
   };
   return (
-    <div className="space-y-7" data-tour-id="settings">
+    <div className="space-y-7">
       <header>
         <p className="eyebrow">{t('settingsEyebrow')}</p>
         <h1 className="mt-2 text-4xl font-black tracking-[-.05em]">{t('settings')}</h1>
         <p className="mt-2 text-slate-400">{t('settingsSubtitle')}</p>
       </header>
-      <section className="card max-w-2xl space-y-5">
+      <section data-tour-id="settings-preferences" className="card max-w-2xl space-y-5">
         <fieldset>
           <legend className="label">{t('language')}</legend>
           <div className="grid grid-cols-2 gap-2">
@@ -132,7 +132,7 @@ export function SettingsPage() {
           {t('saveSettings')}
         </button>
       </section>
-      <section className="card max-w-2xl">
+      <section data-tour-id="settings-help" className="card max-w-2xl">
         <div className="flex items-start gap-4">
           <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-brand/15 text-brand">
             <CircleHelp aria-hidden="true" />
@@ -155,7 +155,7 @@ export function SettingsPage() {
           </div>
         </div>
       </section>
-      <section className="card max-w-2xl">
+      <section data-admin-entry className="card max-w-2xl">
         <div className="flex items-start gap-4">
           <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-brand/15 text-brand">
             <ShieldCheck aria-hidden="true" />

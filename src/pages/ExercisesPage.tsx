@@ -61,7 +61,7 @@ export function ExercisesPage() {
   );
   return (
     <>
-      <div data-tour-id="exercise-library" className="mb-7 flex items-end justify-between">
+      <div className="mb-7 flex items-end justify-between">
         <div>
           <p className="eyebrow">{t('movementLibrary')}</p>
           <h1 className="mt-2 text-4xl font-black tracking-[-.05em]">{t('exercises')}</h1>
@@ -72,7 +72,7 @@ export function ExercisesPage() {
           {t('customExercise')}
         </button>
       </div>
-      <div className="surface-subtle mb-5 grid gap-3 rounded-3xl p-4 md:grid-cols-4">
+      <div data-tour-id="exercise-search-filters" className="surface-subtle mb-5 grid gap-3 rounded-3xl p-4 md:grid-cols-4">
         <label>
           <span className="label">{t('search')}</span>
           <span className="relative block">

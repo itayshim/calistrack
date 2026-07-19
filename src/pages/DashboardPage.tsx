@@ -59,7 +59,7 @@ export function DashboardPage() {
       nav(`/workout/${useAppStore.getState().activeWorkout?.id}`);
   };
   return (
-    <div className="space-y-8" data-tour-id="dashboard">
+    <div className="space-y-8">
       <header className="animate-rise">
         <p className="eyebrow">
           {new Date().toLocaleDateString(language === 'he' ? 'he-IL' : 'en-US', {
@@ -80,6 +80,7 @@ export function DashboardPage() {
           title={t('trainingStartsHere')}
           description={t('trainingStartDescription')}
           action={t('setupProgram')}
+          actionTourId="dashboard-primary-action"
           onAction={() => {
             adopt();
             nav('/program');
@@ -107,6 +108,7 @@ export function DashboardPage() {
                   : `${next?.exercises.length ?? 0} ${t('workoutOverview')}`}
               </p>
               <button
+                data-tour-id="dashboard-workout-action"
                 disabled={!next && !active}
                 onClick={start}
                 className="mt-8 flex min-h-16 w-full items-center justify-center gap-3 rounded-2xl bg-ink px-6 text-lg font-black text-white shadow-xl transition active:scale-[.98] sm:w-auto sm:min-w-64"

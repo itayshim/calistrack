@@ -139,12 +139,14 @@ export function EmptyState({
   action,
   onAction,
   icon,
+  actionTourId,
 }: {
   title: string;
   description: string;
   action: string;
   onAction: () => void;
   icon?: ReactNode;
+  actionTourId?: string;
 }) {
   return (
     <section className="card animate-rise py-10 text-center">
@@ -153,7 +155,7 @@ export function EmptyState({
       </div>
       <h2 className="text-2xl font-black tracking-tight">{title}</h2>
       <p className="mx-auto mb-6 mt-2 max-w-sm text-slate-500 dark:text-slate-400">{description}</p>
-      <button className="btn-primary w-full sm:w-auto" onClick={onAction}>
+      <button data-tour-id={actionTourId} className="btn-primary w-full sm:w-auto" onClick={onAction}>
         {action}
       </button>
     </section>

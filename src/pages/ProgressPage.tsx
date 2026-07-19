@@ -47,7 +47,7 @@ export function ProgressPage() {
         ? formatAddedWeight(value, language)
         : formatReps(value, language);
   return (
-    <div className="space-y-8" data-tour-id="progress">
+    <div className="space-y-8">
       <header>
         <p className="eyebrow">{t('progressEyebrow')}</p>
         <h1 className="mt-2 text-4xl font-black tracking-[-.05em]">{t('progress')}</h1>
@@ -63,7 +63,7 @@ export function ProgressPage() {
           options={exercises.map((exerciseItem) => ({ value: exerciseItem.id, label: getExerciseName(exerciseItem, language) }))}
         />
       </section>
-      <div className="grid grid-cols-3 gap-3">
+      <div data-tour-id="progress-summary" className="grid grid-cols-3 gap-3">
         {[
           [<Flame />, all.length, 'SESSIONS'],
           [<TrendingUp />, formatMetric(latest?.[mode] ?? 0), 'LATEST'],

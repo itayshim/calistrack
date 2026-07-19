@@ -44,14 +44,14 @@ export function ProgramsPage() {
   };
 
   return (
-    <div className="space-y-8" data-tour-id="programs">
+    <div className="space-y-8">
       <header className="flex items-end justify-between gap-3">
         <div>
           <p className="eyebrow">{t('programEyebrow')}</p>
           <h1 className="mt-2 text-4xl font-black tracking-[-.05em]">{t('program')}</h1>
           <p className="mt-2 text-slate-400">{t('programSubtitle')}</p>
         </div>
-        <Link aria-label={t('createProgram')} to="/program/new" className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-brand text-ink shadow-glow">
+        <Link data-tour-id="create-program-action" aria-label={t('createProgram')} to="/program/new" className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-brand text-ink shadow-glow">
           <Plus size={26} />
         </Link>
       </header>
@@ -72,7 +72,7 @@ export function ProgramsPage() {
       ) : (
         programs.map((program) => (
           <section key={program.id}>
-            <div className="mb-4 flex items-start justify-between gap-3">
+            <div data-tour-id={program.id === activeProgramId ? 'active-program-summary' : undefined} className="mb-4 flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <Badge tone={program.id === activeProgramId ? 'brand' : 'neutral'}>
                   {program.id === activeProgramId ? t('activeProgram') : t('inactiveProgram')}

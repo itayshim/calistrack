@@ -216,13 +216,16 @@ textarea:not(.control-input):focus-visible {
   pointer-events: auto;
   background: rgb(2 6 10 / 0.62);
 }
+.onboarding-tour-blocker.has-spotlight {
+  background: transparent;
+}
 .onboarding-spotlight {
   position: fixed;
   z-index: 1;
   pointer-events: none;
   border: 2px solid #b7f36b;
-  border-radius: 1.5rem;
   box-shadow:
+    0 0 0 9999px rgb(2 6 10 / 0.68),
     0 0 0 5px rgb(183 243 107 / 0.18),
     0 0 32px rgb(183 243 107 / 0.24);
   animation: onboarding-pulse 2.2s ease-in-out infinite;
@@ -238,31 +241,86 @@ textarea:not(.control-input):focus-visible {
   overflow-y: auto;
   pointer-events: auto;
 }
+.onboarding-tour-loading {
+  position: fixed;
+  z-index: 2;
+  inset-inline: max(1rem, env(safe-area-inset-left, 0px));
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
+  padding: 1rem 1.25rem;
+  border-radius: 1.25rem;
+  text-align: center;
+  font-weight: 800;
+  pointer-events: auto;
+}
+.onboarding-tour-primary-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+.onboarding-tour-primary-actions > * {
+  flex: 1;
+}
+.onboarding-skip-action {
+  display: block;
+  min-height: 2.75rem;
+  margin: 0.5rem auto 0;
+  padding-inline: 1rem;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  font-weight: 800;
+}
+.onboarding-tour-card-mobile-top {
+  top: calc(env(safe-area-inset-top, 0px) + 1rem);
+  bottom: auto;
+}
+.onboarding-tour-card-mobile-bottom {
+  top: auto;
+}
 .onboarding-tour-card-center {
   top: 50%;
   bottom: auto;
   transform: translateY(-50%);
 }
+.onboarding-active [data-admin-entry] {
+  display: none !important;
+}
 @media (min-width: 640px) {
   .onboarding-tour-card {
+    right: auto;
+    width: min(30rem, calc(100vw - 2rem));
+  }
+  .onboarding-tour-card-desktop-start {
+    right: auto;
+    left: max(1rem, env(safe-area-inset-left, 0px));
+    transform: none;
+  }
+  .onboarding-tour-card-desktop-end {
+    right: max(1rem, env(safe-area-inset-right, 0px));
+    left: auto;
+    transform: none;
+  }
+  .onboarding-tour-card-center {
+    right: auto;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+  .onboarding-tour-loading {
     right: auto;
     left: 50%;
     width: min(30rem, calc(100vw - 2rem));
     transform: translateX(-50%);
-  }
-  .onboarding-tour-card-center {
-    transform: translate(-50%, -50%);
   }
 }
 @keyframes onboarding-pulse {
   0%,
   100% {
     box-shadow:
+      0 0 0 9999px rgb(2 6 10 / 0.68),
       0 0 0 4px rgb(183 243 107 / 0.14),
       0 0 24px rgb(183 243 107 / 0.18);
   }
   50% {
     box-shadow:
+      0 0 0 9999px rgb(2 6 10 / 0.68),
       0 0 0 7px rgb(183 243 107 / 0.2),
       0 0 34px rgb(183 243 107 / 0.28);
   }

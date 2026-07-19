@@ -1,63 +1,88 @@
 import type { TranslationKey } from '../../locales/translations';
 
 export interface TourStep {
+  id: string;
   route: string;
-  target?: string;
+  targets?: string[];
   titleKey: TranslationKey;
   descriptionKey: TranslationKey;
-  placement: 'center' | 'bottom';
+  placement: 'center' | 'adaptive';
 }
 
 export const tourSteps: TourStep[] = [
   {
+    id: 'welcome',
     route: '/',
     titleKey: 'tourWelcomeTitle',
     descriptionKey: 'tourWelcomeDescription',
     placement: 'center',
   },
   {
+    id: 'dashboard-action',
     route: '/',
-    target: 'dashboard',
+    targets: ['dashboard-primary-action', 'dashboard-workout-action'],
     titleKey: 'tourDashboardTitle',
-    descriptionKey: 'tourDashboardDescription',
-    placement: 'bottom',
+    descriptionKey: 'tourDashboardActionDescription',
+    placement: 'adaptive',
   },
   {
-    route: '/exercises',
-    target: 'exercise-library',
-    titleKey: 'tourExercisesTitle',
-    descriptionKey: 'tourExercisesDescription',
-    placement: 'bottom',
-  },
-  {
-    route: '/program',
-    target: 'programs',
-    titleKey: 'tourProgramsTitle',
-    descriptionKey: 'tourProgramsDescription',
-    placement: 'bottom',
-  },
-  {
+    id: 'program-navigation',
     route: '/',
-    target: 'nav-workout',
+    targets: ['nav-program'],
+    titleKey: 'tourProgramNavigationTitle',
+    descriptionKey: 'tourProgramNavigationDescription',
+    placement: 'adaptive',
+  },
+  {
+    id: 'program-action',
+    route: '/program',
+    targets: ['create-program-action', 'active-program-summary', 'nav-program'],
+    titleKey: 'tourProgramsTitle',
+    descriptionKey: 'tourProgramActionDescription',
+    placement: 'adaptive',
+  },
+  {
+    id: 'exercise-search',
+    route: '/exercises',
+    targets: ['exercise-search-filters'],
+    titleKey: 'tourExercisesTitle',
+    descriptionKey: 'tourExerciseSearchDescription',
+    placement: 'adaptive',
+  },
+  {
+    id: 'workout-entry',
+    route: '/',
+    targets: ['dashboard-workout-action', 'nav-workout', 'dashboard-primary-action'],
     titleKey: 'tourWorkoutTitle',
-    descriptionKey: 'tourWorkoutDescription',
-    placement: 'bottom',
+    descriptionKey: 'tourWorkoutEntryDescription',
+    placement: 'adaptive',
   },
   {
+    id: 'progress-summary',
     route: '/progress',
-    target: 'progress',
+    targets: ['progress-summary', 'nav-progress'],
     titleKey: 'tourProgressTitle',
-    descriptionKey: 'tourProgressDescription',
-    placement: 'bottom',
+    descriptionKey: 'tourProgressSummaryDescription',
+    placement: 'adaptive',
   },
   {
+    id: 'settings-preferences',
     route: '/settings',
-    target: 'settings',
+    targets: ['settings-preferences', 'nav-settings'],
     titleKey: 'tourSettingsTitle',
-    descriptionKey: 'tourSettingsDescription',
-    placement: 'bottom',
+    descriptionKey: 'tourSettingsPreferencesDescription',
+    placement: 'adaptive',
   },
   {
+    id: 'settings-help',
+    route: '/settings',
+    targets: ['settings-help', 'nav-settings'],
+    titleKey: 'tourHelpTitle',
+    descriptionKey: 'tourHelpDescription',
+    placement: 'adaptive',
+  },
+  {
+    id: 'ready',
     route: '/',
     titleKey: 'tourReadyTitle',
     descriptionKey: 'tourReadyDescription',

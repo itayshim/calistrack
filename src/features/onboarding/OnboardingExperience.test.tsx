@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
@@ -8,18 +8,24 @@ import { SettingsPage } from '../../pages/SettingsPage';
 import { STORAGE_KEY } from '../../services/storage';
 import { useAppStore } from '../../store/useAppStore';
 import { OnboardingExperience } from './OnboardingExperience';
+import { TourDirectionalIcon } from './TourDirectionalIcon';
+import { tourSteps } from './tourSteps';
+import { resolveTourTarget } from './tourTargeting';
 
 function RouteSurface() {
   const location = useLocation();
   return (
     <>
       <output data-testid="current-route">{location.pathname}</output>
-      <div data-tour-id="dashboard">Dashboard surface</div>
-      <div data-tour-id="exercise-library">Exercise library surface</div>
-      <div data-tour-id="programs">Programs surface</div>
+      <button data-tour-id="dashboard-primary-action">Dashboard action</button>
+      <div data-tour-id="nav-program">Program navigation</div>
+      <button data-tour-id="create-program-action">Create program action</button>
+      <div data-tour-id="exercise-search-filters">Exercise search filters</div>
       <div data-tour-id="nav-workout">Workout navigation</div>
-      <div data-tour-id="progress">Progress surface</div>
-      <div data-tour-id="settings">Settings surface</div>
+      <div data-tour-id="progress-summary">Progress summary</div>
+      <div data-tour-id="settings-preferences">Settings preferences</div>
+      <div data-tour-id="settings-help">Settings help</div>
+      <div data-admin-entry>Administrator sign in</div>
       <OnboardingExperience />
     </>
   );
@@ -88,18 +94,18 @@ describe('first-run onboarding', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('starts an eight-step tour and navigates automatically between route definitions', async () => {
+  it('starts a ten-step tour and navigates automatically between exact route targets', async () => {
     const user = userEvent.setup();
     renderExperience();
     await user.click(screen.getByRole('button', { name: 'Start tour' }));
-    expect(screen.getByText('Step 1 of 8')).toBeInTheDocument();
+    expect(screen.getByText('Step 1 of 10')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Train with structure' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Next' }));
-    expect(screen.getByText('Step 2 of 8')).toBeInTheDocument();
+    expect(await screen.findByText('Step 2 of 10')).toBeInTheDocument();
+    expect(await screen.findByTestId('tour-spotlight')).toHaveAttribute('data-active-target', 'dashboard-primary-action');
     await user.click(screen.getByRole('button', { name: 'Next' }));
-    await waitFor(() => expect(screen.getByTestId('current-route')).toHaveTextContent('/exercises'));
-    expect(screen.getByText('Step 3 of 8')).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByTestId('tour-spotlight')).toBeInTheDocument());
+    expect(await screen.findByText('Step 3 of 10')).toBeInTheDocument();
+    expect(await screen.findByTestId('tour-spotlight')).toHaveAttribute('data-active-target', 'nav-program');
   });
 
   it('Escape skips the tour, completes onboarding, and removes the blocking layer', async () => {
@@ -125,21 +131,23 @@ describe('first-run onboarding', () => {
       </MemoryRouter>,
     );
     await user.click(screen.getByRole('button', { name: 'Replay tutorial' }));
-    expect(screen.getByText('Step 1 of 8')).toBeInTheDocument();
+    expect(screen.getByText('Step 1 of 10')).toBeInTheDocument();
     expect(useAppStore.getState().settings.onboardingCompleted).toBe(true);
   });
 
-  it('finishes all eight steps and persists completion', async () => {
+  it('finishes all ten steps and persists completion', async () => {
     const user = userEvent.setup();
     renderExperience();
     await user.click(screen.getByRole('button', { name: 'Start tour' }));
     const expectedTitles = [
       'Your training hub',
-      'Explore every movement',
+      'Your program starts here',
       'Build your routine',
-      'Stay focused while training',
+      'Explore every movement',
+      'Start when you are ready',
       'See your work add up',
       'Make CalisTrack yours',
+      'Help is always nearby',
       "You're ready!",
     ];
     for (const title of expectedTitles) {
@@ -178,5 +186,58 @@ describe('first-run onboarding', () => {
     expect(screen.getByRole('dialog', { name: 'ברוכים הבאים ל־CalisTrack 👋' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'התחלת הסיור' })).toBeInTheDocument();
     expect(document.documentElement).toHaveAttribute('dir', 'rtl');
+  });
+
+  it('keeps Back and Next together while Skip remains a separate secondary action', async () => {
+    const user = userEvent.setup();
+    renderExperience();
+    await user.click(screen.getByRole('button', { name: 'Start tour' }));
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    const actions = await screen.findByTestId('tour-primary-actions');
+    expect(within(actions).getAllByRole('button').map((button) => button.textContent)).toEqual(['Back', 'Next']);
+    expect(within(actions).queryByRole('button', { name: 'Skip tour' })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Skip tour' }).length).toBeGreaterThan(0);
+  });
+
+  it('uses meaning-aware arrows in LTR and RTL without mirroring non-directional icons', () => {
+    const { rerender } = render(<TourDirectionalIcon action="next" direction="ltr" />);
+    expect(document.querySelector('[data-icon-direction]')).toHaveAttribute('data-icon-direction', 'right');
+    rerender(<TourDirectionalIcon action="back" direction="ltr" />);
+    expect(document.querySelector('[data-icon-direction]')).toHaveAttribute('data-icon-direction', 'left');
+    rerender(<TourDirectionalIcon action="next" direction="rtl" />);
+    expect(document.querySelector('[data-icon-direction]')).toHaveAttribute('data-icon-direction', 'left');
+    rerender(<TourDirectionalIcon action="back" direction="rtl" />);
+    expect(document.querySelector('[data-icon-direction]')).toHaveAttribute('data-icon-direction', 'right');
+  });
+
+  it('uses priority fallbacks and ignores hidden or off-screen targets', () => {
+    const hidden = document.createElement('div');
+    hidden.dataset.tourId = 'preferred';
+    hidden.style.display = 'none';
+    document.body.append(hidden);
+    const fallback = document.createElement('div');
+    fallback.dataset.tourId = 'fallback';
+    document.body.append(fallback);
+    expect(resolveTourTarget(['preferred', 'fallback'])?.targetId).toBe('fallback');
+  });
+
+  it('contains no administrator route and hides the administrator entry while touring', async () => {
+    expect(tourSteps.every((tourStep) => !tourStep.route.startsWith('/admin'))).toBe(true);
+    const user = userEvent.setup();
+    renderExperience();
+    await user.click(screen.getByRole('button', { name: 'Start tour' }));
+    expect(document.documentElement).toHaveClass('onboarding-active');
+    expect(document.querySelector('[data-admin-entry]')).toBeInTheDocument();
+  });
+
+  it('recalculates the exact target rectangle after a resize', async () => {
+    const user = userEvent.setup();
+    renderExperience();
+    await user.click(screen.getByRole('button', { name: 'Start tour' }));
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    const spotlight = await screen.findByTestId('tour-spotlight');
+    expect(spotlight).toHaveStyle({ top: '73px', left: '9px', width: '372px', height: '114px' });
+    window.dispatchEvent(new Event('resize'));
+    await waitFor(() => expect(screen.getByTestId('tour-spotlight')).toHaveAttribute('data-active-target', 'dashboard-primary-action'));
   });
 });
