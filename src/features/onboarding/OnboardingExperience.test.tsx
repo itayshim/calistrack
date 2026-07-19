@@ -1,5 +1,6 @@
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { I18nProvider } from '../../app/I18nProvider';
@@ -97,7 +98,7 @@ describe('first-run onboarding', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('starts an eleven-step tour and navigates automatically between exact route targets', async () => {
+  it('starts an eleven-step tour and navigates between exact route targets only after Next', async () => {
     const user = userEvent.setup();
     renderExperience();
     await user.click(screen.getByRole('button', { name: 'Start tour' }));
@@ -109,6 +110,70 @@ describe('first-run onboarding', () => {
     await user.click(screen.getByRole('button', { name: 'Next' }));
     expect(await screen.findByText('Step 3 of 11')).toBeInTheDocument();
     expect(await screen.findByTestId('tour-spotlight')).toHaveAttribute('data-active-target', 'nav-program');
+  });
+
+  it.each([
+    [390, 844, 'mobile'],
+    [1440, 900, 'desktop'],
+  ])('keeps the targetless first step stable after 100ms and observer updates at %sx%s (%s)', async (width, height) => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: height });
+    const user = userEvent.setup();
+    renderExperience('/settings');
+    await user.click(screen.getByRole('button', { name: 'Start tour' }));
+    document.body.append(document.createElement('div'));
+    window.dispatchEvent(new Event('resize'));
+    window.dispatchEvent(new Event('orientationchange'));
+    await new Promise((resolve) => window.setTimeout(resolve, 120));
+    expect(screen.getByText('Step 1 of 11')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Train with structure' })).toBeInTheDocument();
+    expect(screen.getByTestId('current-route')).toHaveTextContent('/settings');
+    expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog', { name: 'Train with structure' })).toHaveFocus();
+  });
+
+  it('keeps the first step visible beyond the old missing-target timeout', async () => {
+    const user = userEvent.setup();
+    renderExperience('/settings');
+    await user.click(screen.getByRole('button', { name: 'Start tour' }));
+    await new Promise((resolve) => window.setTimeout(resolve, 1750));
+    expect(screen.getByText('Step 1 of 11')).toBeInTheDocument();
+    expect(screen.queryByText('Step 2 of 11')).not.toBeInTheDocument();
+    expect(screen.getByTestId('current-route')).toHaveTextContent('/settings');
+  });
+
+  it('keeps the first step stable when effects run twice in Strict Mode', async () => {
+    const user = userEvent.setup();
+    render(
+      <StrictMode>
+        <MemoryRouter initialEntries={['/']}>
+          <I18nProvider>
+            <Routes>
+              <Route path="*" element={<RouteSurface />} />
+            </Routes>
+          </I18nProvider>
+        </MemoryRouter>
+      </StrictMode>,
+    );
+    await user.click(screen.getByRole('button', { name: 'Start tour' }));
+    await new Promise((resolve) => window.setTimeout(resolve, 100));
+    expect(screen.getByText('Step 1 of 11')).toBeInTheDocument();
+  });
+
+  it('advances exactly one step for a double click on Next', async () => {
+    const user = userEvent.setup();
+    renderExperience();
+    await user.click(screen.getByRole('button', { name: 'Start tour' }));
+    await user.dblClick(screen.getByRole('button', { name: 'Next' }));
+    expect(await screen.findByText('Step 2 of 11')).toBeInTheDocument();
+    expect(screen.queryByText('Step 3 of 11')).not.toBeInTheDocument();
+  });
+
+  it('defines Welcome as a targetless intro and completion separately', () => {
+    expect(tourSteps[0]).toMatchObject({ id: 'welcome', type: 'intro', placement: 'center' });
+    expect(tourSteps[0].targets).toBeUndefined();
+    expect(tourSteps.at(-1)).toMatchObject({ id: 'ready', type: 'completion', placement: 'center' });
+    expect(tourSteps.slice(1, -1).every((tourStep) => tourStep.type === 'targeted')).toBe(true);
   });
 
   it('Escape skips the tour, completes onboarding, and removes the blocking layer', async () => {
@@ -135,7 +200,20 @@ describe('first-run onboarding', () => {
     );
     await user.click(screen.getByRole('button', { name: 'Replay tutorial' }));
     expect(screen.getByText('Step 1 of 11')).toBeInTheDocument();
+    await new Promise((resolve) => window.setTimeout(resolve, 100));
+    expect(screen.queryByText('Step 2 of 11')).not.toBeInTheDocument();
     expect(useAppStore.getState().settings.onboardingCompleted).toBe(true);
+  });
+
+  it('does not restore a stale step after a fresh-tour remount', async () => {
+    const user = userEvent.setup();
+    const rendered = renderExperience();
+    await user.click(screen.getByRole('button', { name: 'Start tour' }));
+    expect(screen.getByText('Step 1 of 11')).toBeInTheDocument();
+    rendered.unmount();
+    renderExperience();
+    expect(screen.getByRole('dialog', { name: 'Welcome to CalisTrack 👋' })).toBeInTheDocument();
+    expect(screen.queryByText('Step 2 of 11')).not.toBeInTheDocument();
   });
 
   it('finishes all eleven steps and persists completion', async () => {

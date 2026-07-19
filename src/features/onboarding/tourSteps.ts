@@ -2,6 +2,7 @@ import type { TranslationKey } from '../../locales/translations';
 
 export interface TourStep {
   id: string;
+  type: 'intro' | 'targeted' | 'completion';
   route: string;
   targets?: string[];
   titleKey: TranslationKey;
@@ -12,6 +13,7 @@ export interface TourStep {
 export const tourSteps: TourStep[] = [
   {
     id: 'welcome',
+    type: 'intro',
     route: '/',
     titleKey: 'tourWelcomeTitle',
     descriptionKey: 'tourWelcomeDescription',
@@ -19,6 +21,7 @@ export const tourSteps: TourStep[] = [
   },
   {
     id: 'dashboard-action',
+    type: 'targeted',
     route: '/',
     targets: ['dashboard-primary-action', 'dashboard-workout-action'],
     titleKey: 'tourDashboardTitle',
@@ -27,6 +30,7 @@ export const tourSteps: TourStep[] = [
   },
   {
     id: 'program-navigation',
+    type: 'targeted',
     route: '/',
     targets: ['nav-program'],
     titleKey: 'tourProgramNavigationTitle',
@@ -35,6 +39,7 @@ export const tourSteps: TourStep[] = [
   },
   {
     id: 'program-action',
+    type: 'targeted',
     route: '/program',
     targets: ['create-program-action', 'active-program-summary', 'nav-program'],
     titleKey: 'tourProgramsTitle',
@@ -43,6 +48,7 @@ export const tourSteps: TourStep[] = [
   },
   {
     id: 'exercise-search',
+    type: 'targeted',
     route: '/exercises',
     targets: ['exercise-search-control', 'exercise-search-filters'],
     titleKey: 'tourExercisesTitle',
@@ -51,6 +57,7 @@ export const tourSteps: TourStep[] = [
   },
   {
     id: 'exercise-filters',
+    type: 'targeted',
     route: '/exercises',
     targets: ['exercise-filter-controls', 'exercise-search-control'],
     titleKey: 'tourExerciseFiltersTitle',
@@ -59,6 +66,7 @@ export const tourSteps: TourStep[] = [
   },
   {
     id: 'workout-entry',
+    type: 'targeted',
     route: '/',
     targets: ['dashboard-workout-action', 'nav-workout', 'dashboard-primary-action'],
     titleKey: 'tourWorkoutTitle',
@@ -67,6 +75,7 @@ export const tourSteps: TourStep[] = [
   },
   {
     id: 'progress-summary',
+    type: 'targeted',
     route: '/progress',
     targets: ['progress-summary', 'nav-progress'],
     titleKey: 'tourProgressTitle',
@@ -75,6 +84,7 @@ export const tourSteps: TourStep[] = [
   },
   {
     id: 'settings-preferences',
+    type: 'targeted',
     route: '/settings',
     targets: ['settings-theme-preference', 'settings-preferences', 'nav-settings'],
     titleKey: 'tourSettingsPreferencesTitle',
@@ -83,6 +93,7 @@ export const tourSteps: TourStep[] = [
   },
   {
     id: 'settings-help',
+    type: 'targeted',
     route: '/settings',
     targets: ['settings-help', 'nav-settings'],
     titleKey: 'tourHelpTitle',
@@ -91,6 +102,7 @@ export const tourSteps: TourStep[] = [
   },
   {
     id: 'ready',
+    type: 'completion',
     route: '/',
     titleKey: 'tourReadyTitle',
     descriptionKey: 'tourReadyDescription',

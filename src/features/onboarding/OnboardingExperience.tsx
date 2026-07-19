@@ -1,5 +1,5 @@
 import { Compass, Play, RotateCcw, X } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useI18n } from '../../hooks/useI18n';
 import { useAppStore } from '../../store/useAppStore';
@@ -38,6 +38,41 @@ export function OnboardingExperience() {
   const seenReplayRequest = useRef(replayRequest);
   const step = tourSteps[stepIndex];
 
+  const goNext = useCallback((clickCount = 1) => {
+    if (clickCount > 1) return;
+    setStepIndex((value) => Math.min(tourSteps.length - 1, value + 1));
+  }, []);
+
+  const goBack = useCallback(() => {
+    setStepIndex((value) => Math.max(0, value - 1));
+  }, []);
+
+  const skipUnavailableTargetedStep = useCallback((expectedIndex: number) => {
+    setStepIndex((value) =>
+      value === expectedIndex ? Math.min(tourSteps.length - 1, value + 1) : value,
+    );
+  }, []);
+
+  const finishTour = useCallback((route?: string) => {
+    setCompleted(true);
+    setTourActive(false);
+    if (route) navigate(route);
+    window.setTimeout(() => {
+      const restoreTarget = restoreFocusRef.current?.isConnected
+        ? restoreFocusRef.current
+        : document.querySelector<HTMLElement>('main button, main a[href]');
+      restoreTarget?.focus();
+    }, 0);
+  }, [navigate, setCompleted]);
+
+  const startTour = useCallback((event: MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    restoreFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setStepIndex(0);
+    setTourActive(true);
+  }, []);
+
   useEffect(() => {
     if (replayRequest !== seenReplayRequest.current) {
       seenReplayRequest.current = replayRequest;
@@ -53,12 +88,12 @@ export function OnboardingExperience() {
   }, [tourActive]);
 
   useEffect(() => {
-    if (!tourActive || location.pathname === step.route) return;
+    if (!tourActive || step.type !== 'targeted' || location.pathname === step.route) return;
     navigate(step.route);
-  }, [location.pathname, navigate, step.route, tourActive]);
+  }, [location.pathname, navigate, step.route, step.type, tourActive]);
 
   useEffect(() => {
-    if (!tourActive || location.pathname !== step.route) return;
+    if (!tourActive || step.type !== 'targeted' || location.pathname !== step.route) return;
     let cancelled = false;
     let target: HTMLElement | undefined;
     let resizeObserver: ResizeObserver | undefined;
@@ -118,7 +153,7 @@ export function OnboardingExperience() {
     const retry = window.setInterval(prepare, 80);
     const skipMissing = window.setTimeout(() => {
       if (!target && !cancelled) {
-        setStepIndex((value) => Math.min(tourSteps.length - 1, value + 1));
+        skipUnavailableTargetedStep(stepIndex);
       }
     }, 1600);
     const onLayout = () => {
@@ -142,7 +177,7 @@ export function OnboardingExperience() {
       window.removeEventListener('orientationchange', onLayout);
       window.removeEventListener('scroll', onLayout, true);
     };
-  }, [location.pathname, step, tourActive]);
+  }, [location.pathname, skipUnavailableTargetedStep, step, stepIndex, tourActive]);
 
   useEffect(() => {
     if (!tourActive || step.placement === 'center' || readyStepId !== step.id || !spotlight) return;
@@ -213,12 +248,14 @@ export function OnboardingExperience() {
           'button:not([disabled]), a[href], input:not([disabled]), [tabindex]:not([tabindex="-1"])',
         ) ?? [],
       );
-    const focusTimer = window.setTimeout(() => (focusable()[0] ?? container)?.focus(), 0);
+    const focusTimer = window.setTimeout(() => {
+      if (tourActive) container?.focus();
+      else (focusable()[0] ?? container)?.focus();
+    }, 0);
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        setCompleted(true);
-        setTourActive(false);
+        finishTour();
       } else if (event.key === 'Tab') {
         const items = focusable();
         if (!items.length) return;
@@ -232,9 +269,9 @@ export function OnboardingExperience() {
           first.focus();
         }
       } else if (tourActive && event.key === (direction === 'ltr' ? 'ArrowRight' : 'ArrowLeft')) {
-        setStepIndex((value) => Math.min(tourSteps.length - 1, value + 1));
+        goNext();
       } else if (tourActive && event.key === (direction === 'ltr' ? 'ArrowLeft' : 'ArrowRight')) {
-        setStepIndex((value) => Math.max(0, value - 1));
+        goBack();
       }
     };
     document.addEventListener('keydown', onKeyDown);
@@ -242,25 +279,13 @@ export function OnboardingExperience() {
       window.clearTimeout(focusTimer);
       document.removeEventListener('keydown', onKeyDown);
     };
-  }, [direction, setCompleted, tourActive, welcomeOpen]);
+  }, [direction, finishTour, goBack, goNext, tourActive, welcomeOpen]);
 
   const finalAction = useMemo(() => {
     if (activeWorkout) return { label: t('continueWorkout'), route: `/workout/${activeWorkout.id}`, icon: <Play size={18} fill="currentColor" /> };
     if (!programs.length) return { label: t('createProgram'), route: '/program/new', icon: <Play size={18} /> };
     return { label: t('browseExercises'), route: '/exercises', icon: <Compass size={18} /> };
   }, [activeWorkout, programs.length, t]);
-
-  const finish = (route?: string) => {
-    setCompleted(true);
-    setTourActive(false);
-    if (route) navigate(route);
-    window.setTimeout(() => {
-      const restoreTarget = restoreFocusRef.current?.isConnected
-        ? restoreFocusRef.current
-        : document.querySelector<HTMLElement>('main button, main a[href]');
-      restoreTarget?.focus();
-    }, 0);
-  };
 
   if (welcomeOpen) {
     return (
@@ -271,7 +296,7 @@ export function OnboardingExperience() {
           <p id="onboarding-welcome-description" className="mt-3 leading-relaxed text-slate-500 dark:text-slate-300">{t('onboardingWelcomeDescription')}</p>
           <p className="mt-4 rounded-2xl bg-slate-100 px-4 py-3 text-sm font-bold text-slate-600 dark:bg-white/[.06] dark:text-slate-300">{t('onboardingEstimatedTime')}</p>
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
-            <button className="btn-primary" autoFocus onClick={() => { restoreFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; setTourActive(true); }}><Play size={18} fill="currentColor" />{t('startTour')}</button>
+            <button className="btn-primary" autoFocus onClick={startTour}><Play size={18} fill="currentColor" />{t('startTour')}</button>
             <button className="btn-secondary" onClick={() => setCompleted(true)}>{t('skip')}</button>
           </div>
         </section>
@@ -281,7 +306,7 @@ export function OnboardingExperience() {
 
   if (!tourActive) return null;
   const finalStep = stepIndex === tourSteps.length - 1;
-  const targetReady = !step.targets?.length || readyStepId === step.id;
+  const targetReady = step.type !== 'targeted' || readyStepId === step.id;
   const placementReady = step.placement === 'center' || cardPlacement?.stepId === step.id;
 
   return (
@@ -318,7 +343,7 @@ export function OnboardingExperience() {
         >
           <div className="flex items-center justify-between gap-3">
             <span className="text-xs font-black uppercase tracking-widest text-brand">{t('tourStepProgress').replace('{current}', String(stepIndex + 1)).replace('{total}', String(tourSteps.length))}</span>
-            <button className="icon-button h-10 w-10" aria-label={t('skipTour')} onClick={() => finish()}><X size={18} /></button>
+            <button className="icon-button h-10 w-10" aria-label={t('skipTour')} onClick={() => finishTour()}><X size={18} /></button>
           </div>
           <div className="mt-4 flex gap-1.5" aria-hidden="true">
             {tourSteps.map((tourStep, index) => <span key={tourStep.id} className={`h-1.5 flex-1 rounded-full ${index <= stepIndex ? 'bg-brand' : 'bg-slate-200 dark:bg-white/[.1]'}`} />)}
@@ -328,15 +353,15 @@ export function OnboardingExperience() {
           {!finalStep ? (
             <>
               <div data-testid="tour-primary-actions" className="onboarding-tour-primary-actions mt-6">
-                {stepIndex > 0 && <button className="btn-secondary" onClick={() => setStepIndex((value) => Math.max(0, value - 1))}><TourDirectionalIcon action="back" direction={direction} />{t('back')}</button>}
-                <button className="btn-primary" onClick={() => setStepIndex((value) => Math.min(tourSteps.length - 1, value + 1))}>{t('next')}<TourDirectionalIcon action="next" direction={direction} /></button>
+                {stepIndex > 0 && <button className="btn-secondary" onClick={goBack}><TourDirectionalIcon action="back" direction={direction} />{t('back')}</button>}
+                <button key={`next-${step.id}`} className="btn-primary" onClick={(event) => goNext(event.detail)}>{t('next')}<TourDirectionalIcon action="next" direction={direction} /></button>
               </div>
-              <button className="onboarding-skip-action" onClick={() => finish()}>{t('skipTour')}</button>
+              <button className="onboarding-skip-action" onClick={() => finishTour()}>{t('skipTour')}</button>
             </>
           ) : (
             <>
-              <button className="btn-primary mt-6 w-full" onClick={() => finish(finalAction.route)}>{finalAction.icon}{finalAction.label}</button>
-              <button className="mt-3 min-h-11 w-full text-sm font-black text-slate-500" onClick={() => finish()}><RotateCcw size={15} className="me-2 inline" />{t('finish')}</button>
+              <button className="btn-primary mt-6 w-full" onClick={() => finishTour(finalAction.route)}>{finalAction.icon}{finalAction.label}</button>
+              <button className="mt-3 min-h-11 w-full text-sm font-black text-slate-500" onClick={() => finishTour()}><RotateCcw size={15} className="me-2 inline" />{t('finish')}</button>
             </>
           )}
         </section>
