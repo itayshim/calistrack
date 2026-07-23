@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { createId } from '../../utils/id';
 import { deleteExerciseMediaFile, getAdminSession, supabaseRequest, uploadExerciseMedia } from '../../services/supabase';
 import type { ExerciseMedia } from '../../types';
 import { parseYouTubeVideoId, youtubeEmbedUrl } from '../../utils/youtube';
@@ -188,12 +187,21 @@ export function AdminExerciseEditorPage() {
     setForm((current) => ({ ...current, stable_key: stableKey }));
     setError('');
     try {
-      const id = form.id || createId();
-      await supabaseRequest('/rest/v1/global_exercises?on_conflict=stable_key', {
+      const wasNew = !form.id;
+      let persistedId = form.id;
+      if (!persistedId) {
+        const [existing] = await supabaseRequest<Array<{ id: string }>>(
+          `/rest/v1/global_exercises?stable_key=eq.${encodeURIComponent(stableKey)}&select=id&limit=1`,
+          {},
+          token,
+        );
+        persistedId = existing?.id;
+      }
+      const savedRows = await supabaseRequest<Array<{ id: string }>>('/rest/v1/global_exercises?on_conflict=stable_key', {
         method: 'POST',
         headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
         body: JSON.stringify({
-          id,
+          ...(persistedId ? { id: persistedId } : {}),
           stable_key: stableKey,
           movement_family: form.movement_family,
           category: form.category,
@@ -207,21 +215,29 @@ export function AdminExerciseEditorPage() {
           updated_by: getAdminSession()?.userId,
         }),
       }, token);
+      persistedId = savedRows[0]?.id ?? persistedId;
+      if (!persistedId) throw new Error('persisted_identity_missing');
       const translations = [
         { locale: 'en', name: form.nameEn, description: form.descriptionEn, instructions: list(form.instructionsEn), common_mistakes: list(form.mistakesEn), aliases: [], keywords: [] },
         { locale: 'he', name: form.nameHe || form.nameEn, description: form.descriptionHe, instructions: list(form.instructionsHe), common_mistakes: list(form.mistakesHe), aliases: [], keywords: [] },
-      ].map((translation) => ({ ...translation, exercise_id: id }));
+      ].map((translation) => ({ ...translation, exercise_id: persistedId }));
       await supabaseRequest('/rest/v1/exercise_translations?on_conflict=exercise_id,locale', {
         method: 'POST',
         headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
         body: JSON.stringify(translations),
       }, token);
       invalidatePublishedExerciseMedia({
-        canonicalExerciseId: id,
+        canonicalExerciseId: persistedId,
         stableKey,
       });
-      setBaseline(JSON.stringify(form));
-      navigate('/admin/exercises');
+      const persistedForm = { ...form, id: persistedId, stable_key: stableKey };
+      setForm(persistedForm);
+      setBaseline(JSON.stringify(persistedForm));
+      await reloadMedia(persistedId);
+      useAppStore.getState().setToast(t('exerciseSaved'));
+      if (wasNew) {
+        navigate(`/admin/exercises/${persistedId}/edit`, { replace: true });
+      }
     } catch (reason) {
       const code =
         reason && typeof reason === 'object' && 'code' in reason
@@ -234,8 +250,10 @@ export function AdminExerciseEditorPage() {
         setError(t('invalidTaxonomySelection'));
       } else if (code === '23503') {
         setError(t('invalidTaxonomySelection'));
+      } else if (code === 'persisted_identity_missing') {
+        setError(t('unableToSave'));
       } else {
-        setError(reason instanceof Error ? reason.message : t('unableToSave'));
+        setError(t('unableToSave'));
       }
     } finally {
       setSaving(false);
@@ -486,7 +504,19 @@ export function AdminExerciseEditorPage() {
           <button className="btn-secondary" type="button" disabled={!videoId || !form.id} onClick={addYoutube}>{t('addYoutube')}</button>
           <Field label={t('externalUrl')} value={externalUrl} set={setExternalUrl} ltr />
           <button className="btn-secondary" type="button" disabled={!externalUrl || !form.id} onClick={addExternal}>{t('addExternalLink')}</button>
-          <label className="btn-secondary cursor-pointer"><span>{t('uploadVideoOrImage')}</span><input className="sr-only" type="file" accept="video/mp4,video/quicktime,video/webm,image/jpeg,image/png,image/webp" onChange={(event) => upload(event.target.files?.[0])} /></label>
+          <label
+            aria-disabled={!form.id}
+            className={`btn-secondary ${form.id ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
+          >
+            <span>{t('uploadVideoOrImage')}</span>
+            <input
+              className="sr-only"
+              type="file"
+              disabled={!form.id}
+              accept="video/mp4,video/quicktime,video/webm,image/jpeg,image/png,image/webp"
+              onChange={(event) => upload(event.target.files?.[0])}
+            />
+          </label>
           <p className="text-sm text-slate-400">{t('uploadRecommendation')}</p>
           {progress !== null && <div role="progressbar" aria-valuenow={progress} className="h-3 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10"><div className="h-full bg-brand" style={{ width: `${progress}%` }} /></div>}
           <div className="space-y-3">{media.map((item, index) => <article id={`media-${item.id}`} key={item.id} className={`surface-subtle rounded-2xl p-4 transition ${highlightedMediaId === item.id ? 'ring-2 ring-brand' : ''}`}><div className="flex flex-wrap items-center justify-between gap-2"><div><strong dir="auto">{item.title || item.mediaType}</strong><p className="text-xs text-slate-500 dark:text-slate-400">{item.mediaType} · {item.isPublished ? t('published') : t('draft')} · {item.isPrimary ? t('primary') : t('secondary')}</p></div><div className="flex flex-wrap gap-2"><button className="btn-secondary min-h-10 px-3" onClick={() => updateMedia(item,{isPublished:!item.isPublished})}>{item.isPublished?t('unpublish'):t('publish')}</button><button className="btn-secondary min-h-10 px-3" onClick={() => media.some((other) => other.isPrimary && other.id !== item.id) ? setPendingPrimary(item) : updateMedia(item,{isPrimary:true})}>{t('makePrimary')}</button><button disabled={!index} className="btn-secondary min-h-10 px-3" onClick={() => updateMedia(item,{sortOrder:index-1})}>{t('moveUp')}</button>{item.provider === 'supabase_storage' && <label className="btn-secondary min-h-10 cursor-pointer px-3">{t('replace')}<input className="sr-only" type="file" accept="video/mp4,video/webm,image/jpeg,image/png,image/webp" onChange={(event) => replaceMedia(item,event.target.files?.[0])}/></label>}<button className="btn-danger min-h-10 px-3" onClick={() => removeMedia(item)}>{t('delete')}</button></div></div></article>)}</div>

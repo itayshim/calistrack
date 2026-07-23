@@ -1,6 +1,6 @@
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '../../app/I18nProvider';
 import { translations } from '../../locales/translations';
@@ -92,17 +92,28 @@ function renderEditor(media: Record<string, unknown>[] = []) {
 }
 
 function renderNewEditor() {
-  api.request.mockResolvedValue([]);
+  api.request.mockImplementation((path: string, options?: RequestInit) => {
+    if (path.includes('global_exercises?on_conflict=') && options?.method === 'POST') {
+      return Promise.resolve([{ id: 'new-exercise-id' }]);
+    }
+    return Promise.resolve([]);
+  });
   return render(
-    <MemoryRouter initialEntries={['/admin/exercises/new/edit']}>
+    <MemoryRouter initialEntries={['/admin/exercises/new']}>
       <I18nProvider>
         <Routes>
+          <Route path="/admin/exercises/new" element={<AdminExerciseEditorPage />} />
           <Route path="/admin/exercises/:exerciseId/edit" element={<AdminExerciseEditorPage />} />
           <Route path="/admin/exercises" element={<div>Exercise list</div>} />
         </Routes>
       </I18nProvider>
     </MemoryRouter>,
   );
+}
+
+function LocationProbe() {
+  const location = useLocation();
+  return <output aria-label="Current route">{location.pathname}</output>;
 }
 
 async function ready() {
@@ -331,6 +342,194 @@ describe('administrator exercise media lifecycle', () => {
     renderNewEditor();
     expect(screen.getByRole('button', { name: 'Find suggested videos' })).toBeDisabled();
     expect(screen.getByText(/Save this new exercise before finding or adding/)).toBeInTheDocument();
+  });
+
+  it('immediately enables and persists suggested media with the newly created UUID', async () => {
+    const user = userEvent.setup();
+    const createdId = '11111111-2222-4333-8444-555555555555';
+    api.request.mockImplementation((path: string, options?: RequestInit) => {
+      if (path.includes('global_exercises?select=movement_family')) return Promise.resolve([]);
+      if (path.includes('global_exercises?stable_key=eq.')) return Promise.resolve([]);
+      if (path.startsWith('/rest/v1/global_exercises?on_conflict=') && options?.method === 'POST') {
+        return Promise.resolve([{ id: createdId }]);
+      }
+      if (path.includes('exercise_translations')) return Promise.resolve([]);
+      if (path.includes('exercise_media?exercise_id=eq.')) return Promise.resolve([]);
+      if (path.includes(`global_exercises?id=eq.${createdId}`)) return Promise.resolve([]);
+      if (path.includes('rpc/admin_add_youtube_media')) {
+        return Promise.resolve([{ media_id: 'new-exercise-media', was_added: true, is_primary: true }]);
+      }
+      return Promise.resolve([]);
+    });
+    render(
+      <MemoryRouter initialEntries={['/admin/exercises/new']}>
+        <I18nProvider>
+          <LocationProbe />
+          <Routes>
+            <Route path="/admin/exercises/new" element={<AdminExerciseEditorPage />} />
+            <Route path="/admin/exercises/:exerciseId/edit" element={<AdminExerciseEditorPage />} />
+          </Routes>
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+    const englishSection = screen.getByRole('heading', { name: 'English' }).closest('section')!;
+    await user.type(within(englishSection).getByLabelText('Name'), 'Push-Up Variation');
+    expect(screen.getByRole('button', { name: 'Find suggested videos' })).toBeDisabled();
+
+    await user.click(screen.getByRole('button', { name: 'Save exercise' }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Current route')).toHaveTextContent(
+        `/admin/exercises/${createdId}/edit`,
+      );
+      expect(screen.getByRole('button', { name: 'Find suggested videos' })).toBeEnabled();
+      expect(screen.queryByText(/Save this new exercise before finding or adding/)).not.toBeInTheDocument();
+      expect(screen.getByLabelText('Upload video or image')).toBeEnabled();
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Find suggested videos' }));
+    expect(screen.getByLabelText('Search query')).toHaveValue(
+      'Push-Up Variation tutorial proper form calisthenics',
+    );
+    await user.click(screen.getByRole('button', { name: 'Search YouTube' }));
+    await user.click(await screen.findByRole('button', { name: 'Select video' }));
+
+    await waitFor(() => {
+      const call = api.request.mock.calls.find(([path]) =>
+        String(path).includes('rpc/admin_add_youtube_media'));
+      expect(JSON.parse(call?.[1].body as string)).toMatchObject({
+        p_exercise_id: createdId,
+        p_video_id: 'suggest1234',
+      });
+    });
+  });
+
+  it('keeps media disabled and the new route intact when creation fails', async () => {
+    const user = userEvent.setup();
+    api.request.mockImplementation((path: string, options?: RequestInit) => {
+      if (path.includes('global_exercises?select=movement_family')) return Promise.resolve([]);
+      if (path.includes('global_exercises?stable_key=eq.')) return Promise.resolve([]);
+      if (path.includes('global_exercises?on_conflict=') && options?.method === 'POST') {
+        return Promise.reject(new Error('save_failed'));
+      }
+      return Promise.resolve([]);
+    });
+    render(
+      <MemoryRouter initialEntries={['/admin/exercises/new']}>
+        <I18nProvider>
+          <LocationProbe />
+          <Routes>
+            <Route path="/admin/exercises/new" element={<AdminExerciseEditorPage />} />
+            <Route path="/admin/exercises/:exerciseId/edit" element={<AdminExerciseEditorPage />} />
+          </Routes>
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+    const englishSection = screen.getByRole('heading', { name: 'English' }).closest('section')!;
+    await user.type(within(englishSection).getByLabelText('Name'), 'Push-Up Failed');
+    await user.click(screen.getByRole('button', { name: 'Save exercise' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to save.');
+    expect(screen.getByLabelText('Current route')).toHaveTextContent('/admin/exercises/new');
+    expect(screen.getByRole('button', { name: 'Find suggested videos' })).toBeDisabled();
+    expect(screen.getByLabelText('Upload video or image')).toBeDisabled();
+  });
+
+  it('uses the same persisted UUID on subsequent saves', async () => {
+    const user = userEvent.setup();
+    const createdId = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
+    api.request.mockImplementation((path: string, options?: RequestInit) => {
+      if (path.includes('global_exercises?select=movement_family')) return Promise.resolve([]);
+      if (path.includes('global_exercises?stable_key=eq.')) return Promise.resolve([]);
+      if (path.includes('global_exercises?on_conflict=') && options?.method === 'POST') {
+        return Promise.resolve([{ id: createdId }]);
+      }
+      return Promise.resolve([]);
+    });
+    render(
+      <MemoryRouter initialEntries={['/admin/exercises/new']}>
+        <I18nProvider>
+          <Routes>
+            <Route path="/admin/exercises/new" element={<AdminExerciseEditorPage />} />
+            <Route path="/admin/exercises/:exerciseId/edit" element={<AdminExerciseEditorPage />} />
+          </Routes>
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+    const englishSection = screen.getByRole('heading', { name: 'English' }).closest('section')!;
+    await user.type(within(englishSection).getByLabelText('Name'), 'Push-Up Repeat Save');
+    await user.click(screen.getByRole('button', { name: 'Save exercise' }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Find suggested videos' })).toBeEnabled());
+    await user.click(screen.getByRole('button', { name: 'Save exercise' }));
+
+    await waitFor(() => {
+      const inserts = api.request.mock.calls
+        .filter(([path, options]) =>
+          String(path).includes('global_exercises?on_conflict=') && options?.method === 'POST')
+        .map(([, options]) => JSON.parse(options?.body as string));
+      expect(inserts).toHaveLength(2);
+      expect(inserts[0].id).toBeUndefined();
+      expect(inserts[1].id).toBe(createdId);
+      expect(inserts.map((row) => row.stable_key)).toEqual([
+        'push-up-repeat-save',
+        'push-up-repeat-save',
+      ]);
+    });
+  });
+
+  it('enables the newly persisted workflow immediately in Hebrew RTL', async () => {
+    useAppStore.setState((state) => ({
+      settings: { ...state.settings, language: 'he' },
+    }));
+    const user = userEvent.setup();
+    const createdId = 'bbbbbbbb-cccc-4ddd-8eee-ffffffffffff';
+    api.request.mockImplementation((path: string, options?: RequestInit) => {
+      if (path.includes('global_exercises?stable_key=eq.')) return Promise.resolve([]);
+      if (path.includes('global_exercises?on_conflict=') && options?.method === 'POST') {
+        return Promise.resolve([{ id: createdId }]);
+      }
+      return Promise.resolve([]);
+    });
+    render(
+      <div dir="rtl">
+        <MemoryRouter initialEntries={['/admin/exercises/new']}>
+          <I18nProvider>
+            <Routes>
+              <Route path="/admin/exercises/new" element={<AdminExerciseEditorPage />} />
+              <Route path="/admin/exercises/:exerciseId/edit" element={<AdminExerciseEditorPage />} />
+            </Routes>
+          </I18nProvider>
+        </MemoryRouter>
+      </div>,
+    );
+    const englishSection = screen
+      .getByRole('heading', { name: translations.he.englishContent })
+      .closest('section')!;
+    await user.type(
+      within(englishSection).getByLabelText(translations.he.name),
+      'Push-Up Hebrew Flow',
+    );
+    await user.click(screen.getByRole('button', { name: translations.he.saveExercise }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', {
+        name: translations.he.findSuggestedVideos,
+      })).toBeEnabled();
+      expect(screen.queryByText(translations.he.saveExerciseBeforeSuggestions)).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', {
+      name: translations.he.findSuggestedVideos,
+    }).closest('[dir="rtl"]')).not.toBeNull();
+  });
+
+  it('reopens the canonical persisted route without creating another exercise', async () => {
+    renderEditor();
+    await ready();
+    expect(screen.getByRole('button', { name: 'Find suggested videos' })).toBeEnabled();
+    expect(api.request.mock.calls.some(([path, options]) =>
+      String(path).includes('global_exercises?on_conflict=') && options?.method === 'POST',
+    )).toBe(false);
   });
 
   it('requires confirmation before adding a distinct second suggestion', async () => {
