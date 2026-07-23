@@ -31,6 +31,7 @@ import {
   uniqueTaxonomyValues,
   type TaxonomyKind,
 } from '../../utils/taxonomy';
+import { ensureBuiltInExerciseIdentity } from '../../services/adminExerciseIdentity';
 
 const empty = {
   id: '',
@@ -254,13 +255,13 @@ export function AdminExerciseEditorPage() {
       setError(reason instanceof Error ? reason.message : t('uploadFailed'));
     }
   };
-  const reloadMedia = async () => {
-    if (!form.id || !token) return;
+  const reloadMedia = async (exerciseIdentity = form.id) => {
+    if (!exerciseIdentity || !token) return;
     invalidatePublishedExerciseMedia({
-      canonicalExerciseId: form.id,
+      canonicalExerciseId: exerciseIdentity,
       stableKey: form.stable_key,
     });
-    const rows = await supabaseRequest<Array<Record<string, unknown>>>(`/rest/v1/exercise_media?exercise_id=eq.${form.id}&order=sort_order.asc`, {}, token);
+    const rows = await supabaseRequest<Array<Record<string, unknown>>>(`/rest/v1/exercise_media?exercise_id=eq.${exerciseIdentity}&order=sort_order.asc`, {}, token);
     setMedia(rows.map((item) => ({ id: String(item.id), exerciseId: String(item.exercise_id), mediaType: item.media_type as ExerciseMedia['mediaType'], provider: item.provider as ExerciseMedia['provider'], title: String(item.title ?? ''), externalUrl: typeof item.external_url === 'string' ? item.external_url : undefined, youtubeVideoId: typeof item.youtube_video_id === 'string' ? item.youtube_video_id : undefined, storagePath: typeof item.storage_path === 'string' ? item.storage_path : undefined, sortOrder: Number(item.sort_order ?? 0), isPrimary: item.is_primary === true, isPublished: item.is_published === true })));
   };
   const reloadAndHighlight = async (mediaId: string) => {
@@ -343,6 +344,26 @@ export function AdminExerciseEditorPage() {
   };
   const videoId = parseYouTubeVideoId(youtube);
   const categorySuggestion = suggestedCategory(form.movement_family);
+  const builtInExercise = exerciseId?.startsWith('builtin:')
+    ? builtInExercises.find((item) =>
+        (item.stableKey ?? item.id.replace(/^builtin-/, '')) === exerciseId.slice(8))
+    : undefined;
+  const prepareBuiltInMediaIdentity = builtInExercise
+    ? async () => {
+        const identity = await ensureBuiltInExerciseIdentity(builtInExercise);
+        setForm((current) => ({ ...current, id: identity.id, is_published: identity.isPublished }));
+        setBaseline((current) => {
+          const parsed = JSON.parse(current) as typeof empty;
+          return JSON.stringify({
+            ...parsed,
+            id: identity.id,
+            is_published: identity.isPublished,
+          });
+        });
+        await reloadMedia(identity.id);
+        return identity.id;
+      }
+    : undefined;
   return (
     <main className="mx-auto max-w-4xl">
       <div onClick={(event) => {
@@ -452,7 +473,14 @@ export function AdminExerciseEditorPage() {
         </div>
         <section className="card space-y-3">
           <h2 className="text-xl font-black">{t('media')}</h2>
-          <SuggestedVideosPanel exerciseId={form.id} exerciseName={form.nameEn || form.stable_key} sortOrder={media.length} existingMedia={media} onSelected={reloadAndHighlight} />
+          <SuggestedVideosPanel
+            exerciseId={form.id}
+            exerciseName={form.nameEn || form.stable_key}
+            sortOrder={media.length}
+            existingMedia={media}
+            onSelected={reloadAndHighlight}
+            resolveExerciseId={prepareBuiltInMediaIdentity}
+          />
           <Field label={t('youtubeUrl')} value={youtube} set={setYoutube} ltr />
           {videoId && <div className="aspect-video overflow-hidden rounded-2xl"><iframe className="h-full w-full" src={youtubeEmbedUrl(videoId)} title={t('youtubePreview')} allowFullScreen /></div>}
           <button className="btn-secondary" type="button" disabled={!videoId || !form.id} onClick={addYoutube}>{t('addYoutube')}</button>

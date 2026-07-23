@@ -16,12 +16,14 @@ export function SuggestedVideosPanel({
   sortOrder,
   existingMedia,
   onSelected,
+  resolveExerciseId,
 }: {
   exerciseId: string;
   exerciseName: string;
   sortOrder: number;
   existingMedia: ExerciseMedia[];
   onSelected: (mediaId: string) => Promise<void>;
+  resolveExerciseId?: () => Promise<string>;
 }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -32,6 +34,8 @@ export function SuggestedVideosPanel({
   const [error, setError] = useState('');
   const [addingVideoId, setAddingVideoId] = useState('');
   const [pendingVideo, setPendingVideo] = useState<SuggestedVideo | null>(null);
+  const [resolvedExerciseId, setResolvedExerciseId] = useState(exerciseId);
+  const [preparing, setPreparing] = useState(false);
 
   const search = async () => {
     if (loading) return;
@@ -50,12 +54,13 @@ export function SuggestedVideosPanel({
   };
 
   const add = async (video: SuggestedVideo) => {
-    if (addingVideoId || !exerciseId) return;
+    const targetExerciseId = resolvedExerciseId || exerciseId;
+    if (addingVideoId || !targetExerciseId) return;
     setAddingVideoId(video.videoId);
     setError('');
     try {
       const result = await addPublishedYouTubeMedia({
-        exerciseId,
+        exerciseId: targetExerciseId,
         title: video.title,
         url: video.url,
         sortOrder,
@@ -94,14 +99,34 @@ export function SuggestedVideosPanel({
       <button
         type="button"
         className="btn-secondary w-full sm:w-auto"
-        disabled={!exerciseId}
-        onClick={() => {
-          setQuery((current) => current || `${exerciseName} tutorial proper form calisthenics`);
-          setOpen(true);
+        disabled={preparing || (!exerciseId && !resolveExerciseId)}
+        onClick={async () => {
+          if (preparing) return;
+          setError('');
+          setPreparing(true);
+          try {
+            const targetExerciseId =
+              exerciseId || resolvedExerciseId || (await resolveExerciseId?.()) || '';
+            if (!targetExerciseId) {
+              setError(t('saveExerciseBeforeSuggestions'));
+              return;
+            }
+            setResolvedExerciseId(targetExerciseId);
+            setQuery((current) => current || `${exerciseName} tutorial proper form calisthenics`);
+            setOpen(true);
+          } catch {
+            setError(t('unableToPrepareExerciseMedia'));
+          } finally {
+            setPreparing(false);
+          }
         }}
       >
-        {t('findSuggestedVideos')}
+        {preparing ? t('preparingExerciseMedia') : t('findSuggestedVideos')}
       </button>
+      {!exerciseId && !resolveExerciseId && (
+        <p className="mt-2 text-sm text-slate-500">{t('saveExerciseBeforeSuggestions')}</p>
+      )}
+      {!open && error && <p role="alert" className="mt-2 text-sm text-red-500">{error}</p>}
       {open && (
         <section className="surface-subtle rounded-3xl p-4" aria-label={t('suggestedVideos')}>
           <div className="flex items-center justify-between gap-3">

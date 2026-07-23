@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '../../app/I18nProvider';
+import { translations } from '../../locales/translations';
+import { useAppStore } from '../../store/useAppStore';
 import { AdminExerciseEditorPage } from './AdminExerciseEditorPage';
 
 const api = vi.hoisted(() => ({
@@ -113,6 +115,9 @@ describe('administrator exercise media lifecycle', () => {
     api.request.mockReset();
     api.upload.mockReset();
     api.removeFile.mockReset();
+    useAppStore.setState((state) => ({
+      settings: { ...state.settings, language: 'en' },
+    }));
   });
 
   it('provides a clear back action to the shared exercise list', async () => {
@@ -232,6 +237,100 @@ describe('administrator exercise media lifecycle', () => {
         p_video_id: 'suggest1234',
       });
     });
+  });
+
+  it('provisions and persists suggested YouTube media for the existing built-in Push-Up', async () => {
+    const user = userEvent.setup();
+    let persistedId = '';
+    api.request.mockImplementation((path: string, options?: RequestInit) => {
+      if (path.includes('global_exercises?select=movement_family')) return Promise.resolve([]);
+      if (path.includes('global_exercises?stable_key=eq.push-up')) return Promise.resolve([]);
+      if (path === '/rest/v1/global_exercises' && options?.method === 'POST') {
+        persistedId = JSON.parse(options.body as string).id;
+        return Promise.resolve([]);
+      }
+      if (path.includes('exercise_translations')) return Promise.resolve([]);
+      if (path.includes('exercise_media?exercise_id=eq.')) return Promise.resolve([]);
+      if (path.includes('rpc/admin_add_youtube_media')) {
+        return Promise.resolve([{ media_id: 'built-in-media', was_added: true, is_primary: true }]);
+      }
+      return Promise.resolve([]);
+    });
+    render(
+      <MemoryRouter initialEntries={['/admin/exercises/builtin:push-up/edit']}>
+        <I18nProvider>
+          <Routes>
+            <Route path="/admin/exercises/:exerciseId/edit" element={<AdminExerciseEditorPage />} />
+          </Routes>
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+    await screen.findByDisplayValue('push-up');
+    const suggestionsButton = screen.getByRole('button', { name: 'Find suggested videos' });
+    expect(suggestionsButton).toBeEnabled();
+
+    await user.click(suggestionsButton);
+    expect(await screen.findByLabelText('Search query')).toHaveValue(
+      'Push-Up tutorial proper form calisthenics',
+    );
+    expect(persistedId).not.toBe('');
+    await user.click(screen.getByRole('button', { name: 'Search YouTube' }));
+    await user.click(await screen.findByRole('button', { name: 'Select video' }));
+
+    await waitFor(() => {
+      const call = api.request.mock.calls.find(([path]) =>
+        String(path).includes('rpc/admin_add_youtube_media'));
+      expect(JSON.parse(call?.[1].body as string)).toMatchObject({
+        p_exercise_id: persistedId,
+        p_video_id: 'suggest1234',
+      });
+    });
+    expect(api.request.mock.calls.filter(([path]) => path === '/rest/v1/global_exercises')).toHaveLength(1);
+  });
+
+  it('offers the built-in workflow in Hebrew while keeping the canonical English query', async () => {
+    useAppStore.setState((state) => ({
+      settings: { ...state.settings, language: 'he' },
+    }));
+    const user = userEvent.setup();
+    api.request.mockImplementation((path: string, options?: RequestInit) => {
+      if (path.includes('global_exercises?stable_key=eq.push-up')) {
+        return Promise.resolve([
+          { id: 'global-push-up', stable_key: 'push-up', is_published: true },
+        ]);
+      }
+      if (path.includes('exercise_media?exercise_id=eq.global-push-up')) return Promise.resolve([]);
+      if (path.includes('global_exercises?select=movement_family')) return Promise.resolve([]);
+      if (options?.method === 'GET') return Promise.resolve([]);
+      return Promise.resolve([]);
+    });
+    render(
+      <div dir="rtl">
+        <MemoryRouter initialEntries={['/admin/exercises/builtin:push-up/edit']}>
+          <I18nProvider>
+            <Routes>
+              <Route path="/admin/exercises/:exerciseId/edit" element={<AdminExerciseEditorPage />} />
+            </Routes>
+          </I18nProvider>
+        </MemoryRouter>
+      </div>,
+    );
+    await screen.findByDisplayValue('push-up');
+    const button = screen.getByRole('button', {
+      name: translations.he.findSuggestedVideos,
+    });
+    expect(button).toBeEnabled();
+    await user.click(button);
+    expect(await screen.findByLabelText(translations.he.searchQuery)).toHaveValue(
+      'Push-Up tutorial proper form calisthenics',
+    );
+    expect(button.closest('[dir="rtl"]')).not.toBeNull();
+  });
+
+  it('explains why a brand-new unsaved exercise cannot attach media yet', () => {
+    renderNewEditor();
+    expect(screen.getByRole('button', { name: 'Find suggested videos' })).toBeDisabled();
+    expect(screen.getByText(/Save this new exercise before finding or adding/)).toBeInTheDocument();
   });
 
   it('requires confirmation before adding a distinct second suggestion', async () => {
