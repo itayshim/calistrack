@@ -59,10 +59,11 @@ describe('metric-specific workout history', () => {
         exerciseId: weighted.id,
         measurementType: 'weighted_reps',
         skipped: false,
-        sets: [{ id: 'set', setNumber: 1, reps: 6, addedWeightKg: 7.5, completed: true }],
+        sets: [{ id: 'set', setNumber: 1, reps: 6.5, addedWeightKg: 7.5, completed: true }],
       }],
     });
-    expect(screen.getByLabelText('Repetitions')).toHaveValue(6);
+    expect(screen.getByLabelText('Repetitions')).toHaveValue(6.5);
+    expect(screen.getByLabelText('Repetitions')).toHaveAttribute('step', '0.5');
     expect(screen.getByLabelText('Added weight (kg)')).toHaveValue(7.5);
   });
 });

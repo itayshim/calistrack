@@ -8,6 +8,31 @@ describe('storage', () => {
     const data = createInitialData();
     expect(service.importData(service.exportData(data)).exercises.length).toBeGreaterThan(30);
   });
+  it('round-trips half repetitions as numbers without changing integer records', () => {
+    const data = createInitialData();
+    data.workoutSessions = [{
+      id: 'half-reps',
+      workoutName: 'Pull',
+      startedAt: '2026-07-27T10:00:00Z',
+      completedAt: '2026-07-27T10:10:00Z',
+      status: 'completed',
+      currentExerciseIndex: 0,
+      exercises: [{
+        id: 'exercise-session',
+        exerciseId: 'builtin-pull-up',
+        measurementType: 'reps',
+        skipped: false,
+        sets: [
+          { id: 'half', setNumber: 1, reps: 8.5, completed: true },
+          { id: 'whole', setNumber: 2, reps: 8, completed: true },
+        ],
+      }],
+    }];
+    const restored = service.importData(service.exportData(data));
+    expect(restored.workoutSessions[0].exercises[0].sets.map((set) => set.reps))
+      .toEqual([8.5, 8]);
+    expect(typeof restored.workoutSessions[0].exercises[0].sets[0].reps).toBe('number');
+  });
   it('rejects invalid imports', () => expect(() => service.importData('{"hello":1}')).toThrow());
   it('handles malformed local storage safely', () => {
     localStorage.setItem(STORAGE_KEY, 'broken');

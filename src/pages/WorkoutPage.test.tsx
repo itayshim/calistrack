@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -91,6 +91,33 @@ describe('active workout previous performance and replacement UX', () => {
     expect(useAppStore.getState().activeWorkout?.exercises[0].sets).toHaveLength(0);
   });
 
+  it('records and restores a half repetition without rounding', async () => {
+    const user = userEvent.setup();
+    renderWorkout('builtin-pull-up', 'reps');
+    const input = screen.getByLabelText(/Set 1/i);
+    await user.type(input, '8.5');
+    await user.click(screen.getByRole('button', { name: 'Complete set' }));
+    expect(useAppStore.getState().activeWorkout?.exercises[0].sets[0].reps).toBe(8.5);
+  });
+
+  it('rejects unsupported rep precision with localized feedback', async () => {
+    const user = userEvent.setup();
+    renderWorkout('builtin-pull-up', 'reps');
+    await user.type(screen.getByLabelText(/Set 1/i), '8.25');
+    expect(screen.getByText('Reps must be entered in increments of 0.5.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Complete set' })).toBeDisabled();
+  });
+
+  it('preserves half reps in previous performance and weighted inputs', async () => {
+    const user = userEvent.setup();
+    renderWorkout('builtin-weighted-pull-up', 'weighted_reps', [
+      { id: 'set-half', setNumber: 1, reps: 6.5, addedWeightKg: 7.5, completed: true },
+    ]);
+    expect(screen.getByText(/6.5 reps/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Use previous workout' }));
+    expect(screen.getByLabelText(/Set 1/i)).toHaveValue(6.5);
+  });
+
   it('shows and copies duration performance', async () => {
     const user = userEvent.setup();
     renderWorkout('builtin-l-sit', 'duration', [
@@ -151,6 +178,18 @@ describe('active workout previous performance and replacement UX', () => {
     const sheet = screen.getByRole('dialog', { name: 'Replace exercise' });
     expect(sheet).toHaveClass('max-h-[min(90dvh,52rem)]', 'overflow-y-auto');
     expect(screen.getAllByText('Same movement family').length).toBeGreaterThan(0);
+  });
+
+  it('uses a solid elevated action surface for replacement confirmation', async () => {
+    const user = userEvent.setup();
+    renderWorkout('builtin-pull-up', 'reps');
+    await user.click(screen.getByRole('button', { name: 'Replace exercise' }));
+    await user.click(screen.getAllByRole('button', { name: /Chin-Up/i })[0]);
+    const confirmation = screen.getByTestId('replacement-confirmation');
+    expect(confirmation).toHaveClass('action-surface');
+    expect(confirmation).toHaveClass('pb-[max(1rem,env(safe-area-inset-bottom))]');
+    expect(within(confirmation).getByRole('button', { name: 'Replace only this workout' }))
+      .toHaveClass('action-surface-button');
   });
 
   it('renders Hebrew actions in RTL mode', () => {

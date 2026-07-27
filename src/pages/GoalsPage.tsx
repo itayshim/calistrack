@@ -8,7 +8,7 @@ import { exercisePoints, weeklyCompleted } from '../utils/stats';
 import { useI18n } from '../hooks/useI18n';
 import { getExerciseName } from '../utils/exerciseLocalization';
 import { Select } from '../components/SelectMenu';
-import { formatAddedWeight, formatDuration, formatReps, getSetAddedWeight, getSetReps } from '../utils/performance';
+import { formatAddedWeight, formatDuration, formatReps, getSetAddedWeight, getSetReps, isHalfRepIncrement } from '../utils/performance';
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard';
 const icons = {
   'weekly-workouts': Dumbbell,
@@ -34,8 +34,13 @@ export function GoalsPage() {
   const save = () => {
     const parsedTarget = Number(target);
     const parsedWeight = Number(targetWeight);
-    if (!title.trim() || !Number.isFinite(parsedTarget) || parsedTarget < 1 || (type === 'exercise-weighted-reps' && (!Number.isFinite(parsedWeight) || parsedWeight < 0))) {
-      setNumericError(t('enterValidGoalTarget'));
+    const repGoal = type === 'exercise-reps' || type === 'exercise-weighted-reps';
+    if (!title.trim() || !Number.isFinite(parsedTarget) || parsedTarget < 1 || (repGoal && !isHalfRepIncrement(parsedTarget)) || (type === 'exercise-weighted-reps' && (!Number.isFinite(parsedWeight) || parsedWeight < 0))) {
+      setNumericError(
+        repGoal && Number.isFinite(parsedTarget) && !isHalfRepIncrement(parsedTarget)
+          ? t('repsHalfIncrement')
+          : t('enterValidGoalTarget'),
+      );
       return;
     }
     store.addGoal({
@@ -218,6 +223,8 @@ export function GoalsPage() {
                   className="field text-2xl font-black"
                   type="number"
                   min="1"
+                  step={type === 'exercise-reps' || type === 'exercise-weighted-reps' ? 0.5 : 1}
+                  inputMode={type === 'exercise-reps' || type === 'exercise-weighted-reps' ? 'decimal' : 'numeric'}
                   value={target}
                   aria-invalid={!!numericError}
                   onChange={(e) => {

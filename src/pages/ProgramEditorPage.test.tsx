@@ -117,6 +117,39 @@ describe('program weekday selection', () => {
     expect(reps.parentElement).toHaveClass('grid-cols-1', 'md:grid-cols-2');
   });
 
+  it('accepts half-repetition program targets and rejects arbitrary precision', async () => {
+    const user = userEvent.setup();
+    useAppStore.setState({
+      settings: { ...useAppStore.getState().settings, allowEmptyNumericFields: true },
+    });
+    const view = renderEditor();
+    await user.click(screen.getByRole('button', { name: 'Add workout day' }));
+    await user.click(screen.getByRole('button', { name: 'Add exercise' }));
+    await user.type(screen.getByPlaceholderText('Search squats, dips, handstands...'), 'Pull-Up');
+    await user.click(screen.getByRole('button', { name: /^Pull-UpPull-Up/ }));
+    const minimum = screen.getByLabelText('Target reps Minimum');
+    const maximum = screen.getByLabelText('Target reps Maximum');
+    expect(minimum).toHaveAttribute('step', '0.5');
+    await user.clear(minimum);
+    await user.type(minimum, '8.5');
+    await user.clear(maximum);
+    await user.type(maximum, '12.5');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(useAppStore.getState().programs[0].workouts[0].exercises[0]).toMatchObject({
+      targetMin: 8.5,
+      targetMax: 12.5,
+    });
+
+    view.unmount();
+    renderEditor(`/program/${useAppStore.getState().programs[0].id}`);
+    const editedMinimum = screen.getByLabelText('Target reps Minimum');
+    await user.clear(editedMinimum);
+    await user.type(editedMinimum, '8.25');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(screen.getAllByText('Reps must be entered in increments of 0.5.').length)
+      .toBeGreaterThan(0);
+  });
+
   it('renders compact weighted controls with natural Hebrew labels and isolated ranges', () => {
     const now = '2026-01-01';
     const program: Program = {

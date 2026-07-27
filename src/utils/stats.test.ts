@@ -43,6 +43,27 @@ describe('progress stats', () => {
     edit.exercises[0].sets[0].value = 15;
     expect(exercisePoints([edit], 'e')[0].best).toBe(15);
   });
+  it('orders and totals half repetitions without truncation', () => {
+    const halfSession = structuredClone(s);
+    halfSession.exercises[0].sets = [
+      { id: 'h1', setNumber: 1, reps: 8.5, completed: true },
+      { id: 'h2', setNumber: 2, reps: 7, completed: true },
+      { id: 'h3', setNumber: 3, reps: 6.5, completed: true },
+    ];
+    expect(exercisePoints([halfSession], 'e')[0]).toMatchObject({ best: 8.5, total: 22 });
+    expect(personalRecords([halfSession], [e])[0]).toMatchObject({
+      bestSet: 8.5,
+      bestTotal: 22,
+    });
+
+    const lowerSession = structuredClone(halfSession);
+    lowerSession.id = 'lower';
+    lowerSession.startedAt = '2026-01-02T00:00:00Z';
+    lowerSession.exercises[0].sets = [
+      { id: 'lower-set', setNumber: 1, reps: 8, completed: true },
+    ];
+    expect(personalRecords([halfSession, lowerSession], [e])[0].bestSet).toBe(8.5);
+  });
   it('calculates the longest hold from duration fields', () => {
     const durationExercise = { ...e, id: 'hold', measurementType: 'duration' as const };
     const durationSession = structuredClone(s);

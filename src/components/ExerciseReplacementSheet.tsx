@@ -9,6 +9,7 @@ import {
   completedSetCount,
   rankReplacementExercises,
 } from '../utils/workoutExperience';
+import { isHalfRepIncrement } from '../utils/performance';
 import { Select } from './SelectMenu';
 
 export function ExerciseReplacementSheet({
@@ -61,6 +62,15 @@ export function ExerciseReplacementSheet({
     onReplaced();
     onClose();
   };
+  const targetConfigurationValid =
+    Number.isInteger(targetConfiguration.targetSets) &&
+    targetConfiguration.targetSets >= 1 &&
+    targetConfiguration.targetMin >= (pending?.measurementType === 'duration' ? 1 : 0) &&
+    targetConfiguration.targetMax >= targetConfiguration.targetMin &&
+    (pending?.measurementType === 'duration' ||
+      (isHalfRepIncrement(targetConfiguration.targetMin) &&
+        isHalfRepIncrement(targetConfiguration.targetMax))) &&
+    targetConfiguration.targetAddedWeightKg >= 0;
   return (
     <div className="fixed inset-0 z-50 flex items-end bg-black/60 p-2 backdrop-blur-sm sm:items-center sm:justify-center" role="presentation">
       <section
@@ -125,23 +135,26 @@ export function ExerciseReplacementSheet({
           {!candidates.length && <p className="py-8 text-center text-slate-500">{t('noCompatibleAlternatives')}</p>}
         </div>
         {pending && (
-          <div className="sticky bottom-0 mt-4 rounded-3xl border border-brand/30 bg-[var(--surface)] p-4 shadow-xl">
+          <div
+            data-testid="replacement-confirmation"
+            className="action-surface sticky bottom-0 mt-4 rounded-3xl p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+          >
             <h3 className="font-black">{completed ? t('replaceThisExercise') : getExerciseName(pending, language)}</h3>
             {completed > 0 && <p className="mt-2 text-sm text-slate-500">{t('completedSetsReplaceWarning').replace('{count}', String(completed))}</p>}
             {pending.measurementType !== current.measurementType && <p role="alert" className="mt-2 rounded-xl bg-orange-500/10 p-3 text-sm font-bold text-orange-600 dark:text-orange-300">{t('differentMeasurementWarning')}</p>}
             {pending.measurementType !== current.measurementType && (
               <div className="mt-3 grid gap-2 sm:grid-cols-3">
                 <label><span className="label">{t('sets')}</span><input className="field" type="number" min="1" value={targetConfiguration.targetSets} onChange={(event) => setTargetConfiguration((value) => ({ ...value, targetSets: Number(event.target.value) }))} /></label>
-                <label><span className="label">{t('minimum')}</span><input className="field" type="number" min="1" value={targetConfiguration.targetMin} onChange={(event) => setTargetConfiguration((value) => ({ ...value, targetMin: Number(event.target.value) }))} /></label>
-                <label><span className="label">{t('maximum')}</span><input className="field" type="number" min="1" value={targetConfiguration.targetMax} onChange={(event) => setTargetConfiguration((value) => ({ ...value, targetMax: Number(event.target.value) }))} /></label>
+                <label><span className="label">{t('minimum')}</span><input className="field" type="number" min={pending.measurementType === 'duration' ? 1 : 0} step={pending.measurementType === 'duration' ? 1 : 0.5} inputMode={pending.measurementType === 'duration' ? 'numeric' : 'decimal'} value={targetConfiguration.targetMin} onChange={(event) => setTargetConfiguration((value) => ({ ...value, targetMin: Number(event.target.value) }))} /></label>
+                <label><span className="label">{t('maximum')}</span><input className="field" type="number" min={pending.measurementType === 'duration' ? 1 : 0} step={pending.measurementType === 'duration' ? 1 : 0.5} inputMode={pending.measurementType === 'duration' ? 'numeric' : 'decimal'} value={targetConfiguration.targetMax} onChange={(event) => setTargetConfiguration((value) => ({ ...value, targetMax: Number(event.target.value) }))} /></label>
                 {pending.measurementType === 'weighted_reps' && <label><span className="label">{t('addedWeight')}</span><input className="field" type="number" min="0" step="0.5" value={targetConfiguration.targetAddedWeightKg} onChange={(event) => setTargetConfiguration((value) => ({ ...value, targetAddedWeightKg: Number(event.target.value) }))} /></label>}
               </div>
             )}
             <div className="mt-3 grid gap-2">
               {completed > 0 && <button className="btn-primary" onClick={() => replace(true)}>{t('keepCompletedSets')}</button>}
-              <button className="btn-secondary" onClick={() => replace(false)}>{completed ? t('discardCompletedSets') : t('replaceOnlyWorkout')}</button>
-              <button className="btn-secondary" onClick={() => replace(false, true)}>{t('replaceInProgramToo')}</button>
-              <button className="btn-secondary" onClick={() => setPending(null)}>{t('cancel')}</button>
+              <button className="action-surface-button" onClick={() => replace(false)}>{completed ? t('discardCompletedSets') : t('replaceOnlyWorkout')}</button>
+              <button className="action-surface-button" disabled={!targetConfigurationValid} onClick={() => replace(false, true)}>{t('replaceInProgramToo')}</button>
+              <button className="action-surface-button" onClick={() => setPending(null)}>{t('cancel')}</button>
             </div>
           </div>
         )}

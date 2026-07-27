@@ -27,6 +27,8 @@ import {
   getSetAddedWeight,
   getSetDuration,
   getSetReps,
+  isHalfRepIncrement,
+  isValidSetInput,
   normalizeMeasurementType,
 } from '../utils/performance';
 import {
@@ -135,12 +137,17 @@ export function WorkoutPage() {
       : measurementType === 'weighted_reps'
         ? { reps: Number(reps), addedWeightKg: Number(addedWeight) }
         : { reps: Number(reps) };
-  const validInput =
+  const hasRequiredInput =
     measurementType === 'duration'
-      ? Number(duration) > 0
-      : Number(reps) > 0 &&
-        (measurementType !== 'weighted_reps' ||
-          (addedWeight !== '' && Number(addedWeight) >= (target?.minimumAddedWeightKg ?? 0)));
+      ? duration !== ''
+      : reps !== '' && (measurementType !== 'weighted_reps' || addedWeight !== '');
+  const validInput =
+    hasRequiredInput &&
+    isValidSetInput(setInput, measurementType, target?.minimumAddedWeightKg);
+  const invalidRepIncrement =
+    measurementType !== 'duration' &&
+    reps !== '' &&
+    !isHalfRepIncrement(Number(reps));
   const complete = () => {
     if (!validInput || restLocked || !canEnterSet) return;
     store.completeSet(i, setInput);
@@ -297,6 +304,8 @@ export function WorkoutPage() {
                     label={t('repetitionsMeasurement')}
                     value={getSetReps(set, measurementType) ?? 0}
                     unit={t('reps')}
+                    step={0.5}
+                    invalidMessage={t('repsHalfIncrement')}
                     onChange={(next) => store.editSet(i, set.id, {
                       reps: next,
                       ...(measurementType === 'weighted_reps'
@@ -335,9 +344,10 @@ export function WorkoutPage() {
           <input
             id="set-value"
             autoFocus
-            inputMode="numeric"
             type="number"
             min="0"
+            step={measurementType === 'duration' ? 1 : 0.5}
+            inputMode={measurementType === 'duration' ? 'numeric' : 'decimal'}
             value={measurementType === 'duration' ? duration : reps}
             disabled={restLocked || !canEnterSet}
             onChange={(e) => measurementType === 'duration' ? updateDraft({ duration: e.target.value }) : updateDraft({ reps: e.target.value })}
@@ -348,6 +358,11 @@ export function WorkoutPage() {
           <p className="text-center text-sm font-bold text-slate-500">
             {measurementType === 'duration' ? t('seconds') : t('reps')}
           </p>
+          {invalidRepIncrement && (
+            <p role="alert" className="mt-2 text-center text-sm font-bold text-red-500">
+              {t('repsHalfIncrement')}
+            </p>
+          )}
           {measurementType === 'duration' && (
             <div className="mt-3 flex justify-center gap-2">
               {[5, 10, 30].map((amount) => (
@@ -580,13 +595,17 @@ function MetricInput({
   unit,
   onChange,
   step = 1,
+  invalidMessage,
 }: {
   label: string;
   value: number;
   unit: string;
   onChange: (value: number) => void;
   step?: number;
+  invalidMessage?: string;
 }) {
+  const [draft, setDraft] = useState(String(value));
+  const invalid = step === 0.5 && draft !== '' && !isHalfRepIncrement(Number(draft));
   return (
     <label className="flex min-w-0 flex-1 items-center gap-2">
       <span className="sr-only">{label}</span>
@@ -596,11 +615,20 @@ function MetricInput({
         min="0"
         step={step}
         inputMode={step < 1 ? 'decimal' : 'numeric'}
-        value={value}
-        onChange={(event) => onChange(Math.max(0, Number(event.target.value)))}
+        value={draft}
+        aria-invalid={invalid}
+        onChange={(event) => {
+          const next = event.target.value;
+          setDraft(next);
+          const parsed = Number(next);
+          if (next !== '' && Number.isFinite(parsed) && parsed >= 0 && (step !== 0.5 || isHalfRepIncrement(parsed))) {
+            onChange(parsed);
+          }
+        }}
         className="min-w-0 flex-1 bg-transparent text-end text-xl font-black outline-none"
       />
       <span className="whitespace-nowrap text-xs font-bold text-slate-500">{unit}</span>
+      {invalid && invalidMessage && <span className="sr-only" role="alert">{invalidMessage}</span>}
     </label>
   );
 }

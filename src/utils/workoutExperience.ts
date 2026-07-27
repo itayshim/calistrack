@@ -75,12 +75,16 @@ export function validEnteredSet(
   set: WorkoutSet | undefined,
   measurementType: MeasurementType,
 ): boolean {
+  const input = set ? copySetInput(set, measurementType) : undefined;
   return Boolean(
-    set &&
+    input &&
       isValidSetInput(
-        copySetInput(set, measurementType),
+        input,
         measurementType,
-      ),
+      ) &&
+      (measurementType === 'duration'
+        ? (input.durationSeconds ?? 0) > 0
+        : (input.reps ?? 0) > 0),
   );
 }
 

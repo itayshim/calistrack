@@ -9,6 +9,7 @@ import {
   getSetAddedWeight,
   getSetDuration,
   getSetReps,
+  isHalfRepIncrement,
   normalizeMeasurementType,
 } from '../utils/performance';
 import { PageBackLink } from '../components/PageBackLink';
@@ -73,6 +74,7 @@ export function HistoryDetailPage() {
                       label={measurementType === 'duration' ? t('holdTime') : t('repetitionsMeasurement')}
                       value={measurementType === 'duration' ? getSetDuration(st, measurementType) ?? 0 : getSetReps(st, measurementType) ?? 0}
                       unit={measurementType === 'duration' ? t('seconds') : t('reps')}
+                      step={measurementType === 'duration' ? 1 : 0.5}
                       onChange={(value) => setSession((current) => {
                         if (!current) return current;
                         const next = structuredClone(current);
@@ -178,8 +180,12 @@ function Rate({ label, value, set }: { label: string; value: number; set: (v: nu
   );
 }
 function HistoryMetricInput({ label, value, unit, onChange, step = 1 }: { label: string; value: number; unit: string; onChange: (value: number) => void; step?: number }) {
+  const { t } = useI18n();
+  const [draft, setDraft] = useState(String(value));
+  const invalid = step === 0.5 && draft !== '' && !isHalfRepIncrement(Number(draft));
   return (
-    <span className="mt-1 flex items-center gap-2">
+    <span className="mt-1 block">
+      <span className="flex items-center gap-2">
       <input
         aria-label={label}
         className="field"
@@ -187,10 +193,25 @@ function HistoryMetricInput({ label, value, unit, onChange, step = 1 }: { label:
         min="0"
         step={step}
         inputMode={step < 1 ? 'decimal' : 'numeric'}
-        value={value}
-        onChange={(event) => onChange(Math.max(0, Number(event.target.value)))}
+        value={draft}
+        aria-invalid={invalid}
+        onChange={(event) => {
+          const next = event.target.value;
+          setDraft(next);
+          const parsed = Number(next);
+          if (
+            next !== '' &&
+            Number.isFinite(parsed) &&
+            parsed >= 0 &&
+            (step !== 0.5 || isHalfRepIncrement(parsed))
+          ) {
+            onChange(parsed);
+          }
+        }}
       />
       <span className="whitespace-nowrap text-sm text-slate-500">{unit}</span>
+      </span>
+      {invalid && <span role="alert" className="mt-1 block text-sm font-bold text-red-500">{t('repsHalfIncrement')}</span>}
     </span>
   );
 }

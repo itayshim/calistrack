@@ -111,6 +111,12 @@ textarea:not(.control-input):focus-visible {
   .modal-surface {
     @apply border border-slate-200 bg-white text-slate-950 shadow-xl dark:border-white/[.08] dark:bg-elevated dark:text-white dark:shadow-soft;
   }
+  .action-surface {
+    @apply isolate border border-brand/40 bg-white text-slate-950 shadow-xl dark:bg-elevated dark:text-white dark:shadow-soft;
+  }
+  .action-surface-button {
+    @apply btn bg-slate-100 text-slate-900 hover:bg-slate-200 dark:bg-panel dark:text-white dark:hover:bg-line;
+  }
   .taxonomy-popover,
   .floating-menu-surface {
     flex-direction: column;

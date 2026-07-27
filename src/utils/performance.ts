@@ -18,6 +18,16 @@ export const getSetDuration = (set: WorkoutSet, type: MeasurementType) =>
 
 export const getSetAddedWeight = (set: WorkoutSet) => set.addedWeightKg;
 
+export const isHalfRepIncrement = (value: number) =>
+  Number.isFinite(value) && value >= 0 && Number.isInteger(value * 2);
+
+export const formatRepValue = (count: number) =>
+  new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 1,
+    useGrouping: false,
+  }).format(count);
+
 export const normalizeSetInput = (
   input: WorkoutSetInput | number,
   type: MeasurementType,
@@ -32,7 +42,7 @@ export const isValidSetInput = (
   minimumAddedWeightKg = 0,
 ) => {
   if (type === 'duration') return (input.durationSeconds ?? 0) > 0;
-  if ((input.reps ?? 0) <= 0) return false;
+  if (input.reps === undefined || !isHalfRepIncrement(input.reps)) return false;
   if (type === 'weighted_reps') {
     const weight = input.addedWeightKg;
     return weight !== undefined && weight >= Math.max(0, minimumAddedWeightKg);
@@ -65,7 +75,9 @@ export const formatDuration = (seconds: number, language: 'en' | 'he' = 'en') =>
 };
 
 export const formatReps = (count: number, language: 'en' | 'he' = 'en') =>
-  language === 'he' ? `${count} חזרות` : `${count} reps`;
+  language === 'he'
+    ? `${formatRepValue(count)} חזרות`
+    : `${formatRepValue(count)} reps`;
 
 export const formatAddedWeight = (weightKg: number, language: 'en' | 'he' = 'en') => {
   const formatted = new Intl.NumberFormat(language === 'he' ? 'he-IL' : 'en-US', {

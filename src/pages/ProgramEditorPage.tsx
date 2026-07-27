@@ -20,6 +20,7 @@ import { PageBackLink } from '../components/PageBackLink';
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard';
 import type { TranslationKey } from '../locales/translations';
 import { Select } from '../components/SelectMenu';
+import { isHalfRepIncrement } from '../utils/performance';
 const dayKeys: TranslationKey[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 type NumericField = 'targetSets' | 'targetMin' | 'targetMax' | 'targetAddedWeightKg' | 'restSeconds';
 type NumericDrafts = Record<string, string>;
@@ -220,6 +221,12 @@ export function ProgramEditorPage() {
           errors[draftKey(exercise.id, 'targetMax')] = message;
         } else if (maximum < minimum) {
           errors[draftKey(exercise.id, 'targetMax')] = t('maximumAtLeastMinimum');
+        } else if (
+          type !== 'duration' &&
+          (!isHalfRepIncrement(minimum) || !isHalfRepIncrement(maximum))
+        ) {
+          errors[draftKey(exercise.id, 'targetMin')] = t('repsHalfIncrement');
+          errors[draftKey(exercise.id, 'targetMax')] = t('repsHalfIncrement');
         }
         if (type === 'weighted_reps' && (weight === null || !Number.isFinite(weight) || weight < 0)) {
           errors[draftKey(exercise.id, 'targetAddedWeightKg')] = t('addedWeightNonNegative');
@@ -740,6 +747,7 @@ function TargetFields({
         unit={measurementType === 'duration' ? t('seconds') : undefined}
         setMinimum={(value) => updateNumeric('targetMin', value, 1)}
         setMaximum={(value) => updateNumeric('targetMax', value, 1)}
+        step={measurementType === 'duration' ? 1 : 0.5}
         minimumKey={draftKey('targetMin')}
         maximumKey={draftKey('targetMax')}
         error={errors[draftKey('targetMin')] || errors[draftKey('targetMax')]}
@@ -829,6 +837,7 @@ function CompactRange({
   minimumKey,
   maximumKey,
   error,
+  step = 1,
 }: {
   label: string;
   minimum: string;
@@ -839,6 +848,7 @@ function CompactRange({
   minimumKey: string;
   maximumKey: string;
   error?: string;
+  step?: number;
 }) {
   const { t } = useI18n();
   const errorId = `${minimumKey}-error`;
@@ -853,7 +863,8 @@ function CompactRange({
           aria-label={`${label} ${t('minimum')}`}
           type="number"
           min="1"
-          inputMode="numeric"
+          step={step}
+          inputMode={step < 1 ? 'decimal' : 'numeric'}
           data-numeric-key={minimumKey}
           aria-invalid={!!error}
           aria-describedby={error ? errorId : undefined}
@@ -866,7 +877,8 @@ function CompactRange({
           aria-label={`${label} ${t('maximum')}`}
           type="number"
           min="1"
-          inputMode="numeric"
+          step={step}
+          inputMode={step < 1 ? 'decimal' : 'numeric'}
           data-numeric-key={maximumKey}
           aria-invalid={!!error}
           aria-describedby={error ? errorId : undefined}

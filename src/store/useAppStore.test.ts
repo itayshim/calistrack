@@ -42,6 +42,14 @@ describe('workout flow', () => {
     expect(useAppStore.getState().activeWorkout?.exercises[0].sets[0].reps).toBe(10);
     expect(useAppStore.getState().restTimer.endsAt).toBeGreaterThan(Date.now());
   });
+  it('stores half reps exactly and rejects arbitrary decimal increments', () => {
+    useAppStore.getState().startWorkout(t);
+    useAppStore.getState().completeSet(0, 8.5);
+    expect(useAppStore.getState().activeWorkout?.exercises[0].sets[0].reps).toBe(8.5);
+    useAppStore.getState().skipTimer();
+    useAppStore.getState().completeSet(0, 8.25);
+    expect(useAppStore.getState().activeWorkout?.exercises[0].sets).toHaveLength(1);
+  });
   it('stops after the final planned set, skips rest and never creates a fourth set', () => {
     useAppStore.getState().startWorkout(t);
     for (const value of [10, 11]) {
@@ -136,7 +144,7 @@ describe('workout flow', () => {
     expect(useAppStore.getState().activeWorkout?.exercises[0].sets[0]).not.toHaveProperty('reps');
     expect(useAppStore.getState().restTimer.endsAt).toBeGreaterThan(Date.now());
   });
-  it('logs decimal added weight separately from repetitions', () => {
+  it('logs half weighted repetitions and decimal added weight independently', () => {
     const weightedTemplate: WorkoutTemplate = {
       ...t,
       exercises: [{
@@ -147,9 +155,9 @@ describe('workout flow', () => {
       }],
     };
     useAppStore.getState().startWorkout(weightedTemplate);
-    useAppStore.getState().completeSet(0, { reps: 6, addedWeightKg: 7.5 });
+    useAppStore.getState().completeSet(0, { reps: 6.5, addedWeightKg: 7.5 });
     expect(useAppStore.getState().activeWorkout?.exercises[0].sets[0]).toMatchObject({
-      reps: 6,
+      reps: 6.5,
       addedWeightKg: 7.5,
     });
     expect(useAppStore.getState().activeWorkout?.exercises[0].sets[0]).not.toHaveProperty('durationSeconds');

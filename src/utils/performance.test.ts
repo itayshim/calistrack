@@ -5,6 +5,8 @@ import {
   formatAddedWeight,
   formatDuration,
   formatSetPerformance,
+  formatReps,
+  isHalfRepIncrement,
   isValidSetInput,
   normalizeMeasurementType,
 } from './performance';
@@ -37,12 +39,34 @@ describe('metric-specific set performance', () => {
 
   it('requires only the fields appropriate to the measurement type', () => {
     expect(isValidSetInput({ reps: 1 }, 'reps')).toBe(true);
-    expect(isValidSetInput({ reps: 0 }, 'reps')).toBe(false);
+    expect(isValidSetInput({ reps: 0 }, 'reps')).toBe(true);
+    expect(isValidSetInput({ reps: 0.5 }, 'reps')).toBe(true);
+    expect(isValidSetInput({ reps: 8.5 }, 'reps')).toBe(true);
+    expect(isValidSetInput({ reps: 8.25 }, 'reps')).toBe(false);
+    expect(isValidSetInput({ reps: -0.5 }, 'reps')).toBe(false);
     expect(isValidSetInput({ durationSeconds: 20 }, 'duration')).toBe(true);
     expect(isValidSetInput({ durationSeconds: 0 }, 'duration')).toBe(false);
     expect(isValidSetInput({ reps: 5, addedWeightKg: 0 }, 'weighted_reps')).toBe(true);
     expect(isValidSetInput({ reps: 5, addedWeightKg: -0.5 }, 'weighted_reps')).toBe(false);
     expect(isValidSetInput({ reps: 5 }, 'weighted_reps')).toBe(false);
+  });
+
+  it('accepts only exact half-repetition increments and formats whole values cleanly', () => {
+    expect(isHalfRepIncrement(8)).toBe(true);
+    expect(isHalfRepIncrement(8.5)).toBe(true);
+    expect(isHalfRepIncrement(8.1)).toBe(false);
+    expect(isHalfRepIncrement(8.25)).toBe(false);
+    expect(formatReps(8, 'en')).toBe('8 reps');
+    expect(formatReps(8.5, 'en')).toBe('8.5 reps');
+    expect(formatReps(8.5, 'he')).toContain('8.5');
+  });
+
+  it('preserves half reps in weighted performance', () => {
+    expect(formatSetPerformance(
+      { id: 'half', setNumber: 1, reps: 6.5, addedWeightKg: 20, completed: true },
+      'weighted_reps',
+      'en',
+    )).toContain('6.5 reps');
   });
 
   it('keeps legacy set values readable when the historical type is known', () => {
