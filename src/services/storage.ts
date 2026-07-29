@@ -9,7 +9,7 @@ const valid = (v: unknown): v is AppData => {
   if (!v || typeof v !== 'object') return false;
   const d = v as Partial<AppData>;
   return (
-    [1, 2, 3, 4, 5, 6, 7, 8, 9].includes(d.schemaVersion ?? 0) &&
+    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].includes(d.schemaVersion ?? 0) &&
     Array.isArray(d.exercises) &&
     Array.isArray(d.programs) &&
     Array.isArray(d.workoutSessions) &&
@@ -123,7 +123,7 @@ export function migrateAppData(data: AppData): AppData {
   });
   return {
     ...data,
-    schemaVersion: 9,
+    schemaVersion: 10,
     settings: {
       ...settingsWithoutLegacyToggle,
       language: data.settings.language ?? 'en',
@@ -136,6 +136,17 @@ export function migrateAppData(data: AppData): AppData {
       restAlertRepeatCount: [1, 2, 3].includes(data.settings.restAlertRepeatCount)
         ? data.settings.restAlertRepeatCount
         : 1,
+      backgroundTimerNotifications: data.settings.backgroundTimerNotifications ?? false,
+      timerReactionAdjustmentSeconds:
+        Number.isFinite(data.settings.timerReactionAdjustmentSeconds) &&
+        data.settings.timerReactionAdjustmentSeconds >= 0
+          ? data.settings.timerReactionAdjustmentSeconds
+          : 5,
+      timedExerciseStartCountdownSeconds: [0, 3, 5].includes(
+        data.settings.timedExerciseStartCountdownSeconds,
+      )
+        ? data.settings.timedExerciseStartCountdownSeconds
+        : 0,
       onboardingCompleted:
         wasExistingInstallation ? true : (data.settings.onboardingCompleted ?? false),
     },
@@ -151,6 +162,17 @@ export function migrateAppData(data: AppData): AppData {
             (data.restTimer.endsAt ? `legacy-rest-${data.restTimer.endsAt}` : null),
         }
       : { id: null, endsAt: null, duration: 0, pausedRemaining: null },
+    exerciseStopwatch: data.exerciseStopwatch ?? {
+      id: null,
+      sessionExerciseId: null,
+      startedAt: null,
+      running: false,
+      measuredSeconds: null,
+      adjustedSeconds: null,
+      mode: 'countup',
+      endsAt: null,
+      targetSeconds: null,
+    },
     programs: data.programs.map((program) => ({
       ...program,
       workouts: program.workouts.map((workout) => ({

@@ -1,4 +1,4 @@
-import { CircleHelp, Download, Play, RotateCcw, ShieldCheck, Upload, Volume2 } from 'lucide-react';
+import { BellRing, CircleHelp, Download, Play, RotateCcw, ShieldCheck, Upload, Volume2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -10,11 +10,21 @@ import { Select } from '../components/SelectMenu';
 import { REST_SOUND_REGISTRY } from '../services/restSounds';
 import { restAlertService } from '../services/restAlert';
 import type { RestAlertRepeatCount, RestSoundId, UserSettings } from '../types';
+import {
+  backgroundNotificationService,
+  getPushSupport,
+} from '../services/backgroundNotifications';
 export function SettingsPage() {
   const store = useAppStore(),
     [settings, setSettings] = useState(store.settings),
     [reset, setReset] = useState(false),
     [pending, setPending] = useState<ReturnType<typeof storageService.importData> | null>(null),
+    [notificationPermission, setNotificationPermission] = useState(
+      getPushSupport().permission,
+    ),
+    [customAdjustment, setCustomAdjustment] = useState(
+      ![0, 2, 3, 5].includes(store.settings.timerReactionAdjustmentSeconds),
+    ),
     file = useRef<HTMLInputElement>(null),
     { t } = useI18n(),
     adminSession = getAdminSession();
@@ -48,6 +58,7 @@ export function SettingsPage() {
           settings: store.settings,
           goals: store.goals,
           restTimer: store.restTimer,
+          exerciseStopwatch: store.exerciseStopwatch,
         }),
       ],
       { type: 'application/json' },
@@ -171,6 +182,110 @@ export function SettingsPage() {
             description={t('vibrationSupportNote')}
             checked={settings.restTimerVibration}
             set={(restTimerVibration) => applySettings({ restTimerVibration })}
+          />
+          <div className="surface-subtle rounded-2xl p-4">
+            <div className="flex items-start gap-3">
+              <BellRing className="mt-0.5 shrink-0 text-brand" aria-hidden="true" />
+              <div className="min-w-0 flex-1">
+                <p className="font-black">{t('backgroundTimerNotifications')}</p>
+                <p className="mt-1 text-sm leading-relaxed text-slate-500">
+                  {t('backgroundTimerNotificationsDescription')}
+                </p>
+                <p className="mt-2 text-sm font-bold" role="status">
+                  {notificationPermission === 'granted'
+                    ? t('notificationPermissionGranted')
+                    : notificationPermission === 'denied'
+                      ? t('notificationPermissionDenied')
+                      : notificationPermission === 'unsupported'
+                        ? t('notificationPermissionUnsupported')
+                        : ''}
+                </p>
+                <button
+                  type="button"
+                  className="btn-secondary mt-3 w-full sm:w-auto"
+                  disabled={notificationPermission === 'unsupported'}
+                  onClick={async () => {
+                    try {
+                      if (settings.backgroundTimerNotifications) {
+                        await backgroundNotificationService.disable();
+                        applySettings({ backgroundTimerNotifications: false });
+                        return;
+                      }
+                      const permission = await backgroundNotificationService.enable();
+                      setNotificationPermission(permission);
+                      if (permission === 'granted') {
+                        applySettings({ backgroundTimerNotifications: true });
+                      }
+                    } catch {
+                      store.setToast(t('notificationSetupFailed'));
+                    }
+                  }}
+                >
+                  {settings.backgroundTimerNotifications
+                    ? t('disableNotifications')
+                    : t('enableNotifications')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section className="surface-subtle space-y-4 rounded-3xl p-4 sm:p-5">
+          <h2 className="text-xl font-black">{t('durationStopwatch')}</h2>
+          <Select
+            label={t('timerReactionAdjustment')}
+            value={
+              customAdjustment ? 'custom' : String(settings.timerReactionAdjustmentSeconds)
+            }
+            onChange={(value) => {
+              if (value === 'custom') {
+                setCustomAdjustment(true);
+                return;
+              }
+              setCustomAdjustment(false);
+              applySettings({ timerReactionAdjustmentSeconds: Number(value) });
+            }}
+            options={[
+              { value: '0', label: t('noAdjustment') },
+              { value: '2', label: `2 ${t('seconds')}` },
+              { value: '3', label: `3 ${t('seconds')}` },
+              { value: '5', label: `5 ${t('seconds')}` },
+              { value: 'custom', label: t('customAdjustment') },
+            ]}
+          />
+          {customAdjustment && (
+            <label>
+              <span className="label">{t('customAdjustment')}</span>
+              <input
+                className="field"
+                type="number"
+                min="0"
+                step="1"
+                inputMode="numeric"
+                value={settings.timerReactionAdjustmentSeconds}
+                onChange={(event) =>
+                  applySettings({
+                    timerReactionAdjustmentSeconds: Math.max(0, Number(event.target.value)),
+                  })
+                }
+              />
+            </label>
+          )}
+          <p className="-mt-2 text-sm text-slate-500">
+            {t('timerReactionAdjustmentDescription')}
+          </p>
+          <Select
+            label={t('timedExerciseStartCountdown')}
+            value={String(settings.timedExerciseStartCountdownSeconds)}
+            onChange={(value) =>
+              applySettings({
+                timedExerciseStartCountdownSeconds: Number(value) as 0 | 3 | 5,
+              })
+            }
+            options={[
+              { value: '0', label: t('countdownOff') },
+              { value: '3', label: `3 ${t('seconds')}` },
+              { value: '5', label: `5 ${t('seconds')}` },
+            ]}
           />
         </section>
         <Toggle

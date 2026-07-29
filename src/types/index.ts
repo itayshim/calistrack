@@ -117,6 +117,9 @@ export interface UserSettings {
   restCompletionSound: RestSoundId;
   restAlertRepeatCount: RestAlertRepeatCount;
   restTimerVibration: boolean;
+  backgroundTimerNotifications: boolean;
+  timerReactionAdjustmentSeconds: number;
+  timedExerciseStartCountdownSeconds: 0 | 3 | 5;
   defaultRestSeconds: number;
   theme: 'dark' | 'light';
   language: 'en' | 'he';
@@ -150,12 +153,24 @@ export interface AppData {
   settings: UserSettings;
   goals: UserGoal[];
   restTimer: RestTimerState;
+  exerciseStopwatch: ExerciseStopwatchState;
 }
 export interface RestTimerState {
   id: string | null;
   endsAt: number | null;
   duration: number;
   pausedRemaining: number | null;
+}
+export interface ExerciseStopwatchState {
+  id: string | null;
+  sessionExerciseId: string | null;
+  startedAt: number | null;
+  running: boolean;
+  measuredSeconds: number | null;
+  adjustedSeconds: number | null;
+  mode?: 'countup' | 'countdown';
+  endsAt?: number | null;
+  targetSeconds?: number | null;
 }
 
 export type WorkoutSetInput = Pick<

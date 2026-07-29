@@ -6,11 +6,12 @@ function audioHarness() {
   const audio = {
     src: '',
     currentTime: 0,
-    muted: false,
     preload: '',
     play: vi.fn().mockResolvedValue(undefined),
     pause: vi.fn(),
     load: vi.fn(),
+    removeAttribute: vi.fn(),
+    onended: null as ((event: Event) => void) | null,
   };
   return { audio, factory: vi.fn(() => audio) };
 }
@@ -53,6 +54,7 @@ describe('rest alert playback', () => {
     await service.preview('bell');
     await service.preview('sharp-alert');
     expect(audio.pause).toHaveBeenCalled();
+    expect(audio.play).toHaveBeenCalledTimes(2);
     expect(audio.src).toContain('rest-sharp-alert.wav');
   });
 
@@ -87,13 +89,14 @@ describe('rest alert playback', () => {
     })).resolves.toBeUndefined();
   });
 
-  it('preloads and silently unlocks the selected asset after user interaction', async () => {
+  it('does not expose an automatic audio-unlock path and releases the player after playback', async () => {
     const { audio, factory } = audioHarness();
     const service = new RestAlertService(factory);
-    await service.unlock('gym-buzzer');
-    expect(audio.load).toHaveBeenCalled();
+    expect('unlock' in service).toBe(false);
+    await service.play({ soundId: 'gym-buzzer', repeatCount: 1, vibrationEnabled: false });
     expect(audio.play).toHaveBeenCalledOnce();
-    expect(audio.pause).toHaveBeenCalled();
-    expect(audio.muted).toBe(false);
+    audio.onended?.(new Event('ended'));
+    expect(audio.removeAttribute).toHaveBeenCalledWith('src');
+    expect(audio.src).toBe('');
   });
 });

@@ -1,12 +1,13 @@
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '../app/I18nProvider';
 import { createInitialData } from '../data/seed';
 import { useAppStore } from '../store/useAppStore';
 import type { MeasurementType, WorkoutSession, WorkoutSet } from '../types';
 import { WorkoutPage } from './WorkoutPage';
+import { restAlertService } from '../services/restAlert';
 
 const active = (exerciseId: string, measurementType: MeasurementType): WorkoutSession => ({
   id: 'active',
@@ -77,7 +78,11 @@ function renderWorkout(
 }
 
 describe('active workout previous performance and replacement UX', () => {
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
   beforeEach(() => localStorage.clear());
 
   it('shows matching previous repetitions and copies without completing', async () => {
@@ -98,6 +103,49 @@ describe('active workout previous performance and replacement UX', () => {
     await user.type(input, '8.5');
     await user.click(screen.getByRole('button', { name: 'Complete set' }));
     expect(useAppStore.getState().activeWorkout?.exercises[0].sets[0].reps).toBe(8.5);
+  });
+
+  it('does not play or initialize audio when a set is completed', async () => {
+    const user = userEvent.setup();
+    const play = vi.spyOn(restAlertService, 'play').mockResolvedValue();
+    renderWorkout('builtin-pull-up', 'reps');
+    await user.type(screen.getByLabelText(/Set 1/i), '8');
+    await user.click(screen.getByRole('button', { name: 'Complete set' }));
+    expect(play).not.toHaveBeenCalled();
+    expect('unlock' in restAlertService).toBe(false);
+  });
+
+  it('stops a duration stopwatch, applies five seconds, and leaves the set incomplete', async () => {
+    const user = userEvent.setup();
+    const now = vi.spyOn(Date, 'now').mockReturnValue(10_000);
+    renderWorkout('builtin-l-sit', 'duration');
+    await user.click(screen.getByRole('button', { name: 'Start timer' }));
+    now.mockReturnValue(27_000);
+    await user.click(screen.getByRole('button', { name: 'Stop' }));
+    expect(screen.getByLabelText(/Hold time/)).toHaveValue(12);
+    expect(screen.getByText(/Measured/)).toBeInTheDocument();
+    expect(useAppStore.getState().activeWorkout?.exercises[0].sets).toHaveLength(0);
+    now.mockRestore();
+  });
+
+  it('plays exactly once only when an explicit duration countdown reaches zero', async () => {
+    vi.useFakeTimers();
+    const now = vi.spyOn(Date, 'now').mockReturnValue(10_000);
+    const play = vi.spyOn(restAlertService, 'play').mockResolvedValue();
+    renderWorkout('builtin-l-sit', 'duration');
+    fireEvent.click(screen.getByRole('button', { name: 'Start target countdown' }));
+    expect(play).not.toHaveBeenCalled();
+    now.mockReturnValue(40_000);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    expect(play).toHaveBeenCalledOnce();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_000);
+    });
+    expect(play).toHaveBeenCalledOnce();
+    now.mockRestore();
+    vi.useRealTimers();
   });
 
   it('rejects unsupported rep precision with localized feedback', async () => {

@@ -325,3 +325,20 @@ export async function deleteExerciseMediaFile(storagePath: string): Promise<void
     throw new SupabaseApiError('media_delete_failed', response.status);
   }
 }
+export async function supabasePublicFunctionRequest<T>(
+  functionName: string,
+  body: unknown,
+): Promise<T> {
+  if (!url || !anonKey) throw new Error('Supabase is not configured');
+  const response = await fetch(`${url}/functions/v1/${functionName}`, {
+    method: 'POST',
+    headers: {
+      apikey: anonKey,
+      Authorization: `Bearer ${anonKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) throw new SupabaseApiError('notification_request_failed', response.status);
+  return response.json() as Promise<T>;
+}

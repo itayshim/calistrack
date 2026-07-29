@@ -18,7 +18,6 @@ import { useNavigate } from 'react-router-dom';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Badge, ProgressBar } from '../components/ui';
 import { useAppStore } from '../store/useAppStore';
-import { restAlertService } from '../services/restAlert';
 import { workoutSummary } from '../utils/stats';
 import { useI18n } from '../hooks/useI18n';
 import { ExerciseDemonstrationButton } from '../components/ExerciseDemonstration';
@@ -38,6 +37,7 @@ import {
   validEnteredSet,
 } from '../utils/workoutExperience';
 import { ExerciseReplacementSheet } from '../components/ExerciseReplacementSheet';
+import { restAlertService } from '../services/restAlert';
 
 export function WorkoutPage() {
   const { t, language } = useI18n();
@@ -52,10 +52,52 @@ export function WorkoutPage() {
     [notes, setNotes] = useState(''),
     [difficulty, setDifficulty] = useState(3),
     [feeling, setFeeling] = useState(3);
+  const completeExerciseCountdown = useAppStore(
+    (state) => state.completeExerciseCountdown,
+  );
+  const exerciseStopwatch = useAppStore((state) => state.exerciseStopwatch);
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 500);
     return () => clearInterval(id);
   }, []);
+  useEffect(() => {
+    const timer = exerciseStopwatch;
+    if (
+      timer.mode !== 'countdown' ||
+      !timer.running ||
+      !timer.id ||
+      !timer.endsAt
+    ) {
+      return;
+    }
+    const completionId = timer.id;
+    const finishCountdown = () => {
+      if (!completeExerciseCountdown(completionId)) return;
+      const durationSeconds = useAppStore.getState().exerciseStopwatch.adjustedSeconds ?? 0;
+      setDrafts((current) => {
+        const exerciseId = useAppStore.getState().exerciseStopwatch.sessionExerciseId;
+        if (!exerciseId) return current;
+        const existing = current[exerciseId] ?? { reps: '', duration: '', addedWeight: '' };
+        return { ...current, [exerciseId]: { ...existing, duration: String(durationSeconds) } };
+      });
+      const currentSettings = useAppStore.getState().settings;
+      void restAlertService.play({
+        soundId: currentSettings.restCompletionSound,
+        repeatCount: currentSettings.restAlertRepeatCount,
+        vibrationEnabled: currentSettings.restTimerVibration,
+      });
+    };
+    const wait = timer.endsAt - Date.now();
+    if (wait <= 0) {
+      finishCountdown();
+      return;
+    }
+    const timeout = window.setTimeout(finishCountdown, wait);
+    return () => window.clearTimeout(timeout);
+  }, [
+    completeExerciseCountdown,
+    exerciseStopwatch,
+  ]);
   if (!active)
     return (
       <div className="mx-auto max-w-lg py-16 text-center">
@@ -120,6 +162,20 @@ export function WorkoutPage() {
     reps = draft.reps,
     duration = draft.duration,
     addedWeight = draft.addedWeight;
+  const stopwatch = exerciseStopwatch;
+  const stopwatchForCurrent = stopwatch.sessionExerciseId === sessionExercise.id;
+  const stopwatchCountdown =
+    stopwatchForCurrent && stopwatch.running && stopwatch.startedAt
+      ? Math.max(0, Math.ceil((stopwatch.startedAt - now) / 1000))
+      : 0;
+  const stopwatchElapsed =
+    stopwatchForCurrent && stopwatch.running && stopwatch.startedAt
+      ? Math.max(0, (now - stopwatch.startedAt) / 1000)
+      : (stopwatchForCurrent ? stopwatch.measuredSeconds ?? 0 : 0);
+  const exerciseCountdownRemaining =
+    stopwatchForCurrent && stopwatch.mode === 'countdown' && stopwatch.endsAt
+      ? Math.max(0, Math.ceil((stopwatch.endsAt - now) / 1000))
+      : 0;
   const updateDraft = (changes: Partial<typeof draft>) =>
     setDrafts((current) => ({
       ...current,
@@ -151,8 +207,8 @@ export function WorkoutPage() {
     !isHalfRepIncrement(Number(reps));
   const complete = () => {
     if (!validInput || restLocked || !canEnterSet) return;
-    void restAlertService.unlock(store.settings.restCompletionSound);
     store.completeSet(i, setInput);
+    if (measurementType === 'duration') store.resetExerciseStopwatch();
     setDrafts((current) => ({
       ...current,
       [sessionExercise.id]: { reps: '', duration: '', addedWeight: '' },
@@ -366,11 +422,113 @@ export function WorkoutPage() {
             </p>
           )}
           {measurementType === 'duration' && (
-            <div className="mt-3 flex justify-center gap-2">
-              {[5, 10, 30].map((amount) => (
-                <button key={amount} type="button" className="chip" disabled={restLocked} onClick={() => updateDraft({ duration: String(Number(duration || 0) + amount) })}>+{amount}s</button>
-              ))}
-            </div>
+            <>
+              <section
+                aria-label={t('durationStopwatch')}
+                className="surface-subtle mx-auto mt-5 max-w-md rounded-3xl p-4"
+              >
+                <p className="label">{t('durationStopwatch')}</p>
+                <output
+                  aria-live="polite"
+                  className="mt-2 block text-5xl font-black tabular-nums"
+                >
+                  {stopwatch.mode === 'countdown' && stopwatchForCurrent
+                    ? formatTime(exerciseCountdownRemaining)
+                    : stopwatchCountdown > 0
+                    ? stopwatchCountdown
+                    : formatStopwatch(stopwatchElapsed)}
+                </output>
+                <p className="mt-1 text-sm font-bold text-slate-500">
+                  {stopwatch.mode === 'countdown' && stopwatchForCurrent
+                    ? t('targetCountdownRunning')
+                    : stopwatchCountdown > 0
+                    ? t('getReady')
+                    : stopwatch.running && stopwatchForCurrent
+                      ? t('stopwatchRunning')
+                      : t('manualEntryAvailable')}
+                </p>
+                {stopwatchForCurrent && stopwatch.measuredSeconds !== null && (
+                  <div className="mt-3 rounded-2xl bg-slate-100 p-3 text-sm dark:bg-white/[.06]">
+                    <p>
+                      {t('measuredDuration')}: <bdi>{stopwatch.measuredSeconds}</bdi> {t('seconds')}
+                    </p>
+                    <p>
+                      {t('timerAdjustment')}: <bdi>-{store.settings.timerReactionAdjustmentSeconds}</bdi> {t('seconds')}
+                    </p>
+                    <p className="font-black">
+                      {t('recordedDuration')}: <bdi>{stopwatch.adjustedSeconds ?? 0}</bdi> {t('seconds')}
+                    </p>
+                  </div>
+                )}
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  {stopwatchForCurrent && stopwatch.running && stopwatch.mode === 'countdown' ? (
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={store.resetExerciseStopwatch}
+                    >
+                      <Pause size={18} />
+                      {t('stopStopwatch')}
+                    </button>
+                  ) : stopwatchForCurrent && stopwatch.running ? (
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      onClick={() => {
+                        const result = store.stopExerciseStopwatch();
+                        if (result) updateDraft({ duration: String(result.adjustedSeconds) });
+                      }}
+                    >
+                      <Pause size={18} />
+                      {t('stopStopwatch')}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      disabled={restLocked}
+                      onClick={() => store.startExerciseStopwatch(sessionExercise.id)}
+                    >
+                      <Play size={18} />
+                      {t('startStopwatch')}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    disabled={!stopwatchForCurrent}
+                    onClick={() => {
+                      store.resetExerciseStopwatch();
+                      updateDraft({ duration: '' });
+                    }}
+                  >
+                    <RotateCcw size={18} />
+                    {t('restartStopwatch')}
+                  </button>
+                </div>
+                {!stopwatch.running && (
+                  <button
+                    type="button"
+                    className="btn-secondary mt-2 w-full"
+                    disabled={restLocked}
+                    onClick={() =>
+                      store.startExerciseCountdown(
+                        sessionExercise.id,
+                        target?.targetMax ?? target?.targetMin ?? 20,
+                      )
+                    }
+                  >
+                    <Clock3 size={18} />
+                    {t('startTargetCountdown')}
+                  </button>
+                )}
+              </section>
+              <div className="mt-3 flex justify-center gap-2">
+                {[5, 10, 30].map((amount) => (
+                  <button key={amount} type="button" className="chip" disabled={restLocked} onClick={() => updateDraft({ duration: String(Number(duration || 0) + amount) })}>+{amount}s</button>
+                ))}
+              </div>
+            </>
           )}
           {measurementType === 'weighted_reps' && (
             <label className="mx-auto mt-5 block max-w-sm">
@@ -636,3 +794,8 @@ function MetricInput({
 }
 const formatTime = (seconds: number) =>
   `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+const formatStopwatch = (seconds: number) => {
+  const wholeMinutes = Math.floor(seconds / 60);
+  const remaining = seconds - wholeMinutes * 60;
+  return `${String(wholeMinutes).padStart(2, '0')}:${remaining.toFixed(1).padStart(4, '0')}`;
+};

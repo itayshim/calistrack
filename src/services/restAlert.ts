@@ -4,11 +4,12 @@ import { getRestSound } from './restSounds';
 interface AudioPlayer {
   src: string;
   currentTime: number;
-  muted: boolean;
   preload: string;
   play: () => Promise<void>;
   pause: () => void;
   load: () => void;
+  removeAttribute?: (name: string) => void;
+  onended?: ((event: Event) => void) | null;
 }
 
 type AudioFactory = () => AudioPlayer;
@@ -33,36 +34,6 @@ export class RestAlertService {
         : undefined,
   ) {}
 
-  preload(soundId: RestSoundId) {
-    const sound = getRestSound(soundId);
-    if (!sound.assetPath) return;
-    const audio = this.ensureAudio();
-    if (audio.src !== this.absolute(sound.assetPath)) {
-      audio.src = sound.assetPath;
-      audio.preload = 'auto';
-      audio.load();
-    }
-  }
-
-  async unlock(soundId: RestSoundId) {
-    const sound = getRestSound(soundId);
-    if (!sound.assetPath) return;
-    const audio = this.ensureAudio();
-    audio.src = sound.assetPath;
-    audio.preload = 'auto';
-    audio.load();
-    audio.muted = true;
-    try {
-      await audio.play();
-      audio.pause();
-      audio.currentTime = 0;
-    } catch {
-      // Browsers may still reject silent initialization. A later explicit preview can unlock it.
-    } finally {
-      audio.muted = false;
-    }
-  }
-
   play(options: RestAlertOptions): Promise<void> {
     this.stop();
     const sound = getRestSound(options.soundId);
@@ -79,18 +50,19 @@ export class RestAlertService {
     audio.src = sound.assetPath;
     audio.preload = 'auto';
     audio.load();
-    const playOnce = async () => {
+    const playOnce = async (finalPlay: boolean) => {
       if (generation !== this.generation) return;
       audio.pause();
       audio.currentTime = 0;
+      audio.onended = finalPlay ? () => this.releaseAudio(audio) : null;
       await audio.play();
     };
-    const tasks: Promise<void>[] = [playOnce()];
+    const tasks: Promise<void>[] = [playOnce(options.repeatCount === 1)];
     for (let index = 1; index < options.repeatCount; index += 1) {
       tasks.push(new Promise<void>((resolve, reject) => {
         const timer = window.setTimeout(() => {
           this.timers.delete(timer);
-          void playOnce().then(resolve, reject);
+          void playOnce(index === options.repeatCount - 1).then(resolve, reject);
         }, sound.spacingMs * index);
         this.timers.add(timer);
       }));
@@ -109,6 +81,7 @@ export class RestAlertService {
     if (this.audio) {
       this.audio.pause();
       this.audio.currentTime = 0;
+      this.releaseAudio(this.audio);
     }
   }
 
@@ -117,8 +90,13 @@ export class RestAlertService {
     return this.audio;
   }
 
-  private absolute(path: string) {
-    return typeof window === 'undefined' ? path : new URL(path, window.location.href).href;
+  private releaseAudio(audio: AudioPlayer) {
+    audio.pause();
+    audio.currentTime = 0;
+    audio.onended = null;
+    audio.removeAttribute?.('src');
+    audio.src = '';
+    this.audio = null;
   }
 }
 

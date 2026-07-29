@@ -12,6 +12,7 @@ import type {
   MeasurementType,
   WorkoutSetInput,
   WorkoutTemplate,
+  ExerciseStopwatchState,
 } from '../types';
 import { createId } from '../utils/id';
 import { translations, type TranslationKey } from '../locales/translations';
@@ -70,6 +71,11 @@ interface Store extends AppData {
   resetTimer: () => void;
   skipTimer: () => void;
   completeRestTimer: (id: string) => boolean;
+  startExerciseStopwatch: (sessionExerciseId: string) => void;
+  startExerciseCountdown: (sessionExerciseId: string, durationSeconds: number) => void;
+  stopExerciseStopwatch: () => { measuredSeconds: number; adjustedSeconds: number } | null;
+  completeExerciseCountdown: (id: string) => boolean;
+  resetExerciseStopwatch: () => void;
 }
 const initial = createInitialData();
 export const useAppStore = create<Store>((set, get) => ({
@@ -89,6 +95,7 @@ export const useAppStore = create<Store>((set, get) => ({
       settings: get().settings,
       goals: get().goals,
       restTimer: get().restTimer,
+      exerciseStopwatch: get().exerciseStopwatch,
     }),
   setToast: (v) => set({ toast: v }),
   setSharedExercises: (exercises) => set({ exercises }),
@@ -234,7 +241,7 @@ export const useAppStore = create<Store>((set, get) => ({
         })),
       completionReady: false,
     };
-    set({ activeWorkout: s, restTimer: emptyTimer() });
+    set({ activeWorkout: s, restTimer: emptyTimer(), exerciseStopwatch: emptyStopwatch() });
     get().persist();
     return true;
   },
@@ -431,12 +438,13 @@ export const useAppStore = create<Store>((set, get) => ({
       activeWorkout: null,
       workoutSessions: [a, ...s.workoutSessions],
       restTimer: emptyTimer(),
+      exerciseStopwatch: emptyStopwatch(),
       toast: localized(get().settings.language, 'workoutCompleted'),
     }));
     get().persist();
   },
   cancelWorkout: () => {
-    set({ activeWorkout: null, restTimer: emptyTimer() });
+    set({ activeWorkout: null, restTimer: emptyTimer(), exerciseStopwatch: emptyStopwatch() });
     get().persist();
   },
   updateSession: (s) => {
@@ -519,9 +527,102 @@ export const useAppStore = create<Store>((set, get) => ({
     get().persist();
     return true;
   },
+  startExerciseStopwatch: (sessionExerciseId) => {
+    const countdown = get().settings.timedExerciseStartCountdownSeconds;
+    set({
+      exerciseStopwatch: {
+        id: createId(),
+        sessionExerciseId,
+        startedAt: Date.now() + countdown * 1000,
+        running: true,
+        measuredSeconds: null,
+        adjustedSeconds: null,
+        mode: 'countup',
+        endsAt: null,
+        targetSeconds: null,
+      },
+      restTimer: emptyTimer(),
+    });
+    get().persist();
+  },
+  startExerciseCountdown: (sessionExerciseId, durationSeconds) => {
+    const duration = Math.max(1, Math.round(durationSeconds));
+    const id = createId();
+    set({
+      exerciseStopwatch: {
+        id,
+        sessionExerciseId,
+        startedAt: Date.now(),
+        running: true,
+        measuredSeconds: null,
+        adjustedSeconds: null,
+        mode: 'countdown',
+        endsAt: Date.now() + duration * 1000,
+        targetSeconds: duration,
+      },
+      restTimer: emptyTimer(),
+    });
+    get().persist();
+  },
+  stopExerciseStopwatch: () => {
+    const stopwatch = get().exerciseStopwatch;
+    if (!stopwatch.running || !stopwatch.startedAt || stopwatch.mode === 'countdown') return null;
+    const measuredSeconds = Math.max(0, Math.round((Date.now() - stopwatch.startedAt) / 1000));
+    const adjustedSeconds = Math.max(
+      0,
+      measuredSeconds - get().settings.timerReactionAdjustmentSeconds,
+    );
+    set({
+      exerciseStopwatch: {
+        ...stopwatch,
+        running: false,
+        measuredSeconds,
+        adjustedSeconds,
+      },
+    });
+    get().persist();
+    return { measuredSeconds, adjustedSeconds };
+  },
+  completeExerciseCountdown: (id) => {
+    const stopwatch = get().exerciseStopwatch;
+    if (
+      !id ||
+      stopwatch.id !== id ||
+      stopwatch.mode !== 'countdown' ||
+      !stopwatch.running
+    ) {
+      return false;
+    }
+    const duration = stopwatch.targetSeconds ?? 0;
+    set({
+      exerciseStopwatch: {
+        ...stopwatch,
+        running: false,
+        measuredSeconds: duration,
+        adjustedSeconds: duration,
+      },
+    });
+    get().persist();
+    return true;
+  },
+  resetExerciseStopwatch: () => {
+    set({ exerciseStopwatch: emptyStopwatch() });
+    get().persist();
+  },
 }));
 
 const emptyTimer = (): RestTimerState => ({ id: null, endsAt: null, duration: 0, pausedRemaining: null });
+const emptyStopwatch = (): ExerciseStopwatchState => ({
+  id: null,
+  sessionExerciseId: null,
+  startedAt: null,
+  running: false,
+  measuredSeconds: null,
+  adjustedSeconds: null,
+  mode: 'countup',
+  endsAt: null,
+  targetSeconds: null,
+});
 const replacementTarget = (
   target: WorkoutTemplate['exercises'][number] | undefined,
   exerciseId: string,

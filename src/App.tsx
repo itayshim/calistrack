@@ -8,6 +8,7 @@ import { loadGlobalContent } from './services/globalContent';
 import { AdminGuard } from './features/admin/AdminGuard';
 import { translations } from './locales/translations';
 import { restAlertService } from './services/restAlert';
+import { backgroundNotificationService } from './services/backgroundNotifications';
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((module) => ({ default: module.DashboardPage })));
 const ExerciseDetailPage = lazy(() => import('./pages/ExerciseDetailPage').then((module) => ({ default: module.ExerciseDetailPage })));
 const ExercisesPage = lazy(() => import('./pages/ExercisesPage').then((module) => ({ default: module.ExercisesPage })));
@@ -47,6 +48,9 @@ export default function App() {
     const finish = () => {
       if (!completeRestTimer(completionId)) return;
       const currentSettings = useAppStore.getState().settings;
+      if (currentSettings.backgroundTimerNotifications) {
+        void backgroundNotificationService.markHandled(completionId);
+      }
       useAppStore.getState().setToast(translations[currentSettings.language].restFinished);
       void restAlertService.play({
         soundId: currentSettings.restCompletionSound,
@@ -64,6 +68,19 @@ export default function App() {
     const id = setTimeout(finish, wait);
     return () => clearTimeout(id);
   }, [completeRestTimer, timer.endsAt, timer.id]);
+  useEffect(() => {
+    if (!hydrated || !settings.backgroundTimerNotifications) return;
+    void backgroundNotificationService.sync(
+      timer,
+      useAppStore.getState().activeWorkout?.id,
+      settings.language,
+    );
+  }, [
+    hydrated,
+    settings.backgroundTimerNotifications,
+    settings.language,
+    timer,
+  ]);
   useEffect(() => {
     if (!hydrated) return;
     loadGlobalContent(useAppStore.getState().exercises).then(({ exercises, stale }) => {

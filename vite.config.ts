@@ -49,6 +49,7 @@ export default defineConfig({
         ],
       },
       workbox: {
+        importScripts: ['/push-sw.js'],
         cleanupOutdatedCaches: true,
         clientsClaim: false,
         skipWaiting: false,
