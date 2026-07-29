@@ -15,7 +15,10 @@ export function findExerciseByReference(
 ): Exercise | undefined {
   if (!reference) return undefined;
   const direct = exercises.find(
-    (exercise) => exercise.id === reference || exercise.stableKey === reference,
+    (exercise) =>
+      exercise.id === reference ||
+      exercise.stableKey === reference ||
+      exercise.canonicalExerciseId === reference,
   );
   if (direct) return direct;
 

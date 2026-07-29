@@ -5,6 +5,7 @@ import {
   getSetReps,
   normalizeMeasurementType,
 } from './performance';
+import { findExerciseByReference } from './exerciseLocalization';
 const completed = (sessions: WorkoutSession[]) => sessions.filter((s) => s.status === 'completed');
 export interface ExercisePoint {
   date: string;
@@ -16,10 +17,25 @@ export interface ExercisePoint {
   heaviestAddedWeight: number;
   sessionId: string;
 }
-export const exercisePoints = (sessions: WorkoutSession[], exerciseId: string): ExercisePoint[] =>
+export const exercisePoints = (
+  sessions: WorkoutSession[],
+  exerciseId: string,
+  exercises?: Exercise[],
+): ExercisePoint[] =>
   completed(sessions)
     .flatMap((s) => {
-      const ex = s.exercises.find((x) => x.exerciseId === exerciseId);
+      const selected = exercises
+        ? findExerciseByReference(exercises, exerciseId)
+        : undefined;
+      const ex = s.exercises.find((x) => {
+        if (x.exerciseId === exerciseId) return true;
+        if (!exercises || !selected) return false;
+        const resolved = findExerciseByReference(exercises, x.exerciseId);
+        return (
+          resolved?.id === selected.id ||
+          (resolved?.stableKey && resolved.stableKey === selected.stableKey)
+        );
+      });
       if (!ex) return [];
       const type = normalizeMeasurementType(ex.measurementType ?? ex.target?.measurementType);
       const sets = ex.sets.filter((x) => x.completed);
@@ -45,7 +61,7 @@ export const exercisePoints = (sessions: WorkoutSession[], exerciseId: string): 
     .sort((a, b) => a.date.localeCompare(b.date));
 export const personalRecords = (sessions: WorkoutSession[], exercises: Exercise[]) =>
   exercises.flatMap((e) => {
-    const p = exercisePoints(sessions, e.id);
+    const p = exercisePoints(sessions, e.id, exercises);
     if (!p.length) return [];
     return [
       {

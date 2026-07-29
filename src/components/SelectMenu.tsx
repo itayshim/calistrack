@@ -49,6 +49,7 @@ export interface SelectProps {
   normalizeSearch?: (value: string) => string;
   testId?: string;
   surfaceClassName?: string;
+  filterOptions?: (options: SelectOption[], query: string) => SelectOption[];
 }
 
 function positionFor(trigger: HTMLElement, contentWidth?: number): Position {
@@ -124,6 +125,7 @@ export function Select({
   normalizeSearch = (input) => input.trim().toLocaleLowerCase(),
   testId = 'select-popover',
   surfaceClassName = '',
+  filterOptions,
 }: SelectProps) {
   const id = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -141,9 +143,10 @@ export function Select({
   };
   const { position, surfaceRef, announceOpen } = useFloatingSurface(open, close, triggerRef);
   const filtered = useMemo(() => {
+    if (filterOptions) return filterOptions(options, query);
     const needle = normalizeSearch(query);
     return options.filter((option) => !needle || normalizeSearch(option.label).includes(needle));
-  }, [normalizeSearch, options, query]);
+  }, [filterOptions, normalizeSearch, options, query]);
   const selected = options.find((option) => option.value === value);
   const exact = options.some((option) => normalizeSearch(option.label) === normalizeSearch(query));
   const openMenu = () => {
