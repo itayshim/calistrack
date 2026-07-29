@@ -18,6 +18,7 @@ import { useNavigate } from 'react-router-dom';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Badge, ProgressBar } from '../components/ui';
 import { useAppStore } from '../store/useAppStore';
+import { restAlertService } from '../services/restAlert';
 import { workoutSummary } from '../utils/stats';
 import { useI18n } from '../hooks/useI18n';
 import { ExerciseDemonstrationButton } from '../components/ExerciseDemonstration';
@@ -150,6 +151,7 @@ export function WorkoutPage() {
     !isHalfRepIncrement(Number(reps));
   const complete = () => {
     if (!validInput || restLocked || !canEnterSet) return;
+    void restAlertService.unlock(store.settings.restCompletionSound);
     store.completeSet(i, setInput);
     setDrafts((current) => ({
       ...current,

@@ -27,7 +27,7 @@ describe('workout flow', () => {
       ...createInitialData(),
       hydrated: true,
       toast: null,
-      restTimer: { endsAt: null, duration: 0, pausedRemaining: null },
+      restTimer: { id: null, endsAt: null, duration: 0, pausedRemaining: null },
     });
   });
   it('starts, persists and restores an active workout', () => {
@@ -104,7 +104,7 @@ describe('workout flow', () => {
     useAppStore.getState().startWorkout(t);
     useAppStore.getState().completeSet(0, 10);
     const end = useAppStore.getState().restTimer.endsAt;
-    useAppStore.setState({ restTimer: { endsAt: null, duration: 0, pausedRemaining: null } });
+    useAppStore.setState({ restTimer: { id: null, endsAt: null, duration: 0, pausedRemaining: null } });
     useAppStore.getState().hydrate();
     expect(useAppStore.getState().restTimer.endsAt).toBe(end);
   });
@@ -112,7 +112,7 @@ describe('workout flow', () => {
     useAppStore.getState().startWorkout(t);
     useAppStore.getState().completeSet(0, 10);
     useAppStore.setState({
-      restTimer: { endsAt: Date.now() - 1, duration: 60, pausedRemaining: null },
+      restTimer: { id: 'rest-expired', endsAt: Date.now() - 1, duration: 60, pausedRemaining: null },
     });
     useAppStore.getState().completeSet(0, 11);
     expect(useAppStore.getState().activeWorkout?.exercises[0].sets).toHaveLength(2);

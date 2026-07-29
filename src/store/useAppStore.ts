@@ -69,6 +69,7 @@ interface Store extends AppData {
   resumeTimer: () => void;
   resetTimer: () => void;
   skipTimer: () => void;
+  completeRestTimer: (id: string) => boolean;
 }
 const initial = createInitialData();
 export const useAppStore = create<Store>((set, get) => ({
@@ -280,7 +281,7 @@ export const useAppStore = create<Store>((set, get) => ({
     set({
       activeWorkout: a,
       restTimer: shouldRest
-        ? { endsAt: Date.now() + duration * 1000, duration, pausedRemaining: null }
+        ? { id: createId(), endsAt: Date.now() + duration * 1000, duration, pausedRemaining: null }
         : emptyTimer(),
       toast: localized(get().settings.language, completedAllowedSets ? 'exerciseCompleted' : 'setCompleted'),
     });
@@ -512,9 +513,15 @@ export const useAppStore = create<Store>((set, get) => ({
     set({ restTimer: emptyTimer() });
     get().persist();
   },
+  completeRestTimer: (id) => {
+    if (!id || get().restTimer.id !== id) return false;
+    set({ restTimer: emptyTimer() });
+    get().persist();
+    return true;
+  },
 }));
 
-const emptyTimer = (): RestTimerState => ({ endsAt: null, duration: 0, pausedRemaining: null });
+const emptyTimer = (): RestTimerState => ({ id: null, endsAt: null, duration: 0, pausedRemaining: null });
 const replacementTarget = (
   target: WorkoutTemplate['exercises'][number] | undefined,
   exerciseId: string,

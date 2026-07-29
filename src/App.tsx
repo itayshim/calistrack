@@ -7,6 +7,7 @@ import { useAppStore } from './store/useAppStore';
 import { loadGlobalContent } from './services/globalContent';
 import { AdminGuard } from './features/admin/AdminGuard';
 import { translations } from './locales/translations';
+import { restAlertService } from './services/restAlert';
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((module) => ({ default: module.DashboardPage })));
 const ExerciseDetailPage = lazy(() => import('./pages/ExerciseDetailPage').then((module) => ({ default: module.ExerciseDetailPage })));
 const ExercisesPage = lazy(() => import('./pages/ExercisesPage').then((module) => ({ default: module.ExercisesPage })));
@@ -28,7 +29,7 @@ export default function App() {
     theme = useAppStore((s) => s.settings.theme),
     timer = useAppStore((s) => s.restTimer),
     settings = useAppStore((s) => s.settings),
-    skip = useAppStore((s) => s.skipTimer);
+    completeRestTimer = useAppStore((s) => s.completeRestTimer);
   const setSharedExercises = useAppStore((s) => s.setSharedExercises);
   useEffect(() => {
     hydrate();
@@ -41,26 +42,28 @@ export default function App() {
     if (favicon) favicon.href = `/brand/calistrack-mark-${theme}.svg`;
   }, [theme, settings.language]);
   useEffect(() => {
-    if (!timer.endsAt) return;
+    if (!timer.endsAt || !timer.id) return;
+    const completionId = timer.id;
+    const finish = () => {
+      if (!completeRestTimer(completionId)) return;
+      const currentSettings = useAppStore.getState().settings;
+      useAppStore.getState().setToast(translations[currentSettings.language].restFinished);
+      void restAlertService.play({
+        soundId: currentSettings.restCompletionSound,
+        repeatCount: currentSettings.restAlertRepeatCount,
+        vibrationEnabled: currentSettings.restTimerVibration,
+      }).catch(() => {
+        // The visual and live-region completion state remains available when audio is blocked.
+      });
+    };
     const wait = timer.endsAt - Date.now();
     if (wait <= 0) {
-      skip();
+      finish();
       return;
     }
-    const id = setTimeout(() => {
-      useAppStore.getState().setToast(translations[settings.language].restFinished);
-      if (settings.restTimerVibration && navigator.vibrate) navigator.vibrate([150, 80, 150]);
-      if (settings.restTimerSound) {
-        const ctx = new AudioContext(),
-          osc = ctx.createOscillator();
-        osc.connect(ctx.destination);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.15);
-      }
-      skip();
-    }, wait);
+    const id = setTimeout(finish, wait);
     return () => clearTimeout(id);
-  }, [timer.endsAt, settings.language, settings.restTimerSound, settings.restTimerVibration, skip]);
+  }, [completeRestTimer, timer.endsAt, timer.id]);
   useEffect(() => {
     if (!hydrated) return;
     loadGlobalContent(useAppStore.getState().exercises).then(({ exercises, stale }) => {

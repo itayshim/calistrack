@@ -1,6 +1,16 @@
 export type ExerciseCategory = string;
 export type Difficulty = 'beginner' | 'intermediate' | 'advanced';
 export type MeasurementType = 'reps' | 'duration' | 'weighted_reps';
+export type RestSoundId =
+  | 'classic'
+  | 'bell'
+  | 'digital-beep'
+  | 'double-beep'
+  | 'gym-buzzer'
+  | 'sharp-alert'
+  | 'chime'
+  | 'silent';
+export type RestAlertRepeatCount = 1 | 2 | 3;
 export interface Exercise {
   id: string;
   nameHe: string;
@@ -102,7 +112,10 @@ export interface WorkoutSession {
 }
 export interface UserSettings {
   weeklyWorkoutGoal: number;
-  restTimerSound: boolean;
+  /** @deprecated Kept optional for importing settings saved before schema v9. */
+  restTimerSound?: boolean;
+  restCompletionSound: RestSoundId;
+  restAlertRepeatCount: RestAlertRepeatCount;
   restTimerVibration: boolean;
   defaultRestSeconds: number;
   theme: 'dark' | 'light';
@@ -139,6 +152,7 @@ export interface AppData {
   restTimer: RestTimerState;
 }
 export interface RestTimerState {
+  id: string | null;
   endsAt: number | null;
   duration: number;
   pausedRemaining: number | null;

@@ -53,7 +53,7 @@ export default defineConfig({
         clientsClaim: false,
         skipWaiting: false,
         navigateFallback: '/index.html',
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,wav}'],
         globIgnores: ['**/*.map'],
       },
       devOptions: { enabled: false },

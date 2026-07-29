@@ -36,7 +36,7 @@ describe('storage', () => {
   it('rejects invalid imports', () => expect(() => service.importData('{"hello":1}')).toThrow());
   it('handles malformed local storage safely', () => {
     localStorage.setItem(STORAGE_KEY, 'broken');
-    expect(service.loadAppData().schemaVersion).toBe(8);
+    expect(service.loadAppData().schemaVersion).toBe(9);
   });
   it('migrates schema 1 exercises and preserves their IDs and saved data', () => {
     const current = createInitialData();
@@ -62,7 +62,7 @@ describe('storage', () => {
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(legacy));
     const migrated = service.loadAppData();
-    expect(migrated.schemaVersion).toBe(8);
+    expect(migrated.schemaVersion).toBe(9);
     expect(migrated.settings.onboardingCompleted).toBe(true);
     expect(migrated.settings.allowEmptyNumericFields).toBe(false);
     expect(migrated.settings.language).toBe('en');
@@ -79,6 +79,30 @@ describe('storage', () => {
     current.settings.onboardingCompleted = true;
     const imported = service.importData(service.exportData(current));
     expect(imported.settings.onboardingCompleted).toBe(true);
+  });
+  it('migrates the legacy rest-sound toggle and preserves unrelated settings', () => {
+    const enabled = createInitialData();
+    enabled.schemaVersion = 8;
+    delete (enabled.settings as Partial<typeof enabled.settings>).restCompletionSound;
+    delete (enabled.settings as Partial<typeof enabled.settings>).restAlertRepeatCount;
+    enabled.settings.restTimerSound = true;
+    enabled.settings.weeklyWorkoutGoal = 5;
+    const migratedEnabled = service.importData(service.exportData(enabled));
+    expect(migratedEnabled.settings).toMatchObject({
+      restCompletionSound: 'classic',
+      restAlertRepeatCount: 1,
+      weeklyWorkoutGoal: 5,
+    });
+    expect(migratedEnabled.settings).not.toHaveProperty('restTimerSound');
+
+    const disabled = structuredClone(enabled);
+    disabled.settings.restTimerSound = false;
+    expect(service.importData(service.exportData(disabled)).settings.restCompletionSound).toBe('silent');
+  });
+  it('falls back to Classic for an unknown stored sound ID', () => {
+    const data = createInitialData();
+    (data.settings as { restCompletionSound: string }).restCompletionSound = 'obsolete';
+    expect(service.importData(service.exportData(data)).settings.restCompletionSound).toBe('classic');
   });
   it('resets application', () => {
     service.saveAppData(createInitialData());

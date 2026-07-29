@@ -58,7 +58,7 @@ export const beginnerProgram: Program = {
   ],
 };
 export const createInitialData = (): AppData => ({
-  schemaVersion: 8,
+  schemaVersion: 9,
   exercises: builtInExercises,
   programs: [],
   activeProgramId: null,
@@ -66,7 +66,8 @@ export const createInitialData = (): AppData => ({
   activeWorkout: null,
   settings: {
     weeklyWorkoutGoal: 3,
-    restTimerSound: false,
+    restCompletionSound: 'classic',
+    restAlertRepeatCount: 1,
     restTimerVibration: true,
     defaultRestSeconds: 75,
     theme: 'dark',
@@ -75,5 +76,5 @@ export const createInitialData = (): AppData => ({
     onboardingCompleted: false,
   },
   goals: [],
-  restTimer: { endsAt: null, duration: 0, pausedRemaining: null },
+  restTimer: { id: null, endsAt: null, duration: 0, pausedRemaining: null },
 });

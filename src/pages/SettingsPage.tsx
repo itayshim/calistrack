@@ -1,4 +1,4 @@
-import { CircleHelp, Download, Play, RotateCcw, ShieldCheck, Upload } from 'lucide-react';
+import { CircleHelp, Download, Play, RotateCcw, ShieldCheck, Upload, Volume2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -7,6 +7,9 @@ import { useAppStore } from '../store/useAppStore';
 import { useI18n } from '../hooks/useI18n';
 import { getAdminSession } from '../services/supabase';
 import { Select } from '../components/SelectMenu';
+import { REST_SOUND_REGISTRY } from '../services/restSounds';
+import { restAlertService } from '../services/restAlert';
+import type { RestAlertRepeatCount, RestSoundId, UserSettings } from '../types';
 export function SettingsPage() {
   const store = useAppStore(),
     [settings, setSettings] = useState(store.settings),
@@ -17,6 +20,18 @@ export function SettingsPage() {
     adminSession = getAdminSession();
   const requestOnboardingReplay = useAppStore((state) => state.requestOnboardingReplay);
   const setOnboardingCompleted = useAppStore((state) => state.setOnboardingCompleted);
+  const applySettings = (patch: Partial<UserSettings>) => {
+    const next = { ...useAppStore.getState().settings, ...patch };
+    setSettings((current) => ({ ...current, ...patch }));
+    store.setSettings(next);
+  };
+  const previewSound = async (soundId: RestSoundId) => {
+    try {
+      await restAlertService.preview(soundId);
+    } catch {
+      store.setToast(t('audioPlaybackBlocked'));
+    }
+  };
   useEffect(() => {
     document.documentElement.classList.toggle('dark', settings.theme === 'dark');
   }, [settings.theme]);
@@ -71,9 +86,7 @@ export function SettingsPage() {
                   settings.language === language ? 'bg-brand text-ink' : 'bg-slate-100 text-slate-600 dark:bg-white/[.06] dark:text-slate-300'
                 }`}
                 onClick={() => {
-                  const next = { ...settings, language };
-                  setSettings(next);
-                  store.setSettings(next);
+                  applySettings({ language });
                 }}
               >
                 {language === 'en' ? t('english') : t('hebrew')}
@@ -110,27 +123,73 @@ export function SettingsPage() {
             options={[{ value: 'dark', label: t('dark') }, { value: 'light', label: t('light') }]}
           />
         </div>
-        <Toggle
-          label={t('restTimerSound')}
-          checked={settings.restTimerSound}
-          set={(v) => setSettings({ ...settings, restTimerSound: v })}
-        />
-        <Toggle
-          label={t('restTimerVibration')}
-          checked={settings.restTimerVibration}
-          set={(v) => setSettings({ ...settings, restTimerVibration: v })}
-        />
+        <section aria-labelledby="rest-alerts-heading" className="surface-subtle space-y-4 rounded-3xl p-4 sm:p-5">
+          <div className="flex items-center gap-3">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-brand/15 text-brand">
+              <Volume2 aria-hidden="true" />
+            </span>
+            <h2 id="rest-alerts-heading" className="text-xl font-black">{t('restTimerAlerts')}</h2>
+          </div>
+          <Select
+            label={t('restCompletionSound')}
+            value={settings.restCompletionSound}
+            onChange={(value) => {
+              const restCompletionSound = value as RestSoundId;
+              applySettings({ restCompletionSound });
+              void previewSound(restCompletionSound);
+            }}
+            options={REST_SOUND_REGISTRY.map((sound) => ({
+              value: sound.id,
+              label: t(sound.nameKey),
+              description: t(sound.descriptionKey),
+            }))}
+            testId="rest-sound-select"
+          />
+          <button
+            type="button"
+            className="btn-secondary w-full sm:w-auto"
+            onClick={() => void previewSound(settings.restCompletionSound)}
+          >
+            <Play size={18} aria-hidden="true" />
+            {t('previewSound')}
+          </button>
+          <Select
+            label={t('repeatAlert')}
+            value={String(settings.restAlertRepeatCount)}
+            onChange={(value) =>
+              applySettings({ restAlertRepeatCount: Number(value) as RestAlertRepeatCount })
+            }
+            options={[
+              { value: '1', label: t('repeatOnce') },
+              { value: '2', label: t('repeatTwice') },
+              { value: '3', label: t('repeatThreeTimes') },
+            ]}
+            testId="rest-repeat-select"
+          />
+          <Toggle
+            label={t('restTimerVibration')}
+            description={t('vibrationSupportNote')}
+            checked={settings.restTimerVibration}
+            set={(restTimerVibration) => applySettings({ restTimerVibration })}
+          />
+        </section>
         <Toggle
           label={t('allowEmptyNumericFields')}
           description={t('allowEmptyNumericFieldsDescription')}
           checked={settings.allowEmptyNumericFields}
           set={(v) => {
-            const next = { ...settings, allowEmptyNumericFields: v };
-            setSettings(next);
-            store.setSettings(next);
+            applySettings({ allowEmptyNumericFields: v });
           }}
         />
-        <button className="btn-primary w-full" onClick={() => store.setSettings(settings)}>
+        <button
+          className="btn-primary w-full"
+          onClick={() =>
+            store.setSettings({
+              ...settings,
+              onboardingCompleted: useAppStore.getState().settings.onboardingCompleted,
+            })
+          }
+        >
           {t('saveSettings')}
         </button>
       </section>

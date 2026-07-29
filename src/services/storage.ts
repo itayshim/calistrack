@@ -3,12 +3,13 @@ import { builtInExercises } from '../data/exercises';
 import type { AppData, Exercise, MeasurementType, WorkoutSet } from '../types';
 import { findExerciseByReference } from '../utils/exerciseLocalization';
 import { normalizeMeasurementType } from '../utils/performance';
+import { normalizeRestSoundId } from './restSounds';
 export const STORAGE_KEY = 'calistrack.app.v1';
 const valid = (v: unknown): v is AppData => {
   if (!v || typeof v !== 'object') return false;
   const d = v as Partial<AppData>;
   return (
-    [1, 2, 3, 4, 5, 6, 7, 8].includes(d.schemaVersion ?? 0) &&
+    [1, 2, 3, 4, 5, 6, 7, 8, 9].includes(d.schemaVersion ?? 0) &&
     Array.isArray(d.exercises) &&
     Array.isArray(d.programs) &&
     Array.isArray(d.workoutSessions) &&
@@ -73,6 +74,9 @@ export function normalizeExercise(exercise: Exercise): Exercise {
 
 export function migrateAppData(data: AppData): AppData {
   const wasExistingInstallation = data.schemaVersion < 8;
+  const legacyRestTimerSound = data.settings.restTimerSound;
+  const settingsWithoutLegacyToggle = { ...data.settings };
+  delete settingsWithoutLegacyToggle.restTimerSound;
   const customExercises = data.exercises.filter((exercise) => exercise.isCustom).map(normalizeExercise);
   const exercises = [...builtInExercises, ...customExercises];
   const exerciseId = (reference: string) =>
@@ -119,11 +123,19 @@ export function migrateAppData(data: AppData): AppData {
   });
   return {
     ...data,
-    schemaVersion: 8,
+    schemaVersion: 9,
     settings: {
-      ...data.settings,
+      ...settingsWithoutLegacyToggle,
       language: data.settings.language ?? 'en',
       allowEmptyNumericFields: data.settings.allowEmptyNumericFields ?? false,
+      restCompletionSound: data.settings.restCompletionSound
+        ? normalizeRestSoundId(data.settings.restCompletionSound)
+        : legacyRestTimerSound === false
+          ? 'silent'
+          : 'classic',
+      restAlertRepeatCount: [1, 2, 3].includes(data.settings.restAlertRepeatCount)
+        ? data.settings.restAlertRepeatCount
+        : 1,
       onboardingCompleted:
         wasExistingInstallation ? true : (data.settings.onboardingCompleted ?? false),
     },
@@ -132,7 +144,13 @@ export function migrateAppData(data: AppData): AppData {
         ? data.activeProgramId
         : data.programs[0]?.id ?? null,
     exercises,
-    restTimer: data.restTimer ?? { endsAt: null, duration: 0, pausedRemaining: null },
+    restTimer: data.restTimer
+      ? {
+          ...data.restTimer,
+          id: data.restTimer.id ??
+            (data.restTimer.endsAt ? `legacy-rest-${data.restTimer.endsAt}` : null),
+        }
+      : { id: null, endsAt: null, duration: 0, pausedRemaining: null },
     programs: data.programs.map((program) => ({
       ...program,
       workouts: program.workouts.map((workout) => ({
