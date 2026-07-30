@@ -72,12 +72,15 @@ const getDeviceToken = () => {
   return token;
 };
 
-const serializeSubscription = (subscription: PushSubscription) => {
+export const serializePushSubscription = (subscription: PushSubscription) => {
   const json = subscription.toJSON();
   return {
-    endpoint: subscription.endpoint,
-    p256dh: json.keys?.p256dh,
-    auth: json.keys?.auth,
+    endpoint: json.endpoint ?? subscription.endpoint,
+    expirationTime: json.expirationTime ?? null,
+    keys: {
+      auth: json.keys?.auth,
+      p256dh: json.keys?.p256dh,
+    },
   };
 };
 
@@ -112,7 +115,7 @@ export class BackgroundNotificationService {
       {
         action: 'status',
         deviceToken: getDeviceToken(),
-        subscription: serializeSubscription(subscription),
+        subscription: serializePushSubscription(subscription),
       },
     );
   }
@@ -121,7 +124,7 @@ export class BackgroundNotificationService {
     await supabasePublicFunctionRequest('rest-notification-schedule', {
       action: 'register',
       deviceToken: getDeviceToken(),
-      subscription: serializeSubscription(subscription),
+      subscription: serializePushSubscription(subscription),
     });
   }
 

@@ -1,5 +1,6 @@
 import { corsHeaders } from 'jsr:@supabase/supabase-js@2/cors';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { normalizePushSubscription } from '../_shared/restPushDiagnostics.ts';
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -26,14 +27,16 @@ Deno.serve(async (request) => {
     );
     const deviceTokenHash = await hash(body.deviceToken);
     if (body.action === 'register') {
-      const subscription = body.subscription;
-      if (!subscription?.endpoint || !subscription?.p256dh || !subscription?.auth) {
+      let normalized;
+      try {
+        normalized = normalizePushSubscription(body.subscription);
+      } catch {
         return json({ code: 'invalid_subscription' }, 400);
       }
       const { error } = await client.from('push_subscriptions').upsert(
         {
           device_token_hash: deviceTokenHash,
-          subscription,
+          subscription: normalized.subscription,
           enabled: true,
           updated_at: new Date().toISOString(),
         },
@@ -48,17 +51,20 @@ Deno.serve(async (request) => {
       .eq('device_token_hash', deviceTokenHash)
       .maybeSingle();
     if (body.action === 'status') {
-      const provided = body.subscription;
-      const saved = subscription?.subscription as
-        | { endpoint?: string; p256dh?: string; auth?: string }
-        | undefined;
+      let provided;
+      let saved;
+      try {
+        provided = normalizePushSubscription(body.subscription).subscription;
+        saved = normalizePushSubscription(subscription?.subscription).subscription;
+      } catch {
+        return json({ registered: false });
+      }
       return json({
         registered: Boolean(
           subscription?.enabled &&
-            provided?.endpoint &&
             provided.endpoint === saved?.endpoint &&
-            provided.p256dh === saved?.p256dh &&
-            provided.auth === saved?.auth,
+            provided.keys.p256dh === saved?.keys.p256dh &&
+            provided.keys.auth === saved?.keys.auth,
         ),
       });
     }

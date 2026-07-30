@@ -3,6 +3,7 @@ import webpush from 'npm:web-push@3.6.7';
 import {
   classifyPushResult,
   endpointHost,
+  normalizePushSubscription,
   planFailedDelivery,
   readPushError,
   sanitizeDiagnostic,
@@ -121,12 +122,28 @@ Deno.serve(async (request) => {
         body: he ? 'הגיע הזמן לסט הבא.' : 'Time for your next set.',
       });
       const relation = item.push_subscriptions as unknown as {
-        subscription: webpush.PushSubscription;
+        subscription: unknown;
       };
-      const host = endpointHost(relation.subscription?.endpoint);
+      const rawSubscription = relation.subscription;
+      const host = endpointHost(
+        (rawSubscription as { endpoint?: unknown } | null)?.endpoint,
+      );
 
       try {
-        const response = await webpush.sendNotification(relation.subscription, payload);
+        const normalized = normalizePushSubscription(rawSubscription);
+        if (normalized.wasLegacy) {
+          await client
+            .from('push_subscriptions')
+            .update({
+              subscription: normalized.subscription,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', item.subscription_id);
+        }
+        const response = await webpush.sendNotification(
+          normalized.subscription,
+          payload,
+        );
         const classification = classifyPushResult(null, response.statusCode);
         if (classification.disposition !== 'sent') {
           throw Object.assign(new Error('Unexpected push-service response'), {

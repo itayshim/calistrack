@@ -9,6 +9,83 @@ export interface PushErrorLike {
   headers?: unknown;
 }
 
+export interface CanonicalPushSubscription {
+  endpoint: string;
+  expirationTime: number | null;
+  keys: {
+    auth: string;
+    p256dh: string;
+  };
+}
+
+export class MalformedSubscriptionError extends Error {
+  readonly code = 'malformed_push_subscription';
+
+  constructor(public readonly missingField: 'endpoint' | 'auth' | 'p256dh') {
+    super(`Push subscription is missing ${missingField}`);
+    this.name = 'MalformedSubscriptionError';
+  }
+}
+
+export const normalizePushSubscription = (
+  value: unknown,
+): { subscription: CanonicalPushSubscription; wasLegacy: boolean } => {
+  if (!value || typeof value !== 'object') {
+    throw new MalformedSubscriptionError('endpoint');
+  }
+  const candidate = value as {
+    endpoint?: unknown;
+    expirationTime?: unknown;
+    auth?: unknown;
+    p256dh?: unknown;
+    keys?: { auth?: unknown; p256dh?: unknown };
+  };
+  if (typeof candidate.endpoint !== 'string' || !candidate.endpoint.trim()) {
+    throw new MalformedSubscriptionError('endpoint');
+  }
+  try {
+    const endpoint = new URL(candidate.endpoint);
+    if (endpoint.protocol !== 'https:') throw new Error('not https');
+  } catch {
+    throw new MalformedSubscriptionError('endpoint');
+  }
+  const auth = candidate.keys?.auth ?? candidate.auth;
+  const p256dh = candidate.keys?.p256dh ?? candidate.p256dh;
+  if (typeof auth !== 'string' || !auth.trim()) {
+    throw new MalformedSubscriptionError('auth');
+  }
+  if (typeof p256dh !== 'string' || !p256dh.trim()) {
+    throw new MalformedSubscriptionError('p256dh');
+  }
+  return {
+    subscription: {
+      endpoint: candidate.endpoint,
+      expirationTime:
+        typeof candidate.expirationTime === 'number' ? candidate.expirationTime : null,
+      keys: { auth, p256dh },
+    },
+    wasLegacy: !candidate.keys?.auth || !candidate.keys?.p256dh,
+  };
+};
+
+export const subscriptionShapeDiagnostic = (value: unknown) => {
+  const candidate = (value && typeof value === 'object' ? value : {}) as {
+    endpoint?: unknown;
+    auth?: unknown;
+    p256dh?: unknown;
+    keys?: { auth?: unknown; p256dh?: unknown };
+  };
+  const auth = candidate.keys?.auth ?? candidate.auth;
+  const p256dh = candidate.keys?.p256dh ?? candidate.p256dh;
+  return {
+    endpointPresent: typeof candidate.endpoint === 'string' && candidate.endpoint.length > 0,
+    authPresent: typeof auth === 'string' && auth.length > 0,
+    p256dhPresent: typeof p256dh === 'string' && p256dh.length > 0,
+    authLength: typeof auth === 'string' ? auth.length : 0,
+    p256dhLength: typeof p256dh === 'string' ? p256dh.length : 0,
+  };
+};
+
 export type DeliveryDisposition = 'sent' | 'expired' | 'retrying' | 'failed';
 
 export interface DeliveryClassification {

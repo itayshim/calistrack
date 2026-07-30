@@ -14,6 +14,7 @@ vi.mock('./supabase', () => ({
 import {
   BackgroundNotificationService,
   buildRestNotificationRequest,
+  serializePushSubscription,
 } from './backgroundNotifications';
 
 const makeSubscription = (applicationServerKey = new Uint8Array([1, 2, 3])) => {
@@ -67,6 +68,18 @@ describe('background rest notification scheduling', () => {
       workoutId: 'workout-1',
       scheduledFor: new Date(1_800_000_000_000).toISOString(),
       language: 'he',
+    });
+  });
+
+  it('registers the standard nested PushSubscriptionJSON shape', () => {
+    const subscription = makeSubscription() as PushSubscription;
+    expect(serializePushSubscription(subscription)).toEqual({
+      endpoint: 'https://push.example/device',
+      expirationTime: null,
+      keys: {
+        auth: 'auth-key',
+        p256dh: 'public-key',
+      },
     });
   });
 

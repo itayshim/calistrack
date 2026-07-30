@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   classifyPushResult,
   endpointHost,
+  MalformedSubscriptionError,
+  normalizePushSubscription,
   planFailedDelivery,
   retryDelaySeconds,
   sanitizeDiagnostic,
@@ -9,6 +11,46 @@ import {
 } from './restPushDiagnostics';
 
 describe('rest push delivery diagnostics', () => {
+  it('accepts canonical PushSubscriptionJSON and preserves nested keys', () => {
+    const value = {
+      endpoint: 'https://push.example/device',
+      expirationTime: null,
+      keys: { auth: 'auth-value', p256dh: 'p256dh-value' },
+    };
+    expect(normalizePushSubscription(value)).toEqual({
+      subscription: value,
+      wasLegacy: false,
+    });
+  });
+
+  it('normalizes a legacy flat subscription for web-push and marks it for in-place repair', () => {
+    expect(normalizePushSubscription({
+      endpoint: 'https://push.example/device',
+      auth: 'legacy-auth',
+      p256dh: 'legacy-p256dh',
+    })).toEqual({
+      subscription: {
+        endpoint: 'https://push.example/device',
+        expirationTime: null,
+        keys: { auth: 'legacy-auth', p256dh: 'legacy-p256dh' },
+      },
+      wasLegacy: true,
+    });
+  });
+
+  it.each([
+    [{ keys: { auth: 'a', p256dh: 'p' } }, 'endpoint'],
+    [{ endpoint: 'https://push.example/device', keys: { p256dh: 'p' } }, 'auth'],
+    [{ endpoint: 'https://push.example/device', keys: { auth: 'a' } }, 'p256dh'],
+  ])('rejects malformed subscriptions with a safe missing-field reason', (value, field) => {
+    expect(() => normalizePushSubscription(value)).toThrowError(
+      expect.objectContaining<Partial<MalformedSubscriptionError>>({
+        name: 'MalformedSubscriptionError',
+        missingField: field as 'endpoint' | 'auth' | 'p256dh',
+      }),
+    );
+  });
+
   it('classifies successful Web Push responses as sent', () => {
     expect(classifyPushResult(null, 201)).toMatchObject({
       disposition: 'sent',
