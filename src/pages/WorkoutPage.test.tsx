@@ -8,6 +8,7 @@ import { useAppStore } from '../store/useAppStore';
 import type { MeasurementType, WorkoutSession, WorkoutSet } from '../types';
 import { WorkoutPage } from './WorkoutPage';
 import { restAlertService } from '../services/restAlert';
+import { timerCueService } from '../services/timerCue';
 
 const active = (exerciseId: string, measurementType: MeasurementType): WorkoutSession => ({
   id: 'active',
@@ -175,21 +176,61 @@ describe('active workout previous performance and replacement UX', () => {
   it('plays exactly once only when an explicit duration countdown reaches zero', async () => {
     vi.useFakeTimers();
     const now = vi.spyOn(Date, 'now').mockReturnValue(10_000);
-    const play = vi.spyOn(restAlertService, 'play').mockResolvedValue();
+    const play = vi.spyOn(timerCueService, 'playRoundCompletion').mockResolvedValue();
     renderWorkout('builtin-l-sit', 'duration');
     fireEvent.click(screen.getByRole('button', { name: 'Start target countdown' }));
     expect(play).not.toHaveBeenCalled();
-    now.mockReturnValue(40_000);
+    const stopwatchPanel = screen.getByRole('region', { name: 'Hold stopwatch' });
+    expect(within(stopwatchPanel).getByText('3')).toBeInTheDocument();
+
+    now.mockReturnValue(12_000);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_000);
+    });
+    expect(within(stopwatchPanel).getByText('1')).toBeInTheDocument();
+    expect(within(stopwatchPanel).queryByText('00:29')).not.toBeInTheDocument();
+
+    now.mockReturnValue(13_000);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+    expect(within(stopwatchPanel).getByText('00:30')).toBeInTheDocument();
+
+    now.mockReturnValue(43_000);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(30_000);
     });
     expect(play).toHaveBeenCalledOnce();
+    expect(within(stopwatchPanel).getByText('00:00')).toBeInTheDocument();
+    expect(useAppStore.getState().activeWorkout?.exercises[0].sets).toHaveLength(0);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(2_000);
     });
     expect(play).toHaveBeenCalledOnce();
     now.mockRestore();
     vi.useRealTimers();
+  });
+
+  it('starts target countdown immediately when preparation is Off and respects Silent', async () => {
+    vi.useFakeTimers();
+    const now = vi.spyOn(Date, 'now').mockReturnValue(10_000);
+    const play = vi.spyOn(timerCueService, 'playRoundCompletion').mockResolvedValue();
+    renderWorkout('builtin-l-sit', 'duration');
+    useAppStore.setState((state) => ({
+      settings: {
+        ...state.settings,
+        timedExerciseStartCountdownSeconds: 0,
+        restCompletionSound: 'silent',
+      },
+    }));
+    fireEvent.click(screen.getByRole('button', { name: 'Start target countdown' }));
+    const stopwatchPanel = screen.getByRole('region', { name: 'Hold stopwatch' });
+    expect(within(stopwatchPanel).getByText('00:30')).toBeInTheDocument();
+    now.mockReturnValue(40_000);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    expect(play).toHaveBeenCalledWith(false);
   });
 
   it('rejects unsupported rep precision with localized feedback', async () => {

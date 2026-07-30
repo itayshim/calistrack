@@ -37,7 +37,7 @@ import {
   validEnteredSet,
 } from '../utils/workoutExperience';
 import { ExerciseReplacementSheet } from '../components/ExerciseReplacementSheet';
-import { restAlertService } from '../services/restAlert';
+import { timerCueService } from '../services/timerCue';
 
 export function WorkoutPage() {
   const { t, language } = useI18n();
@@ -81,11 +81,9 @@ export function WorkoutPage() {
         return { ...current, [exerciseId]: { ...existing, duration: String(durationSeconds) } };
       });
       const currentSettings = useAppStore.getState().settings;
-      void restAlertService.play({
-        soundId: currentSettings.restCompletionSound,
-        repeatCount: currentSettings.restAlertRepeatCount,
-        vibrationEnabled: currentSettings.restTimerVibration,
-      });
+      void timerCueService.playRoundCompletion(
+        currentSettings.restCompletionSound !== 'silent',
+      );
     };
     const wait = timer.endsAt - Date.now();
     if (wait <= 0) {
@@ -446,21 +444,25 @@ export function WorkoutPage() {
                   aria-live="polite"
                   className="mt-2 block text-5xl font-black tabular-nums"
                 >
-                  {stopwatch.mode === 'countdown' && stopwatchForCurrent
-                    ? formatTime(exerciseCountdownRemaining)
-                    : stopwatchCountdown > 0
+                  {stopwatchCountdown > 0
                     ? stopwatchCountdown
-                    : formatStopwatch(stopwatchElapsed)}
+                    : stopwatch.mode === 'countdown' && stopwatchForCurrent
+                      ? formatTime(exerciseCountdownRemaining)
+                      : formatStopwatch(stopwatchElapsed)}
                 </output>
-                {(stopwatch.mode === 'countdown' && stopwatchForCurrent) ||
-                stopwatchCountdown > 0 ||
-                (stopwatch.running && stopwatchForCurrent) ? (
+                {stopwatchForCurrent ? (
                   <p className="mt-1 text-sm font-bold text-slate-500">
-                    {stopwatch.mode === 'countdown' && stopwatchForCurrent
-                      ? t('targetCountdownRunning')
+                    {stopwatch.mode === 'countdown'
+                      ? stopwatch.running
+                        ? stopwatchCountdown > 0
+                          ? t('getReady')
+                          : t('targetCountdownRunning')
+                        : t('targetReached')
                       : stopwatchCountdown > 0
                         ? t('getReady')
-                        : t('stopwatchRunning')}
+                        : stopwatch.running
+                          ? t('stopwatchRunning')
+                          : null}
                   </p>
                 ) : null}
                 {stopwatch.mode !== 'countdown' &&
@@ -540,12 +542,14 @@ export function WorkoutPage() {
                     type="button"
                     className="btn-secondary mt-2 w-full"
                     disabled={restLocked}
-                    onClick={() =>
+                    onClick={() => {
                       store.startExerciseCountdown(
                         sessionExercise.id,
                         target?.targetMax ?? target?.targetMin ?? 20,
-                      )
-                    }
+                      );
+                      updateDraft({ duration: '' });
+                      setNow(Date.now());
+                    }}
                   >
                     <Clock3 size={18} />
                     {t('startTargetCountdown')}

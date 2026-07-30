@@ -552,17 +552,19 @@ export const useAppStore = create<Store>((set, get) => ({
   },
   startExerciseCountdown: (sessionExerciseId, durationSeconds) => {
     const duration = Math.max(1, Math.round(durationSeconds));
+    const preparationSeconds = get().settings.timedExerciseStartCountdownSeconds;
+    const startsAt = Date.now() + preparationSeconds * 1000;
     const id = createId();
     set({
       exerciseStopwatch: {
         id,
         sessionExerciseId,
-        startedAt: Date.now(),
+        startedAt: startsAt,
         running: true,
         measuredSeconds: null,
         adjustedSeconds: null,
         mode: 'countdown',
-        endsAt: Date.now() + duration * 1000,
+        endsAt: startsAt + duration * 1000,
         targetSeconds: duration,
       },
       restTimer: emptyTimer(),
