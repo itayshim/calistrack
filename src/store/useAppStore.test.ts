@@ -95,6 +95,27 @@ describe('workout flow', () => {
     expect(useAppStore.getState().stopExerciseStopwatch()?.adjustedSeconds).toBe(0);
     now.mockRestore();
   });
+  it('runs a fresh countdown after reset and after a stopped measurement', () => {
+    const now = vi.spyOn(Date, 'now').mockReturnValue(10_000);
+    useAppStore.getState().startExerciseStopwatch('duration-exercise');
+    const firstId = useAppStore.getState().exerciseStopwatch.id;
+    expect(useAppStore.getState().exerciseStopwatch.startedAt).toBe(13_000);
+
+    now.mockReturnValue(18_000);
+    useAppStore.getState().stopExerciseStopwatch();
+    now.mockReturnValue(20_000);
+    useAppStore.getState().startExerciseStopwatch('duration-exercise');
+    expect(useAppStore.getState().exerciseStopwatch.id).not.toBe(firstId);
+    expect(useAppStore.getState().exerciseStopwatch.startedAt).toBe(23_000);
+    expect(useAppStore.getState().exerciseStopwatch.measuredSeconds).toBeNull();
+
+    useAppStore.getState().resetExerciseStopwatch();
+    now.mockReturnValue(30_000);
+    useAppStore.getState().startExerciseStopwatch('duration-exercise');
+    expect(useAppStore.getState().exerciseStopwatch.startedAt).toBe(33_000);
+    expect(useAppStore.getState().exerciseStopwatch.adjustedSeconds).toBeNull();
+    now.mockRestore();
+  });
   it('stores half reps exactly and rejects arbitrary decimal increments', () => {
     useAppStore.getState().startWorkout(t);
     useAppStore.getState().completeSet(0, 8.5);

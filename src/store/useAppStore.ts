@@ -17,6 +17,7 @@ import type {
 import { createId } from '../utils/id';
 import { translations, type TranslationKey } from '../locales/translations';
 import {
+  calculateRecordedDuration,
   isValidSetInput,
   normalizeMeasurementType,
   normalizeSetInput,
@@ -331,15 +332,19 @@ export const useAppStore = create<Store>((set, get) => ({
     if (!a) return;
     a.exercises[i].skipped = true;
     a.currentExerciseIndex = Math.min(i + 1, a.exercises.length - 1);
-    set({ activeWorkout: a, restTimer: emptyTimer() });
+    set({ activeWorkout: a, restTimer: emptyTimer(), exerciseStopwatch: emptyStopwatch() });
     get().persist();
   },
   setCurrentExercise: (i) => {
     const a = structuredClone(get().activeWorkout);
     if (a) {
+      const changedExercise = a.currentExerciseIndex !== i;
       a.currentExerciseIndex = i;
       a.completionReady = false;
-      set({ activeWorkout: a });
+      set({
+        activeWorkout: a,
+        ...(changedExercise ? { exerciseStopwatch: emptyStopwatch() } : {}),
+      });
       get().persist();
     }
   },
@@ -567,10 +572,9 @@ export const useAppStore = create<Store>((set, get) => ({
   stopExerciseStopwatch: () => {
     const stopwatch = get().exerciseStopwatch;
     if (!stopwatch.running || !stopwatch.startedAt || stopwatch.mode === 'countdown') return null;
-    const measuredSeconds = Math.max(0, Math.round((Date.now() - stopwatch.startedAt) / 1000));
-    const adjustedSeconds = Math.max(
-      0,
-      measuredSeconds - get().settings.timerReactionAdjustmentSeconds,
+    const { measuredSeconds, recordedSeconds: adjustedSeconds } = calculateRecordedDuration(
+      Date.now() - stopwatch.startedAt,
+      get().settings.timerReactionAdjustmentSeconds,
     );
     set({
       exerciseStopwatch: {

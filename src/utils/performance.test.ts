@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { WorkoutSet } from '../types';
 import { builtInExercises } from '../data/exercises';
 import {
+  calculateRecordedDuration,
   formatAddedWeight,
   formatDuration,
   formatSetPerformance,
@@ -12,6 +13,24 @@ import {
 } from './performance';
 
 describe('metric-specific set performance', () => {
+  it('rounds elapsed milliseconds once and applies the duration adjustment', () => {
+    expect(calculateRecordedDuration(1_200, 2)).toEqual({
+      measuredSeconds: 1,
+      recordedSeconds: 0,
+    });
+    expect(calculateRecordedDuration(4_000, 2)).toEqual({
+      measuredSeconds: 4,
+      recordedSeconds: 2,
+    });
+    expect(calculateRecordedDuration(4_600, 2)).toEqual({
+      measuredSeconds: 5,
+      recordedSeconds: 3,
+    });
+    expect(calculateRecordedDuration(30_000, 2)).toEqual({
+      measuredSeconds: 30,
+      recordedSeconds: 28,
+    });
+  });
   it('normalizes the legacy time measurement without changing other types', () => {
     expect(normalizeMeasurementType('time')).toBe('duration');
     expect(normalizeMeasurementType('weighted_reps')).toBe('weighted_reps');

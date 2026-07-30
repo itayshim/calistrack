@@ -21,6 +21,18 @@ export const getSetAddedWeight = (set: WorkoutSet) => set.addedWeightKg;
 export const isHalfRepIncrement = (value: number) =>
   Number.isFinite(value) && value >= 0 && Number.isInteger(value * 2);
 
+export const calculateRecordedDuration = (
+  elapsedMilliseconds: number,
+  adjustmentSeconds: number,
+) => {
+  const measuredSeconds = Math.max(0, Math.round(elapsedMilliseconds / 1000));
+  const safeAdjustment = Math.max(0, Math.round(adjustmentSeconds));
+  return {
+    measuredSeconds,
+    recordedSeconds: Math.max(0, measuredSeconds - safeAdjustment),
+  };
+};
+
 export const formatRepValue = (count: number) =>
   new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 0,

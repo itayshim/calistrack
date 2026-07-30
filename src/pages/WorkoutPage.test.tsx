@@ -125,14 +125,51 @@ describe('active workout previous performance and replacement UX', () => {
     now.mockReturnValue(27_000);
     await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Stop' })).toBeEnabled());
     await user.click(screen.getByRole('button', { name: 'Stop' }));
-    expect(screen.getByLabelText(/Hold time/)).toHaveValue(12);
+    expect(screen.getByLabelText(/Recorded duration/)).toHaveValue(12);
+    expect(screen.getByLabelText(/Recorded duration/)).toHaveAttribute('inputmode', 'numeric');
     expect(screen.getByText(/Measured/)).toBeInTheDocument();
     expect(useAppStore.getState().activeWorkout?.exercises[0].sets).toHaveLength(0);
-    await user.clear(screen.getByLabelText(/Hold time/));
-    await user.type(screen.getByLabelText(/Hold time/), '30');
+    await user.clear(screen.getByLabelText(/Recorded duration/));
+    expect(screen.getByLabelText(/Recorded duration/)).toHaveValue(null);
+    await user.type(screen.getByLabelText(/Recorded duration/), '30');
     await user.click(screen.getByRole('button', { name: 'Complete set' }));
     expect(useAppStore.getState().activeWorkout?.exercises[0].sets[0].durationSeconds).toBe(30);
     now.mockRestore();
+  });
+
+  it('shows stable whole stopwatch seconds and rounds internal milliseconds on stop', async () => {
+    vi.useFakeTimers();
+    const now = vi.spyOn(Date, 'now').mockReturnValue(10_000);
+    renderWorkout('builtin-l-sit', 'duration');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start timer' }));
+    const stopwatchPanel = screen.getByRole('region', { name: 'Hold stopwatch' });
+    expect(within(stopwatchPanel).getByText('3')).toBeInTheDocument();
+
+    now.mockReturnValue(13_000);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+    expect(within(stopwatchPanel).getByText('00:00')).toBeInTheDocument();
+    expect(within(stopwatchPanel).queryByText(/00:00\./)).not.toBeInTheDocument();
+
+    now.mockReturnValue(17_600);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+    expect(within(stopwatchPanel).getByText('00:04')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
+    expect(screen.getByLabelText(/Recorded duration/)).toHaveValue(3);
+  });
+
+  it('uses the localized editable recorded-time field in Hebrew RTL', async () => {
+    const now = vi.spyOn(Date, 'now').mockReturnValue(10_000);
+    renderWorkout('builtin-l-sit', 'duration', [], 'he');
+    fireEvent.click(screen.getByRole('button', { name: 'התחלת טיימר' }));
+    now.mockReturnValue(18_000);
+    await vi.waitFor(() => expect(screen.getByRole('button', { name: 'עצירה' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'עצירה' }));
+    expect(screen.getByLabelText(/משך שנרשם/)).toHaveAttribute('inputmode', 'numeric');
   });
 
   it('plays exactly once only when an explicit duration countdown reaches zero', async () => {

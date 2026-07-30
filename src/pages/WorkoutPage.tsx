@@ -170,8 +170,14 @@ export function WorkoutPage() {
       : 0;
   const stopwatchElapsed =
     stopwatchForCurrent && stopwatch.running && stopwatch.startedAt
-      ? Math.max(0, (now - stopwatch.startedAt) / 1000)
+      ? Math.max(0, Math.floor((now - stopwatch.startedAt) / 1000))
       : (stopwatchForCurrent ? stopwatch.measuredSeconds ?? 0 : 0);
+  const stoppedCountup =
+    stopwatchForCurrent &&
+    stopwatch.mode !== 'countdown' &&
+    !stopwatch.running &&
+    stopwatch.measuredSeconds !== null;
+  const canResetStopwatch = stopwatchForCurrent || duration !== '';
   const exerciseCountdownRemaining =
     stopwatchForCurrent && stopwatch.mode === 'countdown' && stopwatch.endsAt
       ? Math.max(0, Math.ceil((stopwatch.endsAt - now) / 1000))
@@ -397,7 +403,11 @@ export function WorkoutPage() {
         </section>
         <div className="mt-8 text-center">
           <label htmlFor="set-value" className="label">
-            {measurementType === 'duration' ? t('holdTime') : t('reps')} — {t('set')} <bdi>{done + 1}</bdi>
+            {measurementType === 'duration' && stoppedCountup
+              ? t('recordedDuration')
+              : measurementType === 'duration'
+                ? t('holdTime')
+                : t('reps')} — {t('set')} <bdi>{done + 1}</bdi>
           </label>
           <input
             id="set-value"
@@ -411,7 +421,11 @@ export function WorkoutPage() {
             onChange={(e) => measurementType === 'duration' ? updateDraft({ duration: e.target.value }) : updateDraft({ reps: e.target.value })}
             onKeyDown={(e) => e.key === 'Enter' && complete()}
             placeholder="0"
-            className="mx-auto block w-full bg-transparent text-center text-[6.5rem] font-black leading-none tabular-nums tracking-[-.08em] text-slate-950 outline-none placeholder:text-slate-300 disabled:cursor-not-allowed disabled:opacity-30 dark:text-white dark:placeholder:text-white/[.08] sm:text-9xl"
+            className={`mx-auto block w-full text-center font-black tabular-nums text-slate-950 outline-none placeholder:text-slate-300 disabled:cursor-not-allowed disabled:opacity-30 dark:text-white dark:placeholder:text-white/[.08] ${
+              stoppedCountup
+                ? 'field mt-2 max-w-xs rounded-3xl text-6xl tracking-normal'
+                : 'bg-transparent text-[6.5rem] leading-none tracking-[-.08em] sm:text-9xl'
+            }`}
           />
           <p className="text-center text-sm font-bold text-slate-500">
             {measurementType === 'duration' ? t('seconds') : t('reps')}
@@ -438,15 +452,17 @@ export function WorkoutPage() {
                     ? stopwatchCountdown
                     : formatStopwatch(stopwatchElapsed)}
                 </output>
-                <p className="mt-1 text-sm font-bold text-slate-500">
-                  {stopwatch.mode === 'countdown' && stopwatchForCurrent
-                    ? t('targetCountdownRunning')
-                    : stopwatchCountdown > 0
-                    ? t('getReady')
-                    : stopwatch.running && stopwatchForCurrent
-                      ? t('stopwatchRunning')
-                      : t('manualEntryAvailable')}
-                </p>
+                {(stopwatch.mode === 'countdown' && stopwatchForCurrent) ||
+                stopwatchCountdown > 0 ||
+                (stopwatch.running && stopwatchForCurrent) ? (
+                  <p className="mt-1 text-sm font-bold text-slate-500">
+                    {stopwatch.mode === 'countdown' && stopwatchForCurrent
+                      ? t('targetCountdownRunning')
+                      : stopwatchCountdown > 0
+                        ? t('getReady')
+                        : t('stopwatchRunning')}
+                  </p>
+                ) : null}
                 {stopwatch.mode !== 'countdown' &&
                   store.settings.timedExerciseStartCountdownSeconds > 0 &&
                   !stopwatch.running && (
@@ -463,9 +479,6 @@ export function WorkoutPage() {
                     </p>
                     <p>
                       {t('timerAdjustment')}: <bdi>-{store.settings.timerReactionAdjustmentSeconds}</bdi> {t('seconds')}
-                    </p>
-                    <p className="font-black">
-                      {t('recordedDuration')}: <bdi>{stopwatch.adjustedSeconds ?? 0}</bdi> {t('seconds')}
                     </p>
                   </div>
                 )}
@@ -495,26 +508,32 @@ export function WorkoutPage() {
                   ) : (
                     <button
                       type="button"
-                      className="btn-primary"
+                      className={`btn-primary ${canResetStopwatch ? '' : 'col-span-2'}`}
                       disabled={restLocked}
-                      onClick={() => store.startExerciseStopwatch(sessionExercise.id)}
+                      onClick={() => {
+                        store.startExerciseStopwatch(sessionExercise.id);
+                        updateDraft({ duration: '' });
+                        setNow(Date.now());
+                      }}
                     >
                       <Play size={18} />
                       {t('startStopwatch')}
                     </button>
                   )}
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    disabled={!stopwatchForCurrent}
-                    onClick={() => {
-                      store.resetExerciseStopwatch();
-                      updateDraft({ duration: '' });
-                    }}
-                  >
-                    <RotateCcw size={18} />
-                    {t('restartStopwatch')}
-                  </button>
+                  {canResetStopwatch && (
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => {
+                        store.resetExerciseStopwatch();
+                        updateDraft({ duration: '' });
+                        setNow(Date.now());
+                      }}
+                    >
+                      <RotateCcw size={18} />
+                      {t('restartStopwatch')}
+                    </button>
+                  )}
                 </div>
                 {!stopwatch.running && (
                   <button
@@ -805,7 +824,8 @@ function MetricInput({
 const formatTime = (seconds: number) =>
   `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
 const formatStopwatch = (seconds: number) => {
-  const wholeMinutes = Math.floor(seconds / 60);
-  const remaining = seconds - wholeMinutes * 60;
-  return `${String(wholeMinutes).padStart(2, '0')}:${remaining.toFixed(1).padStart(4, '0')}`;
+  const wholeSeconds = Math.max(0, Math.floor(seconds));
+  const wholeMinutes = Math.floor(wholeSeconds / 60);
+  const remaining = wholeSeconds % 60;
+  return `${String(wholeMinutes).padStart(2, '0')}:${String(remaining).padStart(2, '0')}`;
 };
