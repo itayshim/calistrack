@@ -1,0 +1,192 @@
+export interface PushErrorLike {
+  name?: string;
+  message?: string;
+  statusCode?: number;
+  status?: number;
+  statusMessage?: string;
+  statusText?: string;
+  body?: unknown;
+  headers?: unknown;
+}
+
+export type DeliveryDisposition = 'sent' | 'expired' | 'retrying' | 'failed';
+
+export interface DeliveryClassification {
+  disposition: DeliveryDisposition;
+  statusCode: number | null;
+  code: string;
+  reason: string;
+  retryable: boolean;
+}
+
+const MAX_DIAGNOSTIC_LENGTH = 300;
+const SECRET_FIELD_PATTERN =
+  /("(?:auth|p256dh|authorization|private[_-]?key|endpoint)"\s*:\s*)"[^"]*"/gi;
+
+export const sanitizeDiagnostic = (value: unknown): string => {
+  let text =
+    typeof value === 'string'
+      ? value
+      : value == null
+        ? ''
+        : (() => {
+            try {
+              return JSON.stringify(value);
+            } catch {
+              return String(value);
+            }
+          })();
+  text = text
+    .replace(SECRET_FIELD_PATTERN, '$1"[redacted]"')
+    .replace(/https?:\/\/[^\s"',}]+/gi, '[redacted-url]')
+    .replace(/Bearer\s+[A-Za-z0-9._~-]+/gi, 'Bearer [redacted]')
+    .replace(/[A-Za-z0-9_-]{32,}/g, '[redacted-token]')
+    .replace(/[\r\n\t]+/g, ' ')
+    .trim();
+  return text.slice(0, MAX_DIAGNOSTIC_LENGTH);
+};
+
+export const endpointHost = (endpoint: unknown): string => {
+  if (typeof endpoint !== 'string') return 'invalid';
+  try {
+    return new URL(endpoint).hostname;
+  } catch {
+    return 'invalid';
+  }
+};
+
+export const readPushError = (error: unknown): PushErrorLike => {
+  if (!error || typeof error !== 'object') {
+    return { name: 'Error', message: sanitizeDiagnostic(error) };
+  }
+  const candidate = error as PushErrorLike;
+  return {
+    name: sanitizeDiagnostic(candidate.name || 'Error'),
+    message: sanitizeDiagnostic(candidate.message || 'Push delivery failed'),
+    statusCode:
+      typeof candidate.statusCode === 'number'
+        ? candidate.statusCode
+        : typeof candidate.status === 'number'
+          ? candidate.status
+          : undefined,
+    body: sanitizeDiagnostic(candidate.body),
+    statusMessage: sanitizeDiagnostic(candidate.statusMessage || candidate.statusText),
+    headers: undefined,
+  };
+};
+
+export const classifyPushResult = (
+  error: unknown,
+  responseStatus?: number,
+): DeliveryClassification => {
+  const parsed = readPushError(error);
+  const statusCode = responseStatus ?? parsed.statusCode ?? null;
+  const reason = sanitizeDiagnostic(parsed.body || parsed.message || 'Push delivery failed');
+  if (statusCode === 201 || statusCode === 202) {
+    return { disposition: 'sent', statusCode, code: 'delivered', reason: '', retryable: false };
+  }
+  if (statusCode === 404 || statusCode === 410) {
+    return {
+      disposition: 'expired',
+      statusCode,
+      code: 'subscription_expired',
+      reason,
+      retryable: false,
+    };
+  }
+  if (statusCode === 429) {
+    return { disposition: 'retrying', statusCode, code: 'rate_limited', reason, retryable: true };
+  }
+  if (statusCode !== null && statusCode >= 500) {
+    return {
+      disposition: 'retrying',
+      statusCode,
+      code: 'push_service_unavailable',
+      reason,
+      retryable: true,
+    };
+  }
+  if (statusCode === 401 || statusCode === 403) {
+    return {
+      disposition: 'failed',
+      statusCode,
+      code: 'vapid_authentication_failed',
+      reason,
+      retryable: false,
+    };
+  }
+  return {
+    disposition: 'failed',
+    statusCode,
+    code: 'malformed_subscription_or_encryption',
+    reason,
+    retryable: false,
+  };
+};
+
+export interface VapidValidation {
+  valid: boolean;
+  publicKeyValid: boolean;
+  privateKeyValid: boolean;
+  subjectValid: boolean;
+  publicKeyLength: number;
+  privateKeyLength: number;
+}
+
+const decodeBase64Url = (value: string) => {
+  if (!/^[A-Za-z0-9_-]+$/.test(value)) return null;
+  try {
+    const padded = `${value}${'='.repeat((4 - (value.length % 4)) % 4)}`
+      .replace(/-/g, '+')
+      .replace(/_/g, '/');
+    return Uint8Array.from(atob(padded), (character) => character.charCodeAt(0));
+  } catch {
+    return null;
+  }
+};
+
+export const validateVapidConfiguration = (
+  publicKey: string,
+  privateKey: string,
+  subject: string,
+): VapidValidation => {
+  const decodedPublicKey = decodeBase64Url(publicKey);
+  const decodedPrivateKey = decodeBase64Url(privateKey);
+  const publicKeyValid =
+    decodedPublicKey?.length === 65 && decodedPublicKey[0] === 4;
+  const privateKeyValid = decodedPrivateKey?.length === 32;
+  const subjectValid =
+    /^mailto:[^\s<>"']+@[^\s<>"']+$/.test(subject) ||
+    /^https:\/\/[^\s<>"']+$/.test(subject);
+  return {
+    valid: publicKeyValid && privateKeyValid && subjectValid,
+    publicKeyValid,
+    privateKeyValid,
+    subjectValid,
+    publicKeyLength: publicKey.length,
+    privateKeyLength: privateKey.length,
+  };
+};
+
+export const retryDelaySeconds = (attemptCount: number) =>
+  Math.min(15 * 60, 30 * 2 ** Math.max(0, attemptCount - 1));
+
+export const planFailedDelivery = (
+  classification: DeliveryClassification,
+  attemptCount: number,
+  maxAttempts = 5,
+) => {
+  const exhausted = classification.retryable && attemptCount >= maxAttempts;
+  return {
+    finalStatus:
+      classification.disposition === 'retrying' && !exhausted
+        ? ('retrying' as const)
+        : ('failed' as const),
+    errorCode: exhausted ? 'retry_exhausted' : classification.code,
+    disableSubscription: classification.disposition === 'expired',
+    retryAfterSeconds:
+      classification.disposition === 'retrying' && !exhausted
+        ? retryDelaySeconds(attemptCount)
+        : null,
+  };
+};
