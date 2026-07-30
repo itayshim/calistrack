@@ -73,13 +73,37 @@ export function WorkoutPage() {
     const completionId = timer.id;
     const finishCountdown = () => {
       if (!completeExerciseCountdown(completionId)) return;
-      const durationSeconds = useAppStore.getState().exerciseStopwatch.adjustedSeconds ?? 0;
-      setDrafts((current) => {
-        const exerciseId = useAppStore.getState().exerciseStopwatch.sessionExerciseId;
-        if (!exerciseId) return current;
-        const existing = current[exerciseId] ?? { reps: '', duration: '', addedWeight: '' };
-        return { ...current, [exerciseId]: { ...existing, duration: String(durationSeconds) } };
-      });
+      const currentState = useAppStore.getState();
+      const completedTimer = currentState.exerciseStopwatch;
+      const durationSeconds = completedTimer.targetSeconds ?? completedTimer.adjustedSeconds ?? 0;
+      const exerciseIndex = currentState.activeWorkout?.exercises.findIndex(
+        (item) => item.id === completedTimer.sessionExerciseId,
+      ) ?? -1;
+      const completed = exerciseIndex >= 0 &&
+        currentState.completeSet(exerciseIndex, { durationSeconds });
+      if (completed) {
+        setDrafts((current) => {
+          if (!completedTimer.sessionExerciseId) return current;
+          return {
+            ...current,
+            [completedTimer.sessionExerciseId]: { reps: '', duration: '', addedWeight: '' },
+          };
+        });
+        useAppStore.getState().resetExerciseStopwatch();
+      } else {
+        setDrafts((current) => {
+          if (!completedTimer.sessionExerciseId) return current;
+          const existing = current[completedTimer.sessionExerciseId] ??
+            { reps: '', duration: '', addedWeight: '' };
+          return {
+            ...current,
+            [completedTimer.sessionExerciseId]: {
+              ...existing,
+              duration: String(durationSeconds),
+            },
+          };
+        });
+      }
       const currentSettings = useAppStore.getState().settings;
       void timerCueService.playRoundCompletion(
         currentSettings.restCompletionSound !== 'silent',

@@ -39,7 +39,7 @@ interface Store extends AppData {
   deleteProgram: (id: string) => void;
   adoptBeginner: () => void;
   startWorkout: (t: WorkoutTemplate) => boolean;
-  completeSet: (exerciseIndex: number, value: WorkoutSetInput | number) => void;
+  completeSet: (exerciseIndex: number, value: WorkoutSetInput | number) => boolean;
   addExtraSet: (exerciseIndex: number) => void;
   editSet: (exerciseIndex: number, setId: string, value: WorkoutSetInput | number) => void;
   deleteSet: (exerciseIndex: number, setId: string) => void;
@@ -251,11 +251,11 @@ export const useAppStore = create<Store>((set, get) => ({
     const restActive =
       (currentTimer.pausedRemaining !== null && currentTimer.pausedRemaining > 0) ||
       (currentTimer.endsAt !== null && currentTimer.endsAt > Date.now());
-    if (restActive) return;
+    if (restActive) return false;
     const a = structuredClone(get().activeWorkout);
-    if (!a) return;
+    if (!a) return false;
     const ex = a.exercises[i];
-    if (!ex || ex.skipped) return;
+    if (!ex || ex.skipped) return false;
     const measurementType = normalizeMeasurementType(
       ex.measurementType ??
         ex.target?.measurementType ??
@@ -264,11 +264,11 @@ export const useAppStore = create<Store>((set, get) => ({
     const input = normalizeSetInput(value, measurementType);
     if (!isValidSetInput(input, measurementType, ex.target?.minimumAddedWeightKg)) {
       set({ toast: localized(get().settings.language, 'invalidSetValue') });
-      return;
+      return false;
     }
     const planned = ex.target?.targetSets ?? 0;
     const allowed = planned + (ex.extraSetCount ?? 0);
-    if (ex.sets.filter((item) => item.completed).length >= allowed) return;
+    if (ex.sets.filter((item) => item.completed).length >= allowed) return false;
     ex.sets.push({
       id: createId(),
       setNumber: ex.sets.length + 1,
@@ -285,7 +285,7 @@ export const useAppStore = create<Store>((set, get) => ({
       else a.currentExerciseIndex = i + 1;
     }
     const duration = ex.target?.restSeconds ?? get().settings.defaultRestSeconds;
-    const shouldRest = !completedAllowedSets;
+    const shouldRest = !completedAllowedSets && duration > 0;
     set({
       activeWorkout: a,
       restTimer: shouldRest
@@ -294,6 +294,7 @@ export const useAppStore = create<Store>((set, get) => ({
       toast: localized(get().settings.language, completedAllowedSets ? 'exerciseCompleted' : 'setCompleted'),
     });
     get().persist();
+    return true;
   },
   addExtraSet: (i) => {
     const a = structuredClone(get().activeWorkout);

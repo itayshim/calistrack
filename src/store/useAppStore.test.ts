@@ -218,6 +218,24 @@ describe('workout flow', () => {
     expect(useAppStore.getState().activeWorkout?.exercises[0].sets[0]).not.toHaveProperty('reps');
     expect(useAppStore.getState().restTimer.endsAt).toBeGreaterThan(Date.now());
   });
+  it('uses canonical no-rest progression when configured rest is zero', () => {
+    const durationTemplate: WorkoutTemplate = {
+      ...t,
+      exercises: [{
+        ...t.exercises[0],
+        exerciseId: 'builtin-plank',
+        measurementType: 'duration',
+        targetMin: 30,
+        targetMax: 30,
+        restSeconds: 0,
+      }],
+    };
+    useAppStore.getState().startWorkout(durationTemplate);
+    expect(useAppStore.getState().completeSet(0, { durationSeconds: 30 })).toBe(true);
+    expect(useAppStore.getState().activeWorkout?.exercises[0].sets[0].durationSeconds).toBe(30);
+    expect(useAppStore.getState().restTimer).toMatchObject({ id: null, endsAt: null });
+    expect(useAppStore.getState().activeWorkout?.currentExerciseIndex).toBe(0);
+  });
   it('logs half weighted repetitions and decimal added weight independently', () => {
     const weightedTemplate: WorkoutTemplate = {
       ...t,

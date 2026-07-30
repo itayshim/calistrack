@@ -204,15 +204,16 @@ describe('active workout previous performance and replacement UX', () => {
     });
     expect(play).toHaveBeenCalledOnce();
     expect(within(stopwatchPanel).getByText('00:00')).toBeInTheDocument();
-    expect(screen.getByLabelText(/Hold time/)).toHaveValue(30);
-    expect(within(stopwatchPanel).getByText(/Target reached/)).toHaveTextContent(
-      'Target reached — 30 seconds recorded',
-    );
-    expect(useAppStore.getState().activeWorkout?.exercises[0].sets).toHaveLength(0);
+    expect(screen.getAllByLabelText('Hold time')[0]).toHaveValue(30);
+    expect(useAppStore.getState().activeWorkout?.exercises[0].sets).toHaveLength(1);
+    const restId = useAppStore.getState().restTimer.id;
+    expect(useAppStore.getState().restTimer.duration).toBe(60);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(2_000);
     });
     expect(play).toHaveBeenCalledOnce();
+    expect(useAppStore.getState().activeWorkout?.exercises[0].sets).toHaveLength(1);
+    expect(useAppStore.getState().restTimer.id).toBe(restId);
     now.mockRestore();
     vi.useRealTimers();
   });
@@ -261,15 +262,18 @@ describe('active workout previous performance and replacement UX', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(33_000);
     });
-    const durationInput = screen.getByLabelText(/Hold time/);
+    const durationInput = screen.getAllByLabelText('Hold time')[0];
     expect(durationInput).toHaveValue(30);
+    const restId = useAppStore.getState().restTimer.id;
+    const playCount = vi.mocked(timerCueService.playRoundCompletion).mock.calls.length;
     fireEvent.change(durationInput, { target: { value: '27' } });
     await act(async () => {
       await vi.advanceTimersByTimeAsync(2_000);
     });
     expect(durationInput).toHaveValue(27);
-    fireEvent.click(completeButton);
     expect(useAppStore.getState().activeWorkout?.exercises[0].sets[0].durationSeconds).toBe(27);
+    expect(useAppStore.getState().restTimer.id).toBe(restId);
+    expect(timerCueService.playRoundCompletion).toHaveBeenCalledTimes(playCount);
   });
 
   it('rejects unsupported rep precision with localized feedback', async () => {
