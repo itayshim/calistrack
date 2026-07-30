@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   classifyPushResult,
+  canForegroundHandleStatus,
   endpointHost,
   MalformedSubscriptionError,
   normalizePushSubscription,
@@ -11,6 +12,13 @@ import {
 } from './restPushDiagnostics';
 
 describe('rest push delivery diagnostics', () => {
+  it('allows foreground handling only before dispatch atomically claims delivery', () => {
+    expect(canForegroundHandleStatus('scheduled')).toBe(true);
+    expect(canForegroundHandleStatus('retrying')).toBe(true);
+    expect(canForegroundHandleStatus('sending')).toBe(false);
+    expect(canForegroundHandleStatus('sent')).toBe(false);
+    expect(canForegroundHandleStatus('foreground_handled')).toBe(false);
+  });
   it('accepts canonical PushSubscriptionJSON and preserves nested keys', () => {
     const value = {
       endpoint: 'https://push.example/device',

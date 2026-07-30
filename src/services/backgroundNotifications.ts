@@ -35,6 +35,10 @@ interface RegistrationStatusResponse {
   registered: boolean;
 }
 
+interface ForegroundHandledResponse {
+  handled: boolean;
+}
+
 export const buildRestNotificationRequest = (
   timer: RestTimerState,
   workoutId: string | undefined,
@@ -261,17 +265,42 @@ export class BackgroundNotificationService {
     });
   }
 
-  async markHandled(completionId: string) {
+  async cancel(
+    completionId: string,
+    reason: 'rest_paused' | 'rest_cancelled',
+  ) {
     if (!supabaseConfigured) return;
     await supabasePublicFunctionRequest('rest-notification-schedule', {
-      action: 'handled',
+      action: 'cancel',
       deviceToken: getDeviceToken(),
       completionId,
+      reason,
     }).catch(() => undefined);
-    navigator.serviceWorker?.controller?.postMessage({
-      type: 'REST_COMPLETION_HANDLED',
-      completionId,
-    });
+  }
+
+  async markForegroundCompletionHandled(input: {
+    completionId: string;
+    handledAt: string;
+    clientId: string;
+    visibilityState: 'visible';
+    hasFocus: true;
+  }) {
+    if (!supabaseConfigured) return false;
+    const result = await supabasePublicFunctionRequest<ForegroundHandledResponse>(
+      'rest-notification-schedule',
+      {
+      action: 'foreground_handled',
+      deviceToken: getDeviceToken(),
+      ...input,
+      },
+    ).catch(() => ({ handled: false }));
+    if (result.handled) {
+      navigator.serviceWorker?.controller?.postMessage({
+        type: 'REST_COMPLETION_HANDLED',
+        completionId: input.completionId,
+      });
+    }
+    return result.handled;
   }
 }
 

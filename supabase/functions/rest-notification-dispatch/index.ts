@@ -36,6 +36,19 @@ const json = (body: unknown, status = 200) =>
     headers: { 'Cache-Control': 'no-store' },
   });
 
+const logTransition = (input: {
+  notificationId: string;
+  completionId: string;
+  previousStatus: string;
+  nextStatus: string;
+  reason: string;
+}) => console.log(JSON.stringify({
+  event: 'rest_notification_transition',
+  ...input,
+  source: 'dispatch-function',
+  timestamp: new Date().toISOString(),
+}));
+
 Deno.serve(async (request) => {
   const cronSecret = Deno.env.get('REST_NOTIFICATION_CRON_SECRET');
   if (!cronSecret || request.headers.get('Authorization') !== `Bearer ${cronSecret}`) {
@@ -71,7 +84,7 @@ Deno.serve(async (request) => {
     const { data: due, error } = await client
       .from('scheduled_rest_notifications')
       .select(
-        'id, subscription_id, completion_id, workout_id, language, attempt_count, push_subscriptions!inner(subscription, enabled)',
+        'id, subscription_id, completion_id, workout_id, language, status, attempt_count, push_subscriptions!inner(subscription, enabled)',
       )
       .in('status', ['scheduled', 'retrying'])
       .eq('push_subscriptions.enabled', true)
@@ -104,6 +117,9 @@ Deno.serve(async (request) => {
           attempt_count: attemptCount,
           last_attempt_at: attemptTimestamp,
           next_attempt_at: null,
+          last_transition_reason: 'dispatch_claimed',
+          last_transition_source: 'dispatch-function',
+          last_transition_at: attemptTimestamp,
           updated_at: attemptTimestamp,
         })
         .eq('id', item.id)
@@ -113,6 +129,13 @@ Deno.serve(async (request) => {
       if (claimError) throw claimError;
       if (!claimed) continue;
       processed += 1;
+      logTransition({
+        notificationId: item.id,
+        completionId: item.completion_id,
+        previousStatus: item.status,
+        nextStatus: 'sending',
+        reason: 'dispatch_claimed',
+      });
 
       const he = item.language === 'he';
       const payload = JSON.stringify({
@@ -158,11 +181,21 @@ Deno.serve(async (request) => {
             last_error_code: null,
             last_error_message: null,
             next_attempt_at: null,
+            last_transition_reason: 'push_service_accepted',
+            last_transition_source: 'dispatch-function',
+            last_transition_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           })
           .eq('id', item.id);
         if (updateError) throw updateError;
         sent += 1;
+        logTransition({
+          notificationId: item.id,
+          completionId: item.completion_id,
+          previousStatus: 'sending',
+          nextStatus: 'sent',
+          reason: 'push_service_accepted',
+        });
         console.log(JSON.stringify({
           event: 'rest_push_delivery',
           notificationId: item.id,
@@ -212,6 +245,9 @@ Deno.serve(async (request) => {
             last_error_code: errorCode,
             last_error_message: reason || sanitizeDiagnostic(parsed.message),
             next_attempt_at: nextAttemptAt,
+            last_transition_reason: errorCode,
+            last_transition_source: 'dispatch-function',
+            last_transition_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           })
           .eq('id', item.id);
@@ -219,6 +255,13 @@ Deno.serve(async (request) => {
 
         if (finalStatus === 'retrying') retrying += 1;
         else failed += 1;
+        logTransition({
+          notificationId: item.id,
+          completionId: item.completion_id,
+          previousStatus: 'sending',
+          nextStatus: finalStatus,
+          reason: errorCode,
+        });
         failures.push({
           notificationId: item.id,
           statusCode: classified.statusCode,

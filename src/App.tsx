@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useRef } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { Toast } from './components/Toast';
 import { PwaUpdatePrompt } from './components/PwaUpdatePrompt';
@@ -9,6 +9,8 @@ import { AdminGuard } from './features/admin/AdminGuard';
 import { translations } from './locales/translations';
 import { restAlertService } from './services/restAlert';
 import { backgroundNotificationService } from './services/backgroundNotifications';
+import { canHandleForegroundCompletion } from './services/foregroundCompletion';
+const notificationClientId = crypto.randomUUID();
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((module) => ({ default: module.DashboardPage })));
 const ExerciseDetailPage = lazy(() => import('./pages/ExerciseDetailPage').then((module) => ({ default: module.ExerciseDetailPage })));
 const ExercisesPage = lazy(() => import('./pages/ExercisesPage').then((module) => ({ default: module.ExercisesPage })));
@@ -32,6 +34,8 @@ export default function App() {
     settings = useAppStore((s) => s.settings),
     completeRestTimer = useAppStore((s) => s.completeRestTimer);
   const setSharedExercises = useAppStore((s) => s.setSharedExercises);
+  const naturallyCompletedRestIds = useRef(new Set<string>());
+  const previousRestTimer = useRef({ id: null as string | null, endsAt: null as number | null });
   useEffect(() => {
     hydrate();
   }, [hydrate]);
@@ -45,12 +49,43 @@ export default function App() {
   useEffect(() => {
     if (!timer.endsAt || !timer.id) return;
     const completionId = timer.id;
-    const finish = () => {
-      if (!completeRestTimer(completionId)) return;
-      const currentSettings = useAppStore.getState().settings;
-      if (currentSettings.backgroundTimerNotifications) {
-        void backgroundNotificationService.markHandled(completionId);
+    const endsAt = timer.endsAt;
+    let inactiveSince =
+      document.visibilityState !== 'visible' || !document.hasFocus() ? Date.now() : null;
+    let inactiveAtDeadline = endsAt <= Date.now();
+    const recordInactive = () => {
+      if (inactiveSince === null) inactiveSince = Date.now();
+    };
+    const recordActive = () => {
+      if (inactiveSince !== null && inactiveSince <= endsAt && Date.now() >= endsAt) {
+        inactiveAtDeadline = true;
       }
+      inactiveSince = null;
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible' && document.hasFocus()) recordActive();
+      else recordInactive();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('focus', recordActive);
+    window.addEventListener('blur', recordInactive);
+    const finish = () => {
+      const wasInactiveAtDeadline =
+        inactiveAtDeadline || (inactiveSince !== null && inactiveSince <= endsAt);
+      const foreground = canHandleForegroundCompletion({
+        expectedCompletionId: completionId,
+        activeCompletionId: useAppStore.getState().restTimer.id,
+        visibilityState: document.visibilityState,
+        hasFocus: document.hasFocus(),
+        inactiveAtDeadline: wasInactiveAtDeadline,
+      });
+      naturallyCompletedRestIds.current.add(completionId);
+      if (!completeRestTimer(completionId)) {
+        naturallyCompletedRestIds.current.delete(completionId);
+        return;
+      }
+      const currentSettings = useAppStore.getState().settings;
+      if (!foreground) return;
       useAppStore.getState().setToast(translations[currentSettings.language].restFinished);
       void restAlertService.play({
         soundId: currentSettings.restCompletionSound,
@@ -59,22 +94,52 @@ export default function App() {
       }).catch(() => {
         // The visual and live-region completion state remains available when audio is blocked.
       });
+      if (currentSettings.backgroundTimerNotifications) {
+        void backgroundNotificationService.markForegroundCompletionHandled({
+          completionId,
+          handledAt: new Date().toISOString(),
+          clientId: notificationClientId,
+          visibilityState: 'visible',
+          hasFocus: true,
+        });
+      }
     };
     const wait = timer.endsAt - Date.now();
     if (wait <= 0) {
       finish();
-      return;
+      return () => {
+        document.removeEventListener('visibilitychange', onVisibility);
+        window.removeEventListener('focus', recordActive);
+        window.removeEventListener('blur', recordInactive);
+      };
     }
     const id = setTimeout(finish, wait);
-    return () => clearTimeout(id);
+    return () => {
+      clearTimeout(id);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('focus', recordActive);
+      window.removeEventListener('blur', recordInactive);
+    };
   }, [completeRestTimer, timer.endsAt, timer.id]);
   useEffect(() => {
     if (!hydrated || !settings.backgroundTimerNotifications) return;
-    void backgroundNotificationService.sync(
-      timer,
-      useAppStore.getState().activeWorkout?.id,
-      settings.language,
-    );
+    const previous = previousRestTimer.current;
+    previousRestTimer.current = { id: timer.id, endsAt: timer.endsAt };
+    if (timer.id && timer.endsAt) {
+      void backgroundNotificationService.sync(
+        timer,
+        useAppStore.getState().activeWorkout?.id,
+        settings.language,
+      );
+      return;
+    }
+    if (previous.id && (timer.id === null || timer.id === previous.id)) {
+      if (naturallyCompletedRestIds.current.delete(previous.id)) return;
+      void backgroundNotificationService.cancel(
+        previous.id,
+        timer.id ? 'rest_paused' : 'rest_cancelled',
+      );
+    }
   }, [
     hydrated,
     settings.backgroundTimerNotifications,

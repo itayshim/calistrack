@@ -184,4 +184,41 @@ describe('background rest notification scheduling', () => {
       expect.objectContaining({ action: 'disable' }),
     );
   });
+
+  it('requires an explicit exact completion ID when cancelling a paused rest', async () => {
+    functionRequest.mockResolvedValue({ ok: true });
+    await new BackgroundNotificationService().cancel('rest-exact', 'rest_paused');
+    expect(functionRequest).toHaveBeenCalledWith(
+      'rest-notification-schedule',
+      expect.objectContaining({
+        action: 'cancel',
+        completionId: 'rest-exact',
+        reason: 'rest_paused',
+      }),
+    );
+  });
+
+  it('notifies the service worker only after an atomic foreground claim succeeds', async () => {
+    const postMessage = vi.fn();
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      value: { controller: { postMessage } },
+    });
+    functionRequest.mockResolvedValueOnce({ handled: false }).mockResolvedValueOnce({ handled: true });
+    const service = new BackgroundNotificationService();
+    const claim = {
+      completionId: 'rest-exact',
+      handledAt: new Date().toISOString(),
+      clientId: 'client-1',
+      visibilityState: 'visible' as const,
+      hasFocus: true as const,
+    };
+    await expect(service.markForegroundCompletionHandled(claim)).resolves.toBe(false);
+    expect(postMessage).not.toHaveBeenCalled();
+    await expect(service.markForegroundCompletionHandled(claim)).resolves.toBe(true);
+    expect(postMessage).toHaveBeenCalledWith({
+      type: 'REST_COMPLETION_HANDLED',
+      completionId: 'rest-exact',
+    });
+  });
 });

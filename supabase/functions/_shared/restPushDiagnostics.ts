@@ -267,3 +267,6 @@ export const planFailedDelivery = (
         : null,
   };
 };
+
+export const canForegroundHandleStatus = (status: string) =>
+  status === 'scheduled' || status === 'retrying';

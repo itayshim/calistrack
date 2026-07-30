@@ -13,14 +13,6 @@ self.addEventListener('push', (event) => {
       const payload = event.data?.json?.() ?? {};
       const completionId = payload.completionId;
       if (!completionId || handledRestCompletions.has(completionId)) return;
-      const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-      const visible = clients.some((client) => client.visibilityState === 'visible');
-      if (visible) {
-        clients.forEach((client) =>
-          client.postMessage({ type: 'REST_COMPLETION_PUSH_SUPPRESSED', completionId }),
-        );
-        return;
-      }
       await self.registration.showNotification(payload.title ?? 'Rest complete', {
         body: payload.body ?? 'Time for your next set.',
         icon: '/icons/icon-192.png',
