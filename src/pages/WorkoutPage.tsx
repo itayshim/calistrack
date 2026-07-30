@@ -218,6 +218,24 @@ export function WorkoutPage() {
       [sessionExercise.id]: { reps: '', duration: '', addedWeight: '' },
     }));
   };
+  const completeSetControl = canEnterSet ? (
+    <button
+      disabled={!validInput || restLocked}
+      onClick={complete}
+      className="btn-primary mt-4 min-h-16 w-full text-lg disabled:cursor-not-allowed disabled:opacity-40"
+    >
+      <Check size={23} strokeWidth={3} />
+      {restLocked ? <>{t('resting')} · <bdi>{remaining}</bdi></> : t('completeSet')}
+    </button>
+  ) : (
+    <div className="mt-4 rounded-3xl bg-emerald-500/10 p-4 text-center">
+      <p className="font-black text-emerald-300">{t('plannedSetsComplete')}</p>
+      <button className="btn-secondary mt-3 w-full" onClick={() => store.addExtraSet(i)}>
+        <Plus size={20} />
+        {t('addExtraSet')}
+      </button>
+    </div>
+  );
   return (
     <div className="mx-auto max-w-3xl pb-28 md:pb-0">
       <header className="mb-8">
@@ -433,6 +451,7 @@ export function WorkoutPage() {
               {t('repsHalfIncrement')}
             </p>
           )}
+          {measurementType === 'duration' && completeSetControl}
           {measurementType === 'duration' && (
             <>
               <section
@@ -457,7 +476,11 @@ export function WorkoutPage() {
                         ? stopwatchCountdown > 0
                           ? t('getReady')
                           : t('targetCountdownRunning')
-                        : t('targetReached')
+                        : <>
+                            {t('targetReachedRecordedPrefix')}{' '}
+                            <bdi>{stopwatch.targetSeconds ?? stopwatch.adjustedSeconds ?? 0}</bdi>{' '}
+                            {t('targetReachedRecordedSuffix')}
+                          </>
                       : stopwatchCountdown > 0
                         ? t('getReady')
                         : stopwatch.running
@@ -543,6 +566,8 @@ export function WorkoutPage() {
                     className="btn-secondary mt-2 w-full"
                     disabled={restLocked}
                     onClick={() => {
+                      const soundEnabled = store.settings.restCompletionSound !== 'silent';
+                      void timerCueService.unlock(soundEnabled);
                       store.startExerciseCountdown(
                         sessionExercise.id,
                         target?.targetMax ?? target?.targetMin ?? 20,
@@ -582,24 +607,7 @@ export function WorkoutPage() {
             </label>
           )}
         </div>
-        {canEnterSet ? (
-          <button
-            disabled={!validInput || restLocked}
-            onClick={complete}
-            className="btn-primary mt-4 min-h-16 w-full text-lg disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <Check size={23} strokeWidth={3} />
-            {restLocked ? <>{t('resting')} · <bdi>{remaining}</bdi></> : t('completeSet')}
-          </button>
-        ) : (
-          <div className="mt-4 rounded-3xl bg-emerald-500/10 p-4 text-center">
-            <p className="font-black text-emerald-300">{t('plannedSetsComplete')}</p>
-            <button className="btn-secondary mt-3 w-full" onClick={() => store.addExtraSet(i)}>
-              <Plus size={20} />
-              {t('addExtraSet')}
-            </button>
-          </div>
-        )}
+        {measurementType !== 'duration' && completeSetControl}
         {target?.notes && (
           <p className="mt-5 rounded-2xl bg-blue-500/10 p-4 text-sm font-semibold text-blue-200">
             {target.notes}

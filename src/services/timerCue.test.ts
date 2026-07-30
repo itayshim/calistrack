@@ -6,6 +6,7 @@ function contextHarness() {
     type: OscillatorType;
     frequency: { value: number };
     connect: ReturnType<typeof vi.fn>;
+    disconnect: ReturnType<typeof vi.fn>;
     start: ReturnType<typeof vi.fn>;
     stop: ReturnType<typeof vi.fn>;
     onended: ((event: Event) => void) | null;
@@ -18,6 +19,7 @@ function contextHarness() {
       exponentialRampToValueAtTime: ReturnType<typeof vi.fn>;
     };
     connect: ReturnType<typeof vi.fn>;
+    disconnect: ReturnType<typeof vi.fn>;
   }> = [];
   const context = {
     currentTime: 1,
@@ -33,6 +35,7 @@ function contextHarness() {
           exponentialRampToValueAtTime: vi.fn(),
         },
         connect: vi.fn(),
+        disconnect: vi.fn(),
         start: vi.fn(),
         stop: vi.fn(),
         onended: null as ((event: Event) => void) | null,
@@ -49,6 +52,7 @@ function contextHarness() {
           exponentialRampToValueAtTime: vi.fn(),
         },
         connect: vi.fn(),
+        disconnect: vi.fn(),
       };
       gains.push(gain);
       return gain;
@@ -76,7 +80,26 @@ describe('friendly target completion cue', () => {
       Number((oscillator.stop.mock.calls[0][0] - oscillator.start.mock.calls[0][0]).toFixed(2)),
     )).toEqual([0.15, 0.15, 0.62]);
     oscillators[2].onended?.(new Event('ended'));
-    expect(context.close).toHaveBeenCalledOnce();
+    expect(oscillators[2].disconnect).toHaveBeenCalledOnce();
+    expect(context.close).not.toHaveBeenCalled();
+  });
+
+  it('unlocks and silently primes one reusable context during the start gesture', async () => {
+    const { context, oscillators, gains } = contextHarness();
+    context.state = 'suspended';
+    context.resume.mockImplementation(async () => {
+      context.state = 'running';
+    });
+    const factory = vi.fn(() => context);
+    const service = new TimerCueService(factory);
+
+    await expect(service.unlock()).resolves.toBe(true);
+    expect(context.resume).toHaveBeenCalledOnce();
+    expect(oscillators).toHaveLength(1);
+    expect(gains[0].gain.value).toBe(0);
+    await service.playRoundCompletion();
+    expect(factory).toHaveBeenCalledOnce();
+    expect(oscillators).toHaveLength(4);
   });
 
   it('does not create audio when timer sounds are disabled', async () => {
@@ -85,16 +108,16 @@ describe('friendly target completion cue', () => {
     expect(factory).not.toHaveBeenCalled();
   });
 
-  it('closes the prior cue before scheduling another one', async () => {
+  it('cancels prior cue nodes before scheduling another cue on the same context', async () => {
     const first = contextHarness();
-    const second = contextHarness();
-    const factory = vi.fn()
-      .mockReturnValueOnce(first.context)
-      .mockReturnValueOnce(second.context);
+    const factory = vi.fn(() => first.context);
     const service = new TimerCueService(factory);
     await service.playRoundCompletion();
+    const priorOscillators = [...first.oscillators];
     await service.playRoundCompletion();
-    expect(first.context.close).toHaveBeenCalledOnce();
-    expect(second.oscillators).toHaveLength(3);
+    expect(priorOscillators.every((oscillator) => oscillator.disconnect.mock.calls.length > 0))
+      .toBe(true);
+    expect(first.oscillators).toHaveLength(6);
+    expect(factory).toHaveBeenCalledOnce();
   });
 });

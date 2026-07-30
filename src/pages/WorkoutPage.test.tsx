@@ -177,8 +177,10 @@ describe('active workout previous performance and replacement UX', () => {
     vi.useFakeTimers();
     const now = vi.spyOn(Date, 'now').mockReturnValue(10_000);
     const play = vi.spyOn(timerCueService, 'playRoundCompletion').mockResolvedValue();
+    const unlock = vi.spyOn(timerCueService, 'unlock').mockResolvedValue(true);
     renderWorkout('builtin-l-sit', 'duration');
     fireEvent.click(screen.getByRole('button', { name: 'Start target countdown' }));
+    expect(unlock).toHaveBeenCalledWith(true);
     expect(play).not.toHaveBeenCalled();
     const stopwatchPanel = screen.getByRole('region', { name: 'Hold stopwatch' });
     expect(within(stopwatchPanel).getByText('3')).toBeInTheDocument();
@@ -202,6 +204,10 @@ describe('active workout previous performance and replacement UX', () => {
     });
     expect(play).toHaveBeenCalledOnce();
     expect(within(stopwatchPanel).getByText('00:00')).toBeInTheDocument();
+    expect(screen.getByLabelText(/Hold time/)).toHaveValue(30);
+    expect(within(stopwatchPanel).getByText(/Target reached/)).toHaveTextContent(
+      'Target reached — 30 seconds recorded',
+    );
     expect(useAppStore.getState().activeWorkout?.exercises[0].sets).toHaveLength(0);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(2_000);
@@ -215,15 +221,19 @@ describe('active workout previous performance and replacement UX', () => {
     vi.useFakeTimers();
     const now = vi.spyOn(Date, 'now').mockReturnValue(10_000);
     const play = vi.spyOn(timerCueService, 'playRoundCompletion').mockResolvedValue();
+    const unlock = vi.spyOn(timerCueService, 'unlock').mockResolvedValue(false);
     renderWorkout('builtin-l-sit', 'duration');
-    useAppStore.setState((state) => ({
-      settings: {
-        ...state.settings,
-        timedExerciseStartCountdownSeconds: 0,
-        restCompletionSound: 'silent',
-      },
-    }));
+    act(() => {
+      useAppStore.setState((state) => ({
+        settings: {
+          ...state.settings,
+          timedExerciseStartCountdownSeconds: 0,
+          restCompletionSound: 'silent',
+        },
+      }));
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Start target countdown' }));
+    expect(unlock).toHaveBeenCalledWith(false);
     const stopwatchPanel = screen.getByRole('region', { name: 'Hold stopwatch' });
     expect(within(stopwatchPanel).getByText('00:30')).toBeInTheDocument();
     now.mockReturnValue(40_000);
@@ -231,6 +241,35 @@ describe('active workout previous performance and replacement UX', () => {
       await vi.advanceTimersByTimeAsync(30_000);
     });
     expect(play).toHaveBeenCalledWith(false);
+  });
+
+  it('places the single Complete set action above the stopwatch and saves target auto-fill edits', async () => {
+    vi.useFakeTimers();
+    const now = vi.spyOn(Date, 'now').mockReturnValue(10_000);
+    vi.spyOn(timerCueService, 'unlock').mockResolvedValue(true);
+    vi.spyOn(timerCueService, 'playRoundCompletion').mockResolvedValue();
+    renderWorkout('builtin-l-sit', 'duration');
+    const completeButton = screen.getByRole('button', { name: 'Complete set' });
+    const stopwatchPanel = screen.getByRole('region', { name: 'Hold stopwatch' });
+    expect(screen.getAllByRole('button', { name: 'Complete set' })).toHaveLength(1);
+    expect(
+      completeButton.compareDocumentPosition(stopwatchPanel) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start target countdown' }));
+    now.mockReturnValue(43_000);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(33_000);
+    });
+    const durationInput = screen.getByLabelText(/Hold time/);
+    expect(durationInput).toHaveValue(30);
+    fireEvent.change(durationInput, { target: { value: '27' } });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_000);
+    });
+    expect(durationInput).toHaveValue(27);
+    fireEvent.click(completeButton);
+    expect(useAppStore.getState().activeWorkout?.exercises[0].sets[0].durationSeconds).toBe(27);
   });
 
   it('rejects unsupported rep precision with localized feedback', async () => {

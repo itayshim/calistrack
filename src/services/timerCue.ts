@@ -9,6 +9,7 @@ interface OscillatorLike {
   type: OscillatorType;
   frequency: AudioParamLike;
   connect(destination: unknown): void;
+  disconnect(): void;
   start(when?: number): void;
   stop(when?: number): void;
   onended: ((event: Event) => void) | null;
@@ -17,6 +18,7 @@ interface OscillatorLike {
 interface GainLike {
   gain: AudioParamLike;
   connect(destination: unknown): void;
+  disconnect(): void;
 }
 
 interface AudioContextLike {
@@ -38,34 +40,90 @@ const defaultContextFactory: ContextFactory = () => {
   return new Context();
 };
 
+const diagnostic = (event: string, state: string, result?: string) => {
+  if (import.meta.env.DEV) {
+    console.debug('[timer-cue]', { event, contextState: state, result });
+  }
+};
+
 export class TimerCueService {
   private context: AudioContextLike | null = null;
+  private activeOscillators = new Set<OscillatorLike>();
   private generation = 0;
 
   constructor(private readonly createContext: ContextFactory = defaultContextFactory) {}
 
+  async unlock(enabled = true) {
+    if (!enabled) return false;
+    try {
+      const context = this.ensureContext();
+      if (context.state === 'suspended') await context.resume();
+      this.primeSilently(context);
+      diagnostic('audio_unlocked', context.state, 'ready');
+      return context.state === 'running';
+    } catch {
+      diagnostic('audio_unlock', this.context?.state ?? 'unavailable', 'rejected');
+      return false;
+    }
+  }
+
   async playRoundCompletion(enabled = true) {
-    this.stop();
+    this.cancelActiveCue();
     if (!enabled) return;
     const generation = this.generation;
-    let context: AudioContextLike | null = null;
     try {
-      context = this.createContext();
-      this.context = context;
+      const context = this.ensureContext();
+      diagnostic('cue_requested', context.state);
       if (context.state === 'suspended') await context.resume();
-      if (generation !== this.generation) return;
+      if (generation !== this.generation || context.state !== 'running') {
+        diagnostic('cue_completed', context.state, 'rejected');
+        return;
+      }
       const start = context.currentTime + 0.02;
       this.scheduleTone(context, start, 0.15, 440);
       this.scheduleTone(context, start + 0.27, 0.15, 494);
       this.scheduleTone(context, start + 0.54, 0.62, 523, true);
+      diagnostic('cue_completed', context.state, 'scheduled');
     } catch {
-      if (context) await this.release(context);
+      diagnostic('cue_completed', this.context?.state ?? 'unavailable', 'rejected');
     }
   }
 
   stop() {
-    this.generation += 1;
-    if (this.context) void this.release(this.context);
+    this.cancelActiveCue();
+  }
+
+  async dispose() {
+    this.cancelActiveCue();
+    const context = this.context;
+    this.context = null;
+    if (!context || context.state === 'closed') return;
+    try {
+      await context.close();
+    } catch {
+      // Audio cleanup is best-effort.
+    }
+  }
+
+  private ensureContext() {
+    if (!this.context || this.context.state === 'closed') {
+      this.context = this.createContext();
+    }
+    return this.context;
+  }
+
+  private primeSilently(context: AudioContextLike) {
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    gain.gain.value = 0;
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.onended = () => {
+      oscillator.disconnect();
+      gain.disconnect();
+    };
+    oscillator.start(context.currentTime);
+    oscillator.stop(context.currentTime + 0.001);
   }
 
   private scheduleTone(
@@ -73,31 +131,41 @@ export class TimerCueService {
     start: number,
     duration: number,
     frequency: number,
-    releaseAfter = false,
+    finalTone = false,
   ) {
     const oscillator = context.createOscillator();
     const gain = context.createGain();
     oscillator.type = 'sine';
     oscillator.frequency.value = frequency;
     gain.gain.setValueAtTime(0.0001, start);
-    gain.gain.linearRampToValueAtTime(0.18, start + 0.025);
-    gain.gain.setValueAtTime(0.18, start + Math.max(0.03, duration - 0.09));
+    gain.gain.linearRampToValueAtTime(0.28, start + 0.025);
+    gain.gain.setValueAtTime(0.28, start + Math.max(0.03, duration - 0.09));
     gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
     oscillator.connect(gain);
     gain.connect(context.destination);
-    if (releaseAfter) oscillator.onended = () => void this.release(context);
+    this.activeOscillators.add(oscillator);
+    oscillator.onended = () => {
+      this.activeOscillators.delete(oscillator);
+      oscillator.disconnect();
+      gain.disconnect();
+      if (finalTone) diagnostic('cue_nodes_released', context.state, 'complete');
+    };
     oscillator.start(start);
     oscillator.stop(start + duration);
   }
 
-  private async release(context: AudioContextLike) {
-    if (this.context === context) this.context = null;
-    if (context.state === 'closed') return;
-    try {
-      await context.close();
-    } catch {
-      // Short completion cues are best-effort on browsers with restricted audio.
+  private cancelActiveCue() {
+    this.generation += 1;
+    for (const oscillator of this.activeOscillators) {
+      oscillator.onended = null;
+      try {
+        oscillator.stop();
+        oscillator.disconnect();
+      } catch {
+        // The node may already have ended.
+      }
     }
+    this.activeOscillators.clear();
   }
 }
 
