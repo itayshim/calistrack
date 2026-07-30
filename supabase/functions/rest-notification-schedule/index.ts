@@ -44,9 +44,27 @@ Deno.serve(async (request) => {
     }
     const { data: subscription } = await client
       .from('push_subscriptions')
-      .select('id')
+      .select('id, enabled, subscription')
       .eq('device_token_hash', deviceTokenHash)
       .maybeSingle();
+    if (body.action === 'status') {
+      const provided = body.subscription;
+      const saved = subscription?.subscription as
+        | { endpoint?: string; p256dh?: string; auth?: string }
+        | undefined;
+      return json({
+        registered: Boolean(
+          subscription?.enabled &&
+            provided?.endpoint &&
+            provided.endpoint === saved?.endpoint &&
+            provided.p256dh === saved?.p256dh &&
+            provided.auth === saved?.auth,
+        ),
+      });
+    }
+    if (body.action === 'disable' && !subscription) {
+      return json({ ok: true });
+    }
     if (!subscription) return json({ code: 'subscription_not_found' }, 404);
     if (body.action === 'disable') {
       await client.from('push_subscriptions').update({ enabled: false }).eq('id', subscription.id);

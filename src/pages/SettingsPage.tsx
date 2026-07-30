@@ -1,5 +1,5 @@
 import { BellRing, CircleHelp, Download, Play, RotateCcw, ShieldCheck, Upload, Volume2 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { storageService } from '../services/storage';
@@ -13,15 +13,22 @@ import type { RestAlertRepeatCount, RestSoundId, UserSettings } from '../types';
 import {
   backgroundNotificationService,
   getPushSupport,
+  type PushRegistrationState,
 } from '../services/backgroundNotifications';
 export function SettingsPage() {
   const store = useAppStore(),
     [settings, setSettings] = useState(store.settings),
     [reset, setReset] = useState(false),
     [pending, setPending] = useState<ReturnType<typeof storageService.importData> | null>(null),
-    [notificationPermission, setNotificationPermission] = useState(
-      getPushSupport().permission,
-    ),
+    [notificationState, setNotificationState] = useState<PushRegistrationState>(() => {
+      const support = getPushSupport();
+      return {
+        status: support.supported ? 'permission-default' : 'unsupported',
+        permission: support.permission,
+        browserSubscription: false,
+        backendRegistration: false,
+      };
+    }),
     [customAdjustment, setCustomAdjustment] = useState(
       ![0, 2, 3, 5].includes(store.settings.timerReactionAdjustmentSeconds),
     ),
@@ -35,6 +42,16 @@ export function SettingsPage() {
     setSettings((current) => ({ ...current, ...patch }));
     store.setSettings(next);
   };
+  const reconcileNotifications = useCallback(async () => {
+    const reconciled = await backgroundNotificationService.reconcile();
+    setNotificationState(reconciled);
+    const enabled = reconciled.status === 'enabled';
+    if (useAppStore.getState().settings.backgroundTimerNotifications !== enabled) {
+      const next = { ...useAppStore.getState().settings, backgroundTimerNotifications: enabled };
+      setSettings((current) => ({ ...current, backgroundTimerNotifications: enabled }));
+      useAppStore.getState().setSettings(next);
+    }
+  }, []);
   const previewSound = async (soundId: RestSoundId) => {
     try {
       await restAlertService.preview(soundId);
@@ -45,6 +62,18 @@ export function SettingsPage() {
   useEffect(() => {
     document.documentElement.classList.toggle('dark', settings.theme === 'dark');
   }, [settings.theme]);
+  useEffect(() => {
+    queueMicrotask(() => void reconcileNotifications());
+    const onResume = () => {
+      if (document.visibilityState === 'visible') void reconcileNotifications();
+    };
+    window.addEventListener('focus', onResume);
+    document.addEventListener('visibilitychange', onResume);
+    return () => {
+      window.removeEventListener('focus', onResume);
+      document.removeEventListener('visibilitychange', onResume);
+    };
+  }, [reconcileNotifications]);
   const exportFile = () => {
     const blob = new Blob(
       [
@@ -192,38 +221,57 @@ export function SettingsPage() {
                   {t('backgroundTimerNotificationsDescription')}
                 </p>
                 <p className="mt-2 text-sm font-bold" role="status">
-                  {notificationPermission === 'granted'
+                  {notificationState.status === 'enabled'
                     ? t('notificationPermissionGranted')
-                    : notificationPermission === 'denied'
+                    : notificationState.status === 'permission-denied'
                       ? t('notificationPermissionDenied')
-                      : notificationPermission === 'unsupported'
+                      : notificationState.status === 'unsupported'
                         ? t('notificationPermissionUnsupported')
-                        : ''}
+                        : notificationState.status === 'device-unregistered'
+                          ? t('notificationDeviceNotRegistered')
+                          : notificationState.status === 'server-unregistered'
+                            ? t('notificationRegistrationFailed')
+                            : notificationState.status === 'error'
+                              ? t('notificationRegistrationFailed')
+                              : notificationState.status === 'enabling'
+                                ? t('notificationEnabling')
+                                : notificationState.status === 'disabling'
+                                  ? t('notificationDisabling')
+                                  : t('notificationsDisabled')}
                 </p>
                 <button
                   type="button"
                   className="btn-secondary mt-3 w-full sm:w-auto"
-                  disabled={notificationPermission === 'unsupported'}
+                  disabled={['unsupported', 'enabling', 'disabling'].includes(notificationState.status)}
                   onClick={async () => {
-                    try {
-                      if (settings.backgroundTimerNotifications) {
-                        await backgroundNotificationService.disable();
-                        applySettings({ backgroundTimerNotifications: false });
-                        return;
-                      }
-                      const permission = await backgroundNotificationService.enable();
-                      setNotificationPermission(permission);
-                      if (permission === 'granted') {
-                        applySettings({ backgroundTimerNotifications: true });
-                      }
-                    } catch {
+                    if (notificationState.status === 'enabled') {
+                      setNotificationState((current) => ({ ...current, status: 'disabling' }));
+                      const disabled = await backgroundNotificationService.disable();
+                      setNotificationState(disabled);
+                      applySettings({ backgroundTimerNotifications: false });
+                      return;
+                    }
+                    setNotificationState((current) => ({ ...current, status: 'enabling' }));
+                    const enabled = await backgroundNotificationService.enable();
+                    setNotificationState(enabled);
+                    applySettings({ backgroundTimerNotifications: enabled.status === 'enabled' });
+                    if (enabled.status === 'error' || enabled.status === 'server-unregistered') {
                       store.setToast(t('notificationSetupFailed'));
                     }
                   }}
                 >
-                  {settings.backgroundTimerNotifications
+                  {notificationState.status === 'enabled'
                     ? t('disableNotifications')
-                    : t('enableNotifications')}
+                    : notificationState.status === 'device-unregistered'
+                      ? t('registerThisDevice')
+                      : notificationState.status === 'error' ||
+                          notificationState.status === 'server-unregistered'
+                        ? t('tryAgain')
+                        : notificationState.status === 'enabling'
+                          ? t('notificationEnabling')
+                          : notificationState.status === 'disabling'
+                            ? t('notificationDisabling')
+                            : t('enableNotifications')}
                 </button>
               </div>
             </div>

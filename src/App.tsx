@@ -83,6 +83,27 @@ export default function App() {
   ]);
   useEffect(() => {
     if (!hydrated) return;
+    const reconcile = async () => {
+      const registration = await backgroundNotificationService.reconcile();
+      const enabled = registration.status === 'enabled';
+      const current = useAppStore.getState();
+      if (current.settings.backgroundTimerNotifications !== enabled) {
+        current.setSettings({ ...current.settings, backgroundTimerNotifications: enabled });
+      }
+    };
+    const onResume = () => {
+      if (document.visibilityState === 'visible') void reconcile();
+    };
+    void reconcile();
+    window.addEventListener('focus', onResume);
+    document.addEventListener('visibilitychange', onResume);
+    return () => {
+      window.removeEventListener('focus', onResume);
+      document.removeEventListener('visibilitychange', onResume);
+    };
+  }, [hydrated]);
+  useEffect(() => {
+    if (!hydrated) return;
     loadGlobalContent(useAppStore.getState().exercises).then(({ exercises, stale }) => {
       setSharedExercises(exercises);
       if (stale) useAppStore.getState().setToast(translations[settings.language].offlineContent);

@@ -8,6 +8,8 @@ import { STORAGE_KEY } from '../services/storage';
 import { useAppStore } from '../store/useAppStore';
 import { SettingsPage } from './SettingsPage';
 import { restAlertService } from '../services/restAlert';
+import { backgroundNotificationService } from '../services/backgroundNotifications';
+import { translations } from '../locales/translations';
 
 describe('numeric editing preference', () => {
   afterEach(cleanup);
@@ -78,5 +80,34 @@ describe('rest timer alert settings', () => {
     expect(useAppStore.getState().settings.restTimerVibration).toBe(false);
     expect(useAppStore.getState().settings.onboardingCompleted).toBe(true);
     expect(screen.getByText('זמינות הרטט תלויה במכשיר ובדפדפן.')).toBeInTheDocument();
+  });
+
+  it('does not label granted permission without a device subscription as enabled', async () => {
+    vi.spyOn(backgroundNotificationService, 'reconcile').mockResolvedValue({
+      status: 'device-unregistered',
+      permission: 'granted',
+      browserSubscription: false,
+      backendRegistration: false,
+    });
+    render(<MemoryRouter><I18nProvider><SettingsPage /></I18nProvider></MemoryRouter>);
+    expect(await screen.findByText('Permission granted — device not registered')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Register this device' })).toBeInTheDocument();
+    expect(screen.queryByText('Notifications are enabled')).not.toBeInTheDocument();
+  });
+
+  it('renders the accurate registration failure recovery state in Hebrew RTL', async () => {
+    vi.spyOn(backgroundNotificationService, 'reconcile').mockResolvedValue({
+      status: 'server-unregistered',
+      permission: 'granted',
+      browserSubscription: true,
+      backendRegistration: false,
+      errorCategory: 'registration',
+    });
+    useAppStore.setState({
+      settings: { ...useAppStore.getState().settings, language: 'he' },
+    });
+    render(<MemoryRouter><I18nProvider><SettingsPage /></I18nProvider></MemoryRouter>);
+    expect(await screen.findByText(translations.he.notificationRegistrationFailed)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: translations.he.tryAgain })).toBeInTheDocument();
   });
 });
