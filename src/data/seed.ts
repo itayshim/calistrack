@@ -58,7 +58,7 @@ export const beginnerProgram: Program = {
   ],
 };
 export const createInitialData = (): AppData => ({
-  schemaVersion: 10,
+  schemaVersion: 11,
   exercises: builtInExercises,
   programs: [],
   activeProgramId: null,
@@ -70,8 +70,8 @@ export const createInitialData = (): AppData => ({
     restAlertRepeatCount: 1,
     restTimerVibration: true,
     backgroundTimerNotifications: false,
-    timerReactionAdjustmentSeconds: 5,
-    timedExerciseStartCountdownSeconds: 0,
+    timerReactionAdjustmentSeconds: 2,
+    timedExerciseStartCountdownSeconds: 3,
     defaultRestSeconds: 75,
     theme: 'dark',
     language: 'en',

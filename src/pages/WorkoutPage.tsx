@@ -447,6 +447,15 @@ export function WorkoutPage() {
                       ? t('stopwatchRunning')
                       : t('manualEntryAvailable')}
                 </p>
+                {stopwatch.mode !== 'countdown' &&
+                  store.settings.timedExerciseStartCountdownSeconds > 0 &&
+                  !stopwatch.running && (
+                    <p className="mt-2 text-sm font-bold text-slate-500">
+                      {store.settings.timedExerciseStartCountdownSeconds === 3
+                        ? t('threeSecondStartCountdown')
+                        : t('fiveSecondStartCountdown')}
+                    </p>
+                  )}
                 {stopwatchForCurrent && stopwatch.measuredSeconds !== null && (
                   <div className="mt-3 rounded-2xl bg-slate-100 p-3 text-sm dark:bg-white/[.06]">
                     <p>
@@ -474,6 +483,7 @@ export function WorkoutPage() {
                     <button
                       type="button"
                       className="btn-primary"
+                      disabled={stopwatchCountdown > 0}
                       onClick={() => {
                         const result = store.stopExerciseStopwatch();
                         if (result) updateDraft({ duration: String(result.adjustedSeconds) });

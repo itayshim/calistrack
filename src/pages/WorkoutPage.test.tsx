@@ -115,16 +115,23 @@ describe('active workout previous performance and replacement UX', () => {
     expect('unlock' in restAlertService).toBe(false);
   });
 
-  it('stops a duration stopwatch, applies five seconds, and leaves the set incomplete', async () => {
+  it('excludes the countdown, applies two seconds, and preserves a manual duration override', async () => {
     const user = userEvent.setup();
     const now = vi.spyOn(Date, 'now').mockReturnValue(10_000);
     renderWorkout('builtin-l-sit', 'duration');
+    expect(screen.getByText('3-second start countdown')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Start timer' }));
+    expect(screen.getByRole('button', { name: 'Stop' })).toBeDisabled();
     now.mockReturnValue(27_000);
+    await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Stop' })).toBeEnabled());
     await user.click(screen.getByRole('button', { name: 'Stop' }));
     expect(screen.getByLabelText(/Hold time/)).toHaveValue(12);
     expect(screen.getByText(/Measured/)).toBeInTheDocument();
     expect(useAppStore.getState().activeWorkout?.exercises[0].sets).toHaveLength(0);
+    await user.clear(screen.getByLabelText(/Hold time/));
+    await user.type(screen.getByLabelText(/Hold time/), '30');
+    await user.click(screen.getByRole('button', { name: 'Complete set' }));
+    expect(useAppStore.getState().activeWorkout?.exercises[0].sets[0].durationSeconds).toBe(30);
     now.mockRestore();
   });
 

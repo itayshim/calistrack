@@ -42,6 +42,32 @@ describe('workout flow', () => {
     expect(useAppStore.getState().activeWorkout?.exercises[0].sets[0].reps).toBe(10);
     expect(useAppStore.getState().restTimer.endsAt).toBeGreaterThan(Date.now());
   });
+  it('uses a three-second countdown and two-second adjustment by default', () => {
+    expect(useAppStore.getState().settings).toMatchObject({
+      timedExerciseStartCountdownSeconds: 3,
+      timerReactionAdjustmentSeconds: 2,
+    });
+  });
+  it('starts measuring only after the countdown and subtracts exactly two seconds', () => {
+    const now = vi.spyOn(Date, 'now').mockReturnValue(10_000);
+    useAppStore.getState().startExerciseStopwatch('duration-exercise');
+    expect(useAppStore.getState().exerciseStopwatch.startedAt).toBe(13_000);
+
+    now.mockReturnValue(23_000);
+    expect(useAppStore.getState().stopExerciseStopwatch()).toEqual({
+      measuredSeconds: 10,
+      adjustedSeconds: 8,
+    });
+
+    now.mockReturnValue(30_000);
+    useAppStore.getState().startExerciseStopwatch('duration-exercise');
+    now.mockReturnValue(63_000);
+    expect(useAppStore.getState().stopExerciseStopwatch()).toEqual({
+      measuredSeconds: 30,
+      adjustedSeconds: 28,
+    });
+    now.mockRestore();
+  });
   it('persists one duration stopwatch and applies the configured reaction adjustment', () => {
     const now = vi.spyOn(Date, 'now');
     now.mockReturnValue(10_000);
@@ -50,7 +76,7 @@ describe('workout flow', () => {
     }));
     useAppStore.getState().startExerciseStopwatch('duration-exercise');
     expect(useAppStore.getState().exerciseStopwatch.running).toBe(true);
-    now.mockReturnValue(27_400);
+    now.mockReturnValue(30_400);
     expect(useAppStore.getState().stopExerciseStopwatch()).toEqual({
       measuredSeconds: 17,
       adjustedSeconds: 12,

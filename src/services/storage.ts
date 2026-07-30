@@ -9,7 +9,7 @@ const valid = (v: unknown): v is AppData => {
   if (!v || typeof v !== 'object') return false;
   const d = v as Partial<AppData>;
   return (
-    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].includes(d.schemaVersion ?? 0) &&
+    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].includes(d.schemaVersion ?? 0) &&
     Array.isArray(d.exercises) &&
     Array.isArray(d.programs) &&
     Array.isArray(d.workoutSessions) &&
@@ -74,6 +74,10 @@ export function normalizeExercise(exercise: Exercise): Exercise {
 
 export function migrateAppData(data: AppData): AppData {
   const wasExistingInstallation = data.schemaVersion < 8;
+  const usesPreviousUntouchedTimedDefaults =
+    data.schemaVersion <= 10 &&
+    data.settings.timerReactionAdjustmentSeconds === 5 &&
+    data.settings.timedExerciseStartCountdownSeconds === 0;
   const legacyRestTimerSound = data.settings.restTimerSound;
   const settingsWithoutLegacyToggle = { ...data.settings };
   delete settingsWithoutLegacyToggle.restTimerSound;
@@ -123,7 +127,7 @@ export function migrateAppData(data: AppData): AppData {
   });
   return {
     ...data,
-    schemaVersion: 10,
+    schemaVersion: 11,
     settings: {
       ...settingsWithoutLegacyToggle,
       language: data.settings.language ?? 'en',
@@ -138,15 +142,17 @@ export function migrateAppData(data: AppData): AppData {
         : 1,
       backgroundTimerNotifications: data.settings.backgroundTimerNotifications ?? false,
       timerReactionAdjustmentSeconds:
-        Number.isFinite(data.settings.timerReactionAdjustmentSeconds) &&
-        data.settings.timerReactionAdjustmentSeconds >= 0
-          ? data.settings.timerReactionAdjustmentSeconds
-          : 5,
-      timedExerciseStartCountdownSeconds: [0, 3, 5].includes(
-        data.settings.timedExerciseStartCountdownSeconds,
-      )
-        ? data.settings.timedExerciseStartCountdownSeconds
-        : 0,
+        usesPreviousUntouchedTimedDefaults
+          ? 2
+          : Number.isFinite(data.settings.timerReactionAdjustmentSeconds) &&
+              data.settings.timerReactionAdjustmentSeconds >= 0
+            ? data.settings.timerReactionAdjustmentSeconds
+            : 2,
+      timedExerciseStartCountdownSeconds: usesPreviousUntouchedTimedDefaults
+        ? 3
+        : [0, 3, 5].includes(data.settings.timedExerciseStartCountdownSeconds)
+          ? data.settings.timedExerciseStartCountdownSeconds
+          : 3,
       onboardingCompleted:
         wasExistingInstallation ? true : (data.settings.onboardingCompleted ?? false),
     },

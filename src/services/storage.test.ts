@@ -36,7 +36,7 @@ describe('storage', () => {
   it('rejects invalid imports', () => expect(() => service.importData('{"hello":1}')).toThrow());
   it('handles malformed local storage safely', () => {
     localStorage.setItem(STORAGE_KEY, 'broken');
-    expect(service.loadAppData().schemaVersion).toBe(10);
+    expect(service.loadAppData().schemaVersion).toBe(11);
   });
   it('migrates schema 1 exercises and preserves their IDs and saved data', () => {
     const current = createInitialData();
@@ -62,7 +62,7 @@ describe('storage', () => {
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(legacy));
     const migrated = service.loadAppData();
-    expect(migrated.schemaVersion).toBe(10);
+    expect(migrated.schemaVersion).toBe(11);
     expect(migrated.settings.onboardingCompleted).toBe(true);
     expect(migrated.settings.allowEmptyNumericFields).toBe(false);
     expect(migrated.settings.language).toBe('en');
@@ -79,6 +79,31 @@ describe('storage', () => {
     current.settings.onboardingCompleted = true;
     const imported = service.importData(service.exportData(current));
     expect(imported.settings.onboardingCompleted).toBe(true);
+  });
+  it('migrates the untouched previous timed-exercise defaults without resetting other settings', () => {
+    const data = createInitialData();
+    data.schemaVersion = 10;
+    data.settings.timerReactionAdjustmentSeconds = 5;
+    data.settings.timedExerciseStartCountdownSeconds = 0;
+    data.settings.weeklyWorkoutGoal = 6;
+
+    const migrated = service.importData(service.exportData(data));
+
+    expect(migrated.schemaVersion).toBe(11);
+    expect(migrated.settings.timerReactionAdjustmentSeconds).toBe(2);
+    expect(migrated.settings.timedExerciseStartCountdownSeconds).toBe(3);
+    expect(migrated.settings.weeklyWorkoutGoal).toBe(6);
+  });
+  it('preserves explicit timed-exercise customization during schema migration', () => {
+    const data = createInitialData();
+    data.schemaVersion = 10;
+    data.settings.timerReactionAdjustmentSeconds = 3;
+    data.settings.timedExerciseStartCountdownSeconds = 5;
+
+    const migrated = service.importData(service.exportData(data));
+
+    expect(migrated.settings.timerReactionAdjustmentSeconds).toBe(3);
+    expect(migrated.settings.timedExerciseStartCountdownSeconds).toBe(5);
   });
   it('migrates the legacy rest-sound toggle and preserves unrelated settings', () => {
     const enabled = createInitialData();
