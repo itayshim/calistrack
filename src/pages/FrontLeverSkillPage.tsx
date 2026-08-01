@@ -2,7 +2,7 @@ import { Check, History, LockKeyhole, Play, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useI18n } from '../hooks/useI18n';
 import { useAppStore } from '../store/useAppStore';
-import { createFrontLeverWorkout, frontLeverLevels } from '../features/skills/frontLever';
+import { createFrontLeverWorkout, frontLeverLevels, validateFrontLeverContent } from '../features/skills/frontLever';
 import { createId } from '../utils/id';
 import type { Program } from '../types';
 import { useState } from 'react';
@@ -14,8 +14,10 @@ export function FrontLeverSkillPage() {
   const [targetWorkoutId, setTargetWorkoutId] = useState('');
   const progress = store.skillProgress['front-lever'] ?? { activeLevelKey: 'tuck', unlockedLevelKeys: ['tuck'], masteredLevelKeys: [] };
   const active = frontLeverLevels.find((level) => level.key === progress.activeLevelKey) ?? frontLeverLevels[0];
+  const contentValidation = validateFrontLeverContent(store.exercises);
   const label = (en: string, he: string) => language === 'he' ? he : en;
   const start = (assessment = false) => {
+    if (!contentValidation.valid) { store.setToast(label('This skill is temporarily unavailable because its content needs administrator review.', 'המיומנות אינה זמינה זמנית מפני שהתוכן דורש בדיקת מנהל מערכת.')); return; }
     if (store.activeWorkout) { nav(`/workout/${store.activeWorkout.id}`); return; }
     const workout = assessment
       ? import('../features/skills/frontLever').then(({ createFrontLeverAssessment }) => createFrontLeverAssessment(active.key, store.exercises))
@@ -57,7 +59,8 @@ export function FrontLeverSkillPage() {
     </div>
     <section className="card mt-7 border-brand/50">
       <p className="label">{label('Active level', 'שלב פעיל')}</p><h2 className="mt-2 text-2xl font-black">{language === 'he' ? active.nameHe : active.nameEn}</h2>
-      <div className="mt-5 grid gap-3 sm:grid-cols-3"><button className="btn-primary" onClick={() => start(false)}><Play size={18}/>{label('Start skill workout', 'התחלת אימון מיומנות')}</button><button className="btn-secondary" onClick={() => start(true)}>{label(`Assessment · ${active.assessmentSeconds} sec`, `מבחן · ${active.assessmentSeconds} שניות`)}</button><button className="btn-secondary" onClick={addToProgram}><Plus size={18}/>{label('Add to program', 'הוספה לתוכנית')}</button></div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-3"><button className="btn-primary" disabled={!contentValidation.valid} onClick={() => start(false)}><Play size={18}/>{label('Start skill workout', 'התחלת אימון מיומנות')}</button><button className="btn-secondary" disabled={!contentValidation.valid} onClick={() => start(true)}>{label(`Assessment · ${active.assessmentSeconds} sec`, `מבחן · ${active.assessmentSeconds} שניות`)}</button><button className="btn-secondary" disabled={!contentValidation.valid} onClick={addToProgram}><Plus size={18}/>{label('Add to program', 'הוספה לתוכנית')}</button></div>
+      {!contentValidation.valid && <p role="alert" className="mt-3 text-sm font-bold text-red-500">{label('Skill content is unavailable pending administrator review.', 'תוכן המיומנות אינו זמין עד לבדיקת מנהל מערכת.')}</p>}
       {store.programs.some((program) => program.workouts.length) && <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto]"><label><span className="sr-only">{label('Existing workout', 'אימון קיים')}</span><select className="field" value={targetWorkoutId} onChange={(event) => setTargetWorkoutId(event.target.value)}><option value="">{label('Add as a skill section to…', 'הוספה כמקטע מיומנות אל…')}</option>{store.programs.flatMap((program) => program.workouts.map((workout) => <option value={workout.id} key={workout.id}>{program.name} · {workout.name}</option>))}</select></label><button className="btn-secondary" disabled={!targetWorkoutId} onClick={addToExistingWorkout}>{label('Add section', 'הוספת מקטע')}</button></div>}
       <p className="mt-3 text-xs text-slate-500">{label('Warm-up is optional and does not affect workout success. Work sets rest 90 seconds.', 'החימום אופציונלי ואינו משפיע על הצלחת האימון. מנוחה של 90 שניות בסטים העיקריים.')}</p>
     </section>

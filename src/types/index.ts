@@ -63,6 +63,19 @@ export interface SkillWorkoutLink {
   templateVersion: number;
   kind: 'workout' | 'assessment';
   linkState: 'linked' | 'detached';
+  preview?: boolean;
+}
+export interface SkillWarmupItem {
+  exerciseId: string;
+  stableKey: string;
+  guidanceEn: string;
+  guidanceHe: string;
+  status?: 'pending' | 'done' | 'skipped';
+}
+export interface SkillWarmupState {
+  status: 'pending' | 'in-progress' | 'completed' | 'skipped';
+  currentIndex: number;
+  items: SkillWarmupItem[];
 }
 export interface WorkoutTemplate {
   id: string;
@@ -73,6 +86,7 @@ export interface WorkoutTemplate {
   createdAt: string;
   updatedAt: string;
   skillLink?: SkillWorkoutLink;
+  skillWarmup?: SkillWarmupItem[];
 }
 export interface Program {
   id: string;
@@ -123,6 +137,7 @@ export interface WorkoutSession {
   skillLink?: SkillWorkoutLink;
   skillTechniqueRating?: 'good' | 'needs-work';
   skillSuccessful?: boolean;
+  skillWarmup?: SkillWarmupState;
 }
 export interface SkillAssessmentRecord {
   id: string;

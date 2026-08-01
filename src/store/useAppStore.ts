@@ -80,6 +80,10 @@ interface Store extends AppData {
   stopExerciseStopwatch: () => { measuredSeconds: number; adjustedSeconds: number } | null;
   completeExerciseCountdown: (id: string) => boolean;
   resetExerciseStopwatch: () => void;
+  startSkillWarmup: () => void;
+  skipSkillWarmup: () => void;
+  completeSkillWarmupItem: () => void;
+  skipSkillWarmupItem: () => void;
 }
 const initial = createInitialData();
 export const useAppStore = create<Store>((set, get) => ({
@@ -256,6 +260,7 @@ export const useAppStore = create<Store>((set, get) => ({
         })),
       completionReady: false,
       skillLink: t.skillLink,
+      skillWarmup: t.skillWarmup?.length ? { status: 'pending', currentIndex: 0, items: t.skillWarmup.map((item) => ({ ...item, status: 'pending' })) } : undefined,
     };
     set({ activeWorkout: s, restTimer: emptyTimer(), exerciseStopwatch: emptyStopwatch() });
     get().persist();
@@ -458,6 +463,11 @@ export const useAppStore = create<Store>((set, get) => ({
     });
     const skillSuccessful = !!a.skillLink && evaluateSkillSession(a, skillTechniqueRating ?? 'needs-work');
     a.skillSuccessful = skillSuccessful;
+    if (a.skillLink?.preview) {
+      set({ activeWorkout: null, restTimer: emptyTimer(), exerciseStopwatch: emptyStopwatch(), toast: localized(get().settings.language, 'workoutCompleted') });
+      get().persist();
+      return;
+    }
     set((s) => ({
       activeWorkout: null,
       workoutSessions: [a, ...s.workoutSessions],
@@ -645,6 +655,10 @@ export const useAppStore = create<Store>((set, get) => ({
     set({ exerciseStopwatch: emptyStopwatch() });
     get().persist();
   },
+  startSkillWarmup: () => updateWarmup(set, get, 'start'),
+  skipSkillWarmup: () => updateWarmup(set, get, 'skip-all'),
+  completeSkillWarmupItem: () => updateWarmup(set, get, 'done'),
+  skipSkillWarmupItem: () => updateWarmup(set, get, 'skip-item'),
 }));
 
 const emptyTimer = (): RestTimerState => ({ id: null, endsAt: null, duration: 0, pausedRemaining: null });
@@ -683,6 +697,30 @@ const replacementTarget = (
 };
 const localized = (language: 'en' | 'he', key: TranslationKey) =>
   translations[language][key] ?? translations.en[key];
+
+const updateWarmup = (
+  set: (partial: Partial<Store> | ((state: Store) => Partial<Store>)) => void,
+  get: () => Store,
+  action: 'start' | 'skip-all' | 'done' | 'skip-item',
+) => {
+  const activeWorkout = structuredClone(get().activeWorkout);
+  const warmup = activeWorkout?.skillWarmup;
+  if (!activeWorkout || !warmup || warmup.status === 'completed' || warmup.status === 'skipped') return;
+  if (action === 'start') warmup.status = 'in-progress';
+  else if (action === 'skip-all') {
+    warmup.status = 'skipped';
+    warmup.items = warmup.items.map((item) => ({ ...item, status: 'skipped' }));
+  } else {
+    const item = warmup.items[warmup.currentIndex];
+    if (!item) return;
+    item.status = action === 'done' ? 'done' : 'skipped';
+    const nextIndex = warmup.items.findIndex((candidate, index) => index > warmup.currentIndex && candidate.status === 'pending');
+    if (nextIndex < 0) warmup.status = 'completed';
+    else warmup.currentIndex = nextIndex;
+  }
+  set({ activeWorkout });
+  get().persist();
+};
 
 const sameSkillConfiguration = (a: WorkoutTemplate, b: WorkoutTemplate) =>
   JSON.stringify(a.exercises.map(skillExerciseSignature)) === JSON.stringify(b.exercises.map(skillExerciseSignature));

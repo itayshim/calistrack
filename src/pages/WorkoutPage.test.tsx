@@ -9,6 +9,7 @@ import type { MeasurementType, WorkoutSession, WorkoutSet } from '../types';
 import { WorkoutPage } from './WorkoutPage';
 import { restAlertService } from '../services/restAlert';
 import { timerCueService } from '../services/timerCue';
+import { createFrontLeverWorkout } from '../features/skills/frontLever';
 
 const active = (exerciseId: string, measurementType: MeasurementType): WorkoutSession => ({
   id: 'active',
@@ -372,5 +373,32 @@ describe('active workout previous performance and replacement UX', () => {
     renderWorkout('builtin-pull-up', 'reps', [], 'he');
     expect(screen.getByRole('button', { name: 'השתמש באימון הקודם' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'החלפת תרגיל' })).toBeInTheDocument();
+  });
+
+  it('runs warm-up as an optional non-recorded phase with Done instead of Complete Set', async () => {
+    const initial = createInitialData();
+    useAppStore.setState({ ...initial, hydrated: true });
+    useAppStore.getState().startWorkout(createFrontLeverWorkout('tuck', initial.exercises, true));
+    const user = userEvent.setup();
+    render(<MemoryRouter><I18nProvider><WorkoutPage /></I18nProvider></MemoryRouter>);
+    expect(screen.getByRole('button', { name: 'Start warm-up' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Start warm-up' }));
+    expect(screen.getByRole('button', { name: 'Done' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Complete Set' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Done' }));
+    expect(useAppStore.getState().restTimer.endsAt).toBeNull();
+    expect(useAppStore.getState().activeWorkout?.exercises[0].sets).toHaveLength(0);
+  });
+
+  it('skips the whole warm-up into the official first work exercise', async () => {
+    const initial = createInitialData();
+    useAppStore.setState({ ...initial, hydrated: true });
+    useAppStore.getState().startWorkout(createFrontLeverWorkout('tuck', initial.exercises, true));
+    const user = userEvent.setup();
+    render(<MemoryRouter><I18nProvider><WorkoutPage /></I18nProvider></MemoryRouter>);
+    await user.click(screen.getByRole('button', { name: 'Skip warm-up' }));
+    expect(await screen.findByRole('heading', { name: 'Tuck Front Lever' })).toBeInTheDocument();
+    expect(useAppStore.getState().activeWorkout?.skillWarmup?.status).toBe('skipped');
   });
 });

@@ -10,6 +10,7 @@ import { translations } from './locales/translations';
 import { restAlertService } from './services/restAlert';
 import { backgroundNotificationService } from './services/backgroundNotifications';
 import { canHandleForegroundCompletion } from './services/foregroundCompletion';
+import { validateFrontLeverContent } from './features/skills/frontLever';
 const notificationClientId = crypto.randomUUID();
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((module) => ({ default: module.DashboardPage })));
 const ExerciseDetailPage = lazy(() => import('./pages/ExerciseDetailPage').then((module) => ({ default: module.ExerciseDetailPage })));
@@ -29,6 +30,7 @@ const AdminLoginPage = lazy(() => import('./pages/admin/AdminLoginPage').then((m
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout').then((module) => ({ default: module.AdminLayout })));
 const AdminExercisesPage = lazy(() => import('./pages/admin/AdminExercisesPage').then((module) => ({ default: module.AdminExercisesPage })));
 const AdminExerciseEditorPage = lazy(() => import('./pages/admin/AdminExerciseEditorPage').then((module) => ({ default: module.AdminExerciseEditorPage })));
+const AdminSkillQaPage = lazy(() => import('./pages/admin/AdminSkillQaPage').then((module) => ({ default: module.AdminSkillQaPage })));
 export default function App() {
   const hydrate = useAppStore((s) => s.hydrate),
     hydrated = useAppStore((s) => s.hydrated),
@@ -173,6 +175,10 @@ export default function App() {
   useEffect(() => {
     if (!hydrated) return;
     loadGlobalContent(useAppStore.getState().exercises).then(({ exercises, stale }) => {
+      if (import.meta.env.DEV) {
+        const validation = validateFrontLeverContent(exercises);
+        if (!validation.valid) console.error('[skill-content-validation]', validation.blockingErrors.map(({ code, levelKey, exerciseKey }) => ({ code, levelKey, exerciseKey })));
+      }
       setSharedExercises(exercises);
       if (stale) useAppStore.getState().setToast(translations[settings.language].offlineContent);
     });
@@ -191,6 +197,9 @@ export default function App() {
             <Route path="exercises/new" element={<AdminExerciseEditorPage />} />
             <Route path="exercises/:exerciseId/edit" element={<AdminExerciseEditorPage />} />
             <Route path="media" element={<Navigate to="../exercises" replace />} />
+            <Route path="skills" element={<AdminSkillQaPage />} />
+            <Route path="skills/front-lever" element={<AdminSkillQaPage />} />
+            <Route path="skills/front-lever/test/:levelKey" element={<WorkoutPage />} />
           </Route>
         </Route>
         <Route element={<AppLayout />}>

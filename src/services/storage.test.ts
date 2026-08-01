@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createInitialData } from '../data/seed';
 import { builtInExercises } from '../data/exercises';
 import { LocalStorageService, STORAGE_KEY } from './storage';
+import { createFrontLeverWorkout } from '../features/skills/frontLever';
 describe('storage', () => {
   const service = new LocalStorageService();
   it('exports and imports valid data', () => {
@@ -79,6 +80,22 @@ describe('storage', () => {
     current.settings.onboardingCompleted = true;
     const imported = service.importData(service.exportData(current));
     expect(imported.settings.onboardingCompleted).toBe(true);
+  });
+  it('repairs old linked skill templates while preserving detached templates and history', () => {
+    const data = createInitialData();
+    const linked = createFrontLeverWorkout('tuck', data.exercises, false, 'program');
+    linked.skillLink = { ...linked.skillLink!, templateVersion: 1 };
+    linked.exercises[3].exerciseId = 'builtin-hanging-leg-raise';
+    const detached = structuredClone(linked);
+    detached.id = 'detached';
+    detached.skillLink!.linkState = 'detached';
+    data.programs = [{ id: 'program', name: 'Skill', createdAt: 'x', updatedAt: 'x', workouts: [linked, detached] }];
+    data.workoutSessions = [{ id: 'history', workoutName: 'Old skill', startedAt: '2026-01-01T00:00:00Z', completedAt: '2026-01-01T00:10:00Z', status: 'completed', currentExerciseIndex: 0, exercises: [{ id: 'old-exercise', exerciseId: 'builtin-hanging-leg-raise', sets: [{ id: 'set', setNumber: 1, reps: 10, completed: true }], skipped: false }] }];
+    const migrated = service.importData(service.exportData(data));
+    expect(migrated.programs[0].workouts[0].exercises[3].exerciseId).toBe('builtin-leg-raise');
+    expect(migrated.programs[0].workouts[0].skillLink?.templateVersion).toBe(2);
+    expect(migrated.programs[0].workouts[1].exercises[3].exerciseId).toBe('builtin-hanging-leg-raise');
+    expect(migrated.workoutSessions[0].exercises[0].exerciseId).toBe('builtin-hanging-leg-raise');
   });
   it('migrates the untouched previous timed-exercise defaults without resetting other settings', () => {
     const data = createInitialData();

@@ -47,6 +47,7 @@ const seeds: ExerciseSeed[] = [
   ]),
   ...family('Pull-Up', 'pull', [
     { name: 'Dead Hang', measurement: 'duration' },
+    { name: 'Active Bar Hang', measurement: 'duration' },
     'Scapular Pull-Up',
     'Negative Pull-Up',
     'Assisted Pull-Up',
@@ -150,6 +151,7 @@ const seeds: ExerciseSeed[] = [
     { name: 'L-Sit', measurement: 'duration', difficulty: 'advanced' },
   ]),
   ...family('Front Lever', 'skill', [
+    { name: 'Arch Active Hang', difficulty: 'intermediate' },
     { name: 'Tuck Front Lever', measurement: 'duration', difficulty: 'intermediate' },
     { name: 'Tuck Front Lever Raise', difficulty: 'intermediate' },
     { name: 'Advanced Tuck Front Lever', measurement: 'duration', difficulty: 'advanced' },
@@ -188,6 +190,10 @@ const seeds: ExerciseSeed[] = [
     { name: 'Human Flag', measurement: 'duration', difficulty: 'advanced' },
   ]),
   ...family('Warm-Up', 'mobility', [
+    'Jumping Jacks',
+    'Wrist Rolls',
+    'Elbow Circles',
+    'Arm Circles',
     { name: 'Wrist Warm-Up', measurement: 'duration' },
     'Shoulder Circles',
     'Scapular Circles',
@@ -236,6 +242,12 @@ const hebrewFamilies: Record<string, string> = {
   Balance: 'שיווי משקל',
 };
 const hebrewNames: Record<string, string> = {
+  'Jumping Jacks': 'קפיצות פיסוק',
+  'Wrist Rolls': 'סיבובי שורש כף היד',
+  'Elbow Circles': 'סיבובי מרפקים',
+  'Arm Circles': 'סיבובי זרועות',
+  'Arch Active Hang': 'תלייה אקטיבית בקשת',
+  'Active Bar Hang': 'תלייה אקטיבית על המוט',
   'Push-Up': 'שכיבות סמיכה',
   'Pull-Up': 'מתח',
   'Chin-Up': 'מתח באחיזה הפוכה',

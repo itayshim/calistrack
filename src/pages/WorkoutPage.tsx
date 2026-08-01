@@ -134,6 +134,9 @@ export function WorkoutPage() {
         </button>
       </div>
     );
+  if (active.skillWarmup && (active.skillWarmup.status === 'pending' || active.skillWarmup.status === 'in-progress')) {
+    return <SkillWarmupPhase active={active} onCancel={() => { store.cancelWorkout(); nav(active.skillLink?.preview ? '/admin/skills/front-lever' : '/skills/front-lever'); }} />;
+  }
   if (finish || active.completionReady)
     return (
       <WorkoutFinish
@@ -152,7 +155,7 @@ export function WorkoutPage() {
         }}
         onSave={() => {
           store.finishWorkout(notes, difficulty, feeling, active.skillLink ? skillTechnique : undefined);
-          nav(active.skillLink ? '/skills/front-lever/history' : '/history');
+          nav(active.skillLink?.preview ? '/admin/skills/front-lever' : active.skillLink ? '/skills/front-lever/history' : '/history');
         }}
       />
     );
@@ -275,6 +278,7 @@ export function WorkoutPage() {
             <X />
           </button>
           <div className="text-center">
+            {active.skillLink?.preview && <span className="mb-1 inline-flex rounded-full bg-amber-500/15 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-amber-500">{language === 'he' ? 'מצב בדיקה' : 'Test mode'}</span>}
             <p className="text-sm font-black">{active.workoutName}</p>
             <p className="mt-0.5 flex items-center justify-center gap-1 text-xs font-bold text-slate-500">
               <Clock3 size={13} />
@@ -724,11 +728,28 @@ export function WorkoutPage() {
         onClose={() => setCancel(false)}
         onConfirm={() => {
           store.cancelWorkout();
-          nav('/');
+          nav(active.skillLink?.preview ? '/admin/skills/front-lever' : '/');
         }}
       />
     </div>
   );
+}
+
+function SkillWarmupPhase({ active, onCancel }: { active: NonNullable<ReturnType<typeof useAppStore.getState>['activeWorkout']>; onCancel: () => void }) {
+  const { language } = useI18n();
+  const store = useAppStore();
+  const warmup = active.skillWarmup!;
+  const item = warmup.items[warmup.currentIndex];
+  const exercise = item ? store.exercises.find((candidate) => candidate.id === item.exerciseId) : undefined;
+  const label = (en: string, he: string) => language === 'he' ? he : en;
+  if (warmup.status === 'pending') return <div className="mx-auto max-w-xl py-8">
+    <button className="icon-button" aria-label={label('Cancel workout', 'ביטול אימון')} onClick={onCancel}><X /></button>
+    <div className="card mt-6 text-center"><p className="eyebrow">{label('Optional warm-up', 'חימום אופציונלי')}</p><h1 className="mt-3 text-4xl font-black">{label('Prepare for Front Lever', 'הכנה לפרונט לבר')}</h1><p className="mt-3 text-slate-500">{label('Six simple preparation movements. No values are logged and warm-up does not affect skill success.', 'שישה תרגילי הכנה פשוטים. לא נשמרים ערכים והחימום אינו משפיע על הצלחת המיומנות.')}</p><div className="mt-6 grid gap-3"><button className="btn-primary" onClick={store.startSkillWarmup}>{label('Start warm-up', 'התחלת חימום')}</button><button className="btn-secondary" onClick={store.skipSkillWarmup}>{label('Skip warm-up', 'דילוג על החימום')}</button><button className="text-sm font-bold text-slate-500" onClick={store.skipSkillWarmup}>{label('Already warmed up', 'כבר התחממתי')}</button></div></div>
+  </div>;
+  return <div className="mx-auto max-w-xl py-6">
+    <div className="flex items-center justify-between"><button className="icon-button" aria-label={label('Cancel workout', 'ביטול אימון')} onClick={onCancel}><X /></button><span className="rounded-full bg-brand/15 px-3 py-2 text-xs font-black text-brand">{label('Warm-up', 'חימום')} · <bdi>{warmup.currentIndex + 1}/{warmup.items.length}</bdi></span></div>
+    <section className="card mt-6 text-center"><p className="eyebrow">{label('Preparation', 'הכנה')}</p><h1 className="mt-3 text-4xl font-black">{exercise ? getExerciseName(exercise, language) : item.stableKey}</h1><p className="mt-3 text-xl font-black text-brand"><bdi>{language === 'he' ? item.guidanceHe : item.guidanceEn}</bdi></p>{exercise && <ExerciseDemonstrationButton exercise={exercise} className="mt-5" />}<div className="mt-7 grid gap-3"><button className="btn-primary min-h-16 text-lg" onClick={store.completeSkillWarmupItem}><Check size={22}/>{label('Done', 'בוצע')}</button><button className="btn-secondary" onClick={store.skipSkillWarmupItem}>{label('Skip this item', 'דילוג על התרגיל')}</button></div></section>
+  </div>;
 }
 
 function WorkoutFinish({

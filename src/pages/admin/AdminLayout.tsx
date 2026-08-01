@@ -1,4 +1,4 @@
-import { ArrowLeft, LogOut, Plus } from 'lucide-react';
+import { ArrowLeft, LogOut, Plus, ShieldCheck } from 'lucide-react';
 import { Link, Outlet } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { BrandLogo } from '../../components/BrandLogo';
@@ -47,6 +47,10 @@ export function AdminLayout() {
               <Link className="btn-primary" to="/admin/exercises/new">
                 <Plus size={18} />
                 {t('newExercise')}
+              </Link>
+              <Link className="btn-secondary" to="/admin/skills/front-lever">
+                <ShieldCheck size={18} />
+                {t('skills')} QA
               </Link>
               <button
                 className="btn-secondary"

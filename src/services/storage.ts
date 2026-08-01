@@ -4,6 +4,7 @@ import type { AppData, Exercise, MeasurementType, WorkoutSet } from '../types';
 import { findExerciseByReference } from '../utils/exerciseLocalization';
 import { normalizeMeasurementType } from '../utils/performance';
 import { normalizeRestSoundId } from './restSounds';
+import { createFrontLeverWorkout, FRONT_LEVER_TEMPLATE_VERSION } from '../features/skills/frontLever';
 export const STORAGE_KEY = 'calistrack.app.v1';
 const valid = (v: unknown): v is AppData => {
   if (!v || typeof v !== 'object') return false;
@@ -125,6 +126,20 @@ export function migrateAppData(data: AppData): AppData {
       };
     }),
   });
+  const programs = data.programs.map((program) => ({
+    ...program,
+    workouts: program.workouts.map((sourceWorkout) => {
+      const workout = {
+        ...sourceWorkout,
+        name: workoutNameTranslations[sourceWorkout.name] ?? sourceWorkout.name,
+        exercises: sourceWorkout.exercises.map((exercise) => ({ ...exercise, exerciseId: exerciseId(exercise.exerciseId), measurementType: measurementFor(exerciseId(exercise.exerciseId), exercise.measurementType) })),
+      };
+      if (workout.skillLink?.skillKey !== 'front-lever' || workout.skillLink.kind !== 'workout' || workout.skillLink.linkState !== 'linked' || workout.skillLink.templateVersion >= FRONT_LEVER_TEMPLATE_VERSION) return workout;
+      const generated = createFrontLeverWorkout(workout.skillLink.levelKey, exercises, false, program.id);
+      const retained = workout.exercises.filter((item) => item.skillSection !== 'warm-up' && item.requiredForSkillSuccess !== true);
+      return { ...workout, exercises: [...retained, ...generated.exercises.map((item, index) => ({ ...item, order: retained.length + index }))], skillWarmup: undefined, skillLink: { ...workout.skillLink, templateVersion: FRONT_LEVER_TEMPLATE_VERSION } };
+    }),
+  }));
   return {
     ...data,
     schemaVersion: 12,
@@ -157,10 +172,11 @@ export function migrateAppData(data: AppData): AppData {
       onboardingCompleted:
         wasExistingInstallation ? true : (data.settings.onboardingCompleted ?? false),
     },
+    programs,
     activeProgramId:
-      data.activeProgramId && data.programs.some((program) => program.id === data.activeProgramId)
+      data.activeProgramId && programs.some((program) => program.id === data.activeProgramId)
         ? data.activeProgramId
-        : data.programs[0]?.id ?? null,
+        : programs[0]?.id ?? null,
     exercises,
     restTimer: data.restTimer
       ? {
@@ -180,21 +196,6 @@ export function migrateAppData(data: AppData): AppData {
       endsAt: null,
       targetSeconds: null,
     },
-    programs: data.programs.map((program) => ({
-      ...program,
-      workouts: program.workouts.map((workout) => ({
-        ...workout,
-        name: workoutNameTranslations[workout.name] ?? workout.name,
-        exercises: workout.exercises.map((exercise) => ({
-          ...exercise,
-          exerciseId: exerciseId(exercise.exerciseId),
-          measurementType: measurementFor(
-            exerciseId(exercise.exerciseId),
-            exercise.measurementType,
-          ),
-        })),
-      })),
-    })),
     workoutSessions: data.workoutSessions.map(migrateSession),
     goals: data.goals.map((goal) => ({
       ...goal,
