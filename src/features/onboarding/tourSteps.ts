@@ -68,7 +68,7 @@ export const tourSteps: TourStep[] = [
     id: 'workout-entry',
     type: 'targeted',
     route: '/',
-    targets: ['dashboard-workout-action', 'nav-workout', 'dashboard-primary-action'],
+    targets: ['dashboard-workout-action', 'dashboard-primary-action'],
     titleKey: 'tourWorkoutTitle',
     descriptionKey: 'tourWorkoutEntryDescription',
     placement: 'adaptive',

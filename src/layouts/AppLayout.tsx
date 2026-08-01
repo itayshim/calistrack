@@ -13,7 +13,7 @@ import { useI18n } from '../hooks/useI18n';
 import { BrandLogo } from '../components/BrandLogo';
 import { OnboardingExperience } from '../features/onboarding/OnboardingExperience';
 
-const tabs = [
+const desktopTabs = [
   ['/', 'home', Home],
   ['/program', 'program', Dumbbell],
   ['/skills', 'skills', Sparkles],
@@ -21,6 +21,7 @@ const tabs = [
   ['/progress', 'progress', ChartNoAxesColumnIncreasing],
   ['/settings', 'settings', Settings2],
 ] as const;
+const mobileTabs = desktopTabs.filter(([to]) => to !== '/workout');
 export function AppLayout() {
   const active = useAppStore((s) => s.activeWorkout),
     nav = useNavigate(),
@@ -35,7 +36,7 @@ export function AppLayout() {
           <span className="sr-only">{t('brandTagline')}</span>
         </button>
         <nav className="space-y-2">
-          {tabs.map(([to, labelKey, Icon]) => {
+          {desktopTabs.map(([to, labelKey, Icon]) => {
             const destination = to === '/workout' ? workoutPath : to;
             return (
               <Link
@@ -72,7 +73,7 @@ export function AppLayout() {
           </button>
         </div>
       </aside>
-      <main className="app-shell-main mx-auto w-full max-w-[78rem] px-4 pb-28 sm:px-6 md:ms-[17rem] md:px-10 md:pb-12 md:pt-8">
+      <main className="app-shell-main mx-auto w-full max-w-[78rem] px-4 sm:px-6 md:ms-[17rem] md:px-10 md:pb-12 md:pt-8">
         <header className="mb-7 flex items-center justify-between md:hidden">
           <button onClick={() => nav('/')} className="flex items-center gap-2">
             <BrandLogo variant="wordmark" className="h-11 w-[10.5rem]" />
@@ -91,10 +92,10 @@ export function AppLayout() {
       </main>
       <nav
         aria-label={t('mainNavigation')}
-        className="mobile-bottom-nav fixed inset-x-3 z-30 grid grid-cols-6 rounded-[1.6rem] border border-slate-200/80 bg-white/95 p-1.5 shadow-lg backdrop-blur-xl dark:border-white/[.08] dark:bg-panel/95 dark:shadow-soft md:hidden"
+        className="mobile-bottom-nav fixed z-30 grid grid-cols-5 border border-slate-200/80 bg-white/95 p-1.5 shadow-lg backdrop-blur-xl dark:border-white/[.08] dark:bg-panel/95 dark:shadow-soft md:hidden"
       >
-        {tabs.map(([to, labelKey, Icon]) => {
-          const destination = to === '/workout' ? workoutPath : to;
+        {mobileTabs.map(([to, labelKey, Icon]) => {
+          const destination = to;
           return (
             <Link
               key={to}
@@ -106,11 +107,8 @@ export function AppLayout() {
                 isTabActive(to, location.pathname) ? 'bg-brand/15 text-lime-700 dark:bg-white/[.07] dark:text-brand' : 'text-slate-500'
               }`}
             >
-              <Icon size={to === '/workout' ? 24 : 21} strokeWidth={2.3} />
+              <Icon size={21} strokeWidth={2.3} />
               {t(labelKey)}
-              {to === '/workout' && active && (
-                <span className="absolute end-3 top-2 h-2 w-2 rounded-full bg-brand" />
-              )}
             </Link>
           );
         })}

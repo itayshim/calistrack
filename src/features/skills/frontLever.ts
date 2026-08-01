@@ -23,6 +23,8 @@ export interface FrontLeverLevel {
   nameEn: string;
   nameHe: string;
   assessmentSeconds: number;
+  /** Canonical source for the reusable level performance summary. */
+  performance?: { exerciseKey: string; metric: MeasurementType; sideMode?: 'left-right' };
   work: FrontLeverPrescription[];
 }
 export interface SkillValidationIssue { levelKey?: string; exerciseKey?: string; code: string; message: string }
@@ -39,6 +41,14 @@ export const frontLeverLevels: FrontLeverLevel[] = [
   { key: 'straddle', number: 5, nameEn: 'Straddle Front Lever', nameHe: 'פרונט לבר סטראדל', assessmentSeconds: 15, work: [hold('straddle-front-lever', 3, 5), hold('one-leg-front-lever', 3, 15, 'secondary-skill'), reps('ice-cream-maker', 3, 8, 'pulling-strength'), reps('dragon-flag', 1, 6, 'core-strength')] },
   { key: 'full', number: 6, nameEn: 'Full Front Lever', nameHe: 'פרונט לבר מלא', assessmentSeconds: 12, work: [hold('front-lever', 3, 3), hold('straddle-front-lever', 3, 10, 'secondary-skill'), reps('ice-cream-maker', 3, 5, 'pulling-strength'), reps('dragon-flag', 1, 8, 'core-strength')] },
 ];
+
+frontLeverLevels.forEach((level) => {
+  level.performance = {
+    exerciseKey: level.work[0].exerciseKey,
+    metric: level.work[0].measurementType,
+    sideMode: level.key === 'one-leg' ? 'left-right' : undefined,
+  };
+});
 
 export const frontLeverWarmup: FrontLeverWarmupPrescription[] = [
   { exerciseKey: 'jumping-jacks', guidanceEn: '20 reps', guidanceHe: '20 חזרות' },
