@@ -22,6 +22,9 @@ const ProgramsPage = lazy(() => import('./pages/ProgramsPage').then((module) => 
 const ProgressPage = lazy(() => import('./pages/ProgressPage').then((module) => ({ default: module.ProgressPage })));
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then((module) => ({ default: module.SettingsPage })));
 const WorkoutPage = lazy(() => import('./pages/WorkoutPage').then((module) => ({ default: module.WorkoutPage })));
+const SkillsPage = lazy(() => import('./pages/SkillsPage').then((module) => ({ default: module.SkillsPage })));
+const FrontLeverSkillPage = lazy(() => import('./pages/FrontLeverSkillPage').then((module) => ({ default: module.FrontLeverSkillPage })));
+const FrontLeverHistoryPage = lazy(() => import('./pages/FrontLeverHistoryPage').then((module) => ({ default: module.FrontLeverHistoryPage })));
 const AdminLoginPage = lazy(() => import('./pages/admin/AdminLoginPage').then((module) => ({ default: module.AdminLoginPage })));
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout').then((module) => ({ default: module.AdminLayout })));
 const AdminExercisesPage = lazy(() => import('./pages/admin/AdminExercisesPage').then((module) => ({ default: module.AdminExercisesPage })));
@@ -203,6 +206,10 @@ export default function App() {
           <Route path="progress" element={<ProgressPage />} />
           <Route path="goals" element={<GoalsPage />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="skills" element={<SkillsPage />} />
+          <Route path="skills/front-lever" element={<FrontLeverSkillPage />} />
+          <Route path="skills/front-lever/assessment" element={<FrontLeverSkillPage />} />
+          <Route path="skills/front-lever/history" element={<FrontLeverHistoryPage />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Route>
       </Routes>

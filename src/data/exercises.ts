@@ -151,9 +151,15 @@ const seeds: ExerciseSeed[] = [
   ]),
   ...family('Front Lever', 'skill', [
     { name: 'Tuck Front Lever', measurement: 'duration', difficulty: 'intermediate' },
+    { name: 'Tuck Front Lever Raise', difficulty: 'intermediate' },
     { name: 'Advanced Tuck Front Lever', measurement: 'duration', difficulty: 'advanced' },
+    { name: 'Advanced Tuck Front Lever Raise', difficulty: 'advanced' },
+    { name: 'One-Leg Front Lever', measurement: 'duration', difficulty: 'advanced' },
+    { name: 'Half Front Lever', measurement: 'duration', difficulty: 'advanced' },
     { name: 'Straddle Front Lever', measurement: 'duration', difficulty: 'advanced' },
     { name: 'Front Lever', measurement: 'duration', difficulty: 'advanced' },
+    { name: 'Ice Cream Maker', difficulty: 'advanced' },
+    { name: 'Dragon Flag', difficulty: 'advanced' },
   ]),
   ...family('Back Lever', 'skill', [
     { name: 'Tuck Back Lever', measurement: 'duration', difficulty: 'intermediate' },

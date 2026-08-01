@@ -88,6 +88,7 @@ export function SettingsPage() {
           goals: store.goals,
           restTimer: store.restTimer,
           exerciseStopwatch: store.exerciseStopwatch,
+          skillProgress: store.skillProgress,
         }),
       ],
       { type: 'application/json' },

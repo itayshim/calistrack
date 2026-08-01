@@ -51,7 +51,8 @@ export function WorkoutPage() {
     [cancel, setCancel] = useState(false),
     [notes, setNotes] = useState(''),
     [difficulty, setDifficulty] = useState(3),
-    [feeling, setFeeling] = useState(3);
+    [feeling, setFeeling] = useState(3),
+    [skillTechnique, setSkillTechnique] = useState<'good' | 'needs-work'>('good');
   const completeExerciseCountdown = useAppStore(
     (state) => state.completeExerciseCountdown,
   );
@@ -143,13 +144,15 @@ export function WorkoutPage() {
         setDifficulty={setDifficulty}
         feeling={feeling}
         setFeeling={setFeeling}
+        skillTechnique={skillTechnique}
+        setSkillTechnique={setSkillTechnique}
         onBack={() => {
           store.setCurrentExercise(active.currentExerciseIndex);
           setFinish(false);
         }}
         onSave={() => {
-          store.finishWorkout(notes, difficulty, feeling);
-          nav('/history');
+          store.finishWorkout(notes, difficulty, feeling, active.skillLink ? skillTechnique : undefined);
+          nav(active.skillLink ? '/skills/front-lever/history' : '/history');
         }}
       />
     );
@@ -703,6 +706,7 @@ export function WorkoutPage() {
           open={replaceOpen}
           exerciseIndex={i}
           current={exercise}
+          skillRole={sessionExercise.target?.skillRole}
           onClose={() => setReplaceOpen(false)}
           onReplaced={() =>
             setDrafts((current) => {
@@ -735,6 +739,8 @@ function WorkoutFinish({
   setDifficulty,
   feeling,
   setFeeling,
+  skillTechnique,
+  setSkillTechnique,
   onBack,
   onSave,
 }: {
@@ -745,10 +751,12 @@ function WorkoutFinish({
   setDifficulty: (v: number) => void;
   feeling: number;
   setFeeling: (v: number) => void;
+  skillTechnique: 'good' | 'needs-work';
+  setSkillTechnique: (v: 'good' | 'needs-work') => void;
   onBack: () => void;
   onSave: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const summary = workoutSummary(active);
   return (
     <div className="mx-auto max-w-xl animate-rise py-6 text-center">
@@ -771,6 +779,12 @@ function WorkoutFinish({
         ))}
       </div>
       <div className="card text-start">
+        {active.skillLink && <fieldset className="mb-6">
+          <legend className="label">{language === 'he' ? 'איכות הטכניקה' : 'Technique quality'}</legend>
+          <div className="grid grid-cols-2 gap-2">
+            {(['good', 'needs-work'] as const).map((value) => <button type="button" key={value} aria-pressed={skillTechnique === value} onClick={() => setSkillTechnique(value)} className={`min-h-12 rounded-2xl font-black ${skillTechnique === value ? 'bg-brand text-ink' : 'bg-slate-100 text-slate-500 dark:bg-white/[.06]'}`}>{language === 'he' ? (value === 'good' ? 'טכניקה טובה' : 'דרוש שיפור') : (value === 'good' ? 'Good technique' : 'Needs work')}</button>)}
+          </div>
+        </fieldset>}
         <Rating label={t('difficultyQuestion')} value={difficulty} set={setDifficulty} />
         <div className="mt-6">
           <Rating label={t('feelingQuestion')} value={feeling} set={setFeeling} />

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createInitialData } from '../data/seed';
 import type { WorkoutTemplate } from '../types';
 import { useAppStore } from './useAppStore';
+import { createFrontLeverAssessment } from '../features/skills/frontLever';
 const t: WorkoutTemplate = {
   id: 't',
   programId: 'p',
@@ -35,6 +36,17 @@ describe('workout flow', () => {
     expect(useAppStore.getState().activeWorkout?.workoutName).toBe('Workout');
     useAppStore.getState().hydrate();
     expect(useAppStore.getState().activeWorkout).not.toBeNull();
+  });
+  it('records a successful skill assessment and unlocks without auto-activating the next level', () => {
+    const state = useAppStore.getState();
+    const assessment = createFrontLeverAssessment('tuck', state.exercises);
+    expect(state.startWorkout(assessment)).toBe(true);
+    expect(useAppStore.getState().completeSet(0, { durationSeconds: 20 })).toBe(true);
+    useAppStore.getState().finishWorkout('', 3, 3, 'good');
+    const progress = useAppStore.getState().skillProgress['front-lever'];
+    expect(progress.unlockedLevelKeys).toContain('advanced-tuck');
+    expect(progress.masteredLevelKeys).toContain('tuck');
+    expect(progress.activeLevelKey).toBe('tuck');
   });
   it('completes a set and starts timer', () => {
     useAppStore.getState().startWorkout(t);

@@ -53,6 +53,16 @@ export interface WorkoutExercise {
   restSeconds: number;
   notes?: string;
   measurementType?: MeasurementType;
+  skillRole?: 'primary-skill' | 'secondary-skill' | 'pulling-strength' | 'core-strength' | 'warm-up';
+  skillSection?: 'warm-up' | 'work';
+  requiredForSkillSuccess?: boolean;
+}
+export interface SkillWorkoutLink {
+  skillKey: 'front-lever';
+  levelKey: string;
+  templateVersion: number;
+  kind: 'workout' | 'assessment';
+  linkState: 'linked' | 'detached';
 }
 export interface WorkoutTemplate {
   id: string;
@@ -62,6 +72,7 @@ export interface WorkoutTemplate {
   exercises: WorkoutExercise[];
   createdAt: string;
   updatedAt: string;
+  skillLink?: SkillWorkoutLink;
 }
 export interface Program {
   id: string;
@@ -109,6 +120,26 @@ export interface WorkoutSession {
   feelingRating?: number;
   notes?: string;
   completionReady?: boolean;
+  skillLink?: SkillWorkoutLink;
+  skillTechniqueRating?: 'good' | 'needs-work';
+  skillSuccessful?: boolean;
+}
+export interface SkillAssessmentRecord {
+  id: string;
+  levelKey: string;
+  sessionId: string;
+  passed: boolean;
+  durationSeconds: number;
+  techniqueRating: 'good' | 'needs-work';
+  completedAt: string;
+}
+export interface UserSkillProgress {
+  skillKey: 'front-lever';
+  activeLevelKey: string;
+  unlockedLevelKeys: string[];
+  masteredLevelKeys: string[];
+  completedWorkoutSessionIds: string[];
+  assessments: SkillAssessmentRecord[];
 }
 export interface UserSettings {
   weeklyWorkoutGoal: number;
@@ -154,6 +185,7 @@ export interface AppData {
   goals: UserGoal[];
   restTimer: RestTimerState;
   exerciseStopwatch: ExerciseStopwatchState;
+  skillProgress: Record<string, UserSkillProgress>;
 }
 export interface RestTimerState {
   id: string | null;

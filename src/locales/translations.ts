@@ -7,6 +7,7 @@ const en = {
   workout: 'Workout',
   progress: 'Progress',
   settings: 'Settings',
+  skills: 'Skills',
   startWorkout: 'Start workout',
   editWorkoutNamed: 'Edit workout: {name}',
   startWorkoutNamed: 'Start workout: {name}',
@@ -618,6 +619,7 @@ const en = {
 } as const;
 
 const he: Record<keyof typeof en, string> = {
+  skills: 'מיומנויות',
   editWorkoutNamed: 'עריכת האימון: {name}',
   startWorkoutNamed: 'התחלת האימון: {name}',
   resumeWorkoutNamed: 'המשך האימון: {name}',

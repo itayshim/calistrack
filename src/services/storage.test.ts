@@ -36,7 +36,7 @@ describe('storage', () => {
   it('rejects invalid imports', () => expect(() => service.importData('{"hello":1}')).toThrow());
   it('handles malformed local storage safely', () => {
     localStorage.setItem(STORAGE_KEY, 'broken');
-    expect(service.loadAppData().schemaVersion).toBe(11);
+    expect(service.loadAppData().schemaVersion).toBe(12);
   });
   it('migrates schema 1 exercises and preserves their IDs and saved data', () => {
     const current = createInitialData();
@@ -62,7 +62,7 @@ describe('storage', () => {
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(legacy));
     const migrated = service.loadAppData();
-    expect(migrated.schemaVersion).toBe(11);
+    expect(migrated.schemaVersion).toBe(12);
     expect(migrated.settings.onboardingCompleted).toBe(true);
     expect(migrated.settings.allowEmptyNumericFields).toBe(false);
     expect(migrated.settings.language).toBe('en');
@@ -89,7 +89,7 @@ describe('storage', () => {
 
     const migrated = service.importData(service.exportData(data));
 
-    expect(migrated.schemaVersion).toBe(11);
+    expect(migrated.schemaVersion).toBe(12);
     expect(migrated.settings.timerReactionAdjustmentSeconds).toBe(2);
     expect(migrated.settings.timedExerciseStartCountdownSeconds).toBe(3);
     expect(migrated.settings.weeklyWorkoutGoal).toBe(6);

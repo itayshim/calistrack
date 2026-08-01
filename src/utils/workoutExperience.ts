@@ -93,12 +93,14 @@ const difficultyIndex = { beginner: 0, intermediate: 1, advanced: 2 };
 export function rankReplacementExercises(
   current: Exercise,
   exercises: Exercise[],
+  skillRole?: 'primary-skill' | 'secondary-skill' | 'pulling-strength' | 'core-strength' | 'warm-up',
 ): Exercise[] {
   return exercises
     .filter((exercise) => exercise.id !== current.id)
     .map((exercise) => ({
       exercise,
       score:
+        (isCompatibleSkillRole(exercise, current, skillRole) ? 20_000 : 0) +
         (exercise.movementFamily === current.movementFamily ? 10_000 : 0) +
         (exercise.measurementType === current.measurementType ? 4_000 : 0) +
         (exercise.category === current.category ? 2_000 : 0) +
@@ -113,6 +115,14 @@ export function rankReplacementExercises(
         a.exercise.nameEn.localeCompare(b.exercise.nameEn),
     )
     .map(({ exercise }) => exercise);
+}
+
+function isCompatibleSkillRole(exercise: Exercise, current: Exercise, role?: string) {
+  if (!role) return false;
+  if (role === 'primary-skill' || role === 'secondary-skill') return exercise.movementFamily === current.movementFamily;
+  if (role === 'pulling-strength') return exercise.category === 'pull' || exercise.movementFamily === current.movementFamily;
+  if (role === 'core-strength') return exercise.category === 'core' || exercise.muscles.includes('core');
+  return exercise.category === 'mobility';
 }
 
 export const completedSetCount = (exercise: ExerciseSession) =>

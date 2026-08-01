@@ -4,6 +4,7 @@ import {
   Home,
   Play,
   Settings2,
+  Sparkles,
 } from 'lucide-react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
@@ -15,6 +16,7 @@ import { OnboardingExperience } from '../features/onboarding/OnboardingExperienc
 const tabs = [
   ['/', 'home', Home],
   ['/program', 'program', Dumbbell],
+  ['/skills', 'skills', Sparkles],
   ['/workout', 'workout', Play],
   ['/progress', 'progress', ChartNoAxesColumnIncreasing],
   ['/settings', 'settings', Settings2],
@@ -89,7 +91,7 @@ export function AppLayout() {
       </main>
       <nav
         aria-label={t('mainNavigation')}
-        className="mobile-bottom-nav fixed inset-x-3 z-30 grid grid-cols-5 rounded-[1.6rem] border border-slate-200/80 bg-white/95 p-1.5 shadow-lg backdrop-blur-xl dark:border-white/[.08] dark:bg-panel/95 dark:shadow-soft md:hidden"
+        className="mobile-bottom-nav fixed inset-x-3 z-30 grid grid-cols-6 rounded-[1.6rem] border border-slate-200/80 bg-white/95 p-1.5 shadow-lg backdrop-blur-xl dark:border-white/[.08] dark:bg-panel/95 dark:shadow-soft md:hidden"
       >
         {tabs.map(([to, labelKey, Icon]) => {
           const destination = to === '/workout' ? workoutPath : to;

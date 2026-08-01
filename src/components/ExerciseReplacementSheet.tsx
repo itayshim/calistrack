@@ -18,12 +18,14 @@ export function ExerciseReplacementSheet({
   current,
   onClose,
   onReplaced,
+  skillRole,
 }: {
   open: boolean;
   exerciseIndex: number;
   current: Exercise;
   onClose: () => void;
   onReplaced: () => void;
+  skillRole?: NonNullable<import('../types').WorkoutExercise['skillRole']>;
 }) {
   const { t, language } = useI18n();
   const store = useAppStore();
@@ -40,10 +42,10 @@ export function ExerciseReplacementSheet({
   const completed = activeExercise ? completedSetCount(activeExercise) : 0;
   const families = [...new Set(store.exercises.map((exercise) => exercise.movementFamily).filter(Boolean))] as string[];
   const candidates = useMemo(() => {
-    const ranked = rankReplacementExercises(current, store.exercises);
+    const ranked = rankReplacementExercises(current, store.exercises, skillRole);
     const searched = query ? searchExercises(ranked, query) : ranked;
     return searched.filter((exercise) => !family || exercise.movementFamily === family);
-  }, [current, family, query, store.exercises]);
+  }, [current, family, query, skillRole, store.exercises]);
 
   if (!open) return null;
   const replace = (keepCompleted: boolean, updateProgram = false) => {
