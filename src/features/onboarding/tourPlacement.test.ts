@@ -3,6 +3,9 @@ import {
   chooseTourCardPlacement,
   intersectionRatio,
   isLargeTourTarget,
+  normalizeGeometry,
+  sameSpotlightGeometry,
+  stabilizeTourCardPlacement,
   type RectLike,
 } from './tourPlacement';
 
@@ -70,5 +73,18 @@ describe('onboarding target-aware placement', () => {
 
   it('calculates overlap as a percentage of target area', () => {
     expect(intersectionRatio(rect(0, 0, 100, 100), rect(50, 50, 100, 100))).toBe(0.25);
+  });
+
+  it('ignores one-to-two-pixel geometry noise', () => {
+    expect(sameSpotlightGeometry(rect(10, 20, 100, 50), rect(11.4, 18.6, 101.2, 49))).toBe(true);
+    expect(normalizeGeometry(19.6)).toBe(20);
+  });
+
+  it('does not alternate placement unless the alternative is meaningfully better', () => {
+    const current = { top: 20, left: 12, width: 366, compact: true, side: 'top-sheet' as const, overlapRatio: 0.02, stepId: 'settings-preferences' };
+    const noisyAlternative = { ...current, top: 519, side: 'bottom-sheet' as const, overlapRatio: 0 };
+    expect(stabilizeTourCardPlacement(current, noisyAlternative)).toBe(current);
+    const invalidCurrent = { ...current, overlapRatio: 0.2 };
+    expect(stabilizeTourCardPlacement(invalidCurrent, noisyAlternative).side).toBe('bottom-sheet');
   });
 });

@@ -28,6 +28,38 @@ export interface TourCardPlacement {
 
 const GAP = 12;
 const EDGE = 12;
+export const PLACEMENT_SWITCH_MARGIN = 0.03;
+export const GEOMETRY_EPSILON = 2;
+
+export function normalizeGeometry(value: number) {
+  return Math.round(value);
+}
+
+export function sameSpotlightGeometry(
+  current: Pick<RectLike, 'top' | 'left' | 'width' | 'height'> | null,
+  next: Pick<RectLike, 'top' | 'left' | 'width' | 'height'>,
+) {
+  return Boolean(current) &&
+    Math.abs(current!.top - next.top) <= GEOMETRY_EPSILON &&
+    Math.abs(current!.left - next.left) <= GEOMETRY_EPSILON &&
+    Math.abs(current!.width - next.width) <= GEOMETRY_EPSILON &&
+    Math.abs(current!.height - next.height) <= GEOMETRY_EPSILON;
+}
+
+export function stabilizeTourCardPlacement(
+  current: (TourCardPlacement & { stepId: string }) | null,
+  next: TourCardPlacement & { stepId: string },
+) {
+  if (!current || current.stepId !== next.stepId) return next;
+  if (current.side !== next.side && next.overlapRatio + PLACEMENT_SWITCH_MARGIN >= current.overlapRatio) {
+    return current;
+  }
+  const unchanged = current.side === next.side && current.compact === next.compact &&
+    Math.abs(current.top - next.top) <= GEOMETRY_EPSILON &&
+    Math.abs(current.left - next.left) <= GEOMETRY_EPSILON &&
+    Math.abs(current.width - next.width) <= GEOMETRY_EPSILON;
+  return unchanged ? current : next;
+}
 
 export function intersectionRatio(target: RectLike, card: RectLike) {
   const width = Math.max(0, Math.min(target.right, card.right) - Math.max(target.left, card.left));

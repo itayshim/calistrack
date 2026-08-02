@@ -315,6 +315,31 @@ describe('first-run onboarding', () => {
     );
   });
 
+  it('identifies the current Steps 8 and 9 by stable IDs and focused targets', () => {
+    expect(tourSteps[7]).toMatchObject({ id: 'progress-summary', route: '/progress', targets: ['progress-summary', 'nav-progress'] });
+    expect(tourSteps[8]).toMatchObject({ id: 'settings-preferences', route: '/settings', targets: ['settings-theme-preference', 'settings-preferences', 'nav-settings'] });
+  });
+
+  it('scrolls each affected step once and ignores overlay mutations', async () => {
+    const user = userEvent.setup();
+    renderExperience();
+    await user.click(screen.getByRole('button', { name: 'Start tour' }));
+    for (let index = 0; index < 7; index += 1) {
+      await user.click(await screen.findByRole('button', { name: 'Next' }));
+    }
+    await screen.findByText('Step 8 of 11');
+    await waitFor(() => expect(screen.getByTestId('tour-spotlight')).toHaveAttribute('data-active-target', 'progress-summary'));
+    const afterStepEight = vi.mocked(Element.prototype.scrollIntoView).mock.calls.length;
+    document.querySelector('.onboarding-tour-layer')?.append(document.createElement('span'));
+    window.dispatchEvent(new Event('scroll'));
+    await new Promise((resolve) => window.setTimeout(resolve, 150));
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(afterStepEight);
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    await screen.findByText('Step 9 of 11');
+    await waitFor(() => expect(screen.getByTestId('tour-spotlight')).toHaveAttribute('data-active-target', 'settings-theme-preference'));
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(afterStepEight + 1);
+  });
+
   it('skips a giant preferred target when a focused child fallback is available', () => {
     const giant = document.createElement('div');
     giant.dataset.tourId = 'giant';

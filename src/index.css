@@ -7,6 +7,8 @@
   font-synthesis: none;
   --admin-header-top-spacing: 1rem;
   --admin-content-bottom-spacing: 1.5rem;
+  --mobile-nav-height: 4.6rem;
+  --mobile-nav-gap: 0.75rem;
 }
 .dark {
   color-scheme: dark;
@@ -185,8 +187,6 @@ textarea:not(.control-input):focus-visible {
   animation: rise 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 .app-shell-main {
-  --mobile-nav-height: 4.6rem;
-  --mobile-nav-gap: 0.75rem;
   padding-top: max(1.25rem, env(safe-area-inset-top));
   padding-bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px) + var(--mobile-nav-gap));
 }

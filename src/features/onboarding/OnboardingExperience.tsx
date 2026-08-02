@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useI18n } from '../../hooks/useI18n';
 import { useAppStore } from '../../store/useAppStore';
 import { TourDirectionalIcon } from './TourDirectionalIcon';
-import { chooseTourCardPlacement, type TourCardPlacement } from './tourPlacement';
+import { chooseTourCardPlacement, normalizeGeometry, sameSpotlightGeometry, stabilizeTourCardPlacement, type TourCardPlacement } from './tourPlacement';
 import { tourSteps } from './tourSteps';
 import { isVisibleInViewport, resolveTourTarget } from './tourTargeting';
 
@@ -35,6 +35,9 @@ export function OnboardingExperience() {
   const dialogRef = useRef<HTMLElement>(null);
   const welcomeRef = useRef<HTMLElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const targetRef = useRef<HTMLElement | null>(null);
+  const spotlightRef = useRef<SpotlightRect | null>(null);
+  const cardPlacementRef = useRef<(TourCardPlacement & { stepId: string }) | null>(null);
   const seenReplayRequest = useRef(replayRequest);
   const step = tourSteps[stepIndex];
 
@@ -97,82 +100,105 @@ export function OnboardingExperience() {
     let cancelled = false;
     let target: HTMLElement | undefined;
     let resizeObserver: ResizeObserver | undefined;
+    let measureFrame = 0;
     let settleFrame = 0;
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let discoveryTimer = 0;
+    let hasScrolled = false;
 
     const measure = () => {
       if (cancelled || !target || !isVisibleInViewport(target)) return;
       const rect = target.getBoundingClientRect();
       const padding = 7;
-      const left = Math.max(7, rect.left - padding);
-      const top = Math.max(7, rect.top - padding);
-      const right = Math.min(window.innerWidth - 7, rect.right + padding);
-      const bottom = Math.min(window.innerHeight - 7, rect.bottom + padding);
-      setSpotlight({
+      const left = normalizeGeometry(Math.max(7, rect.left - padding));
+      const top = normalizeGeometry(Math.max(7, rect.top - padding));
+      const right = normalizeGeometry(Math.min(window.innerWidth - 7, rect.right + padding));
+      const bottom = normalizeGeometry(Math.min(window.innerHeight - 7, rect.bottom + padding));
+      const next = {
         top,
         left,
         width: right - left,
         height: bottom - top,
         borderRadius: window.getComputedStyle(target).borderRadius || '1rem',
-      });
+      };
+      if (!sameSpotlightGeometry(spotlightRef.current, next) || spotlightRef.current?.borderRadius !== next.borderRadius) {
+        spotlightRef.current = next;
+        setSpotlight(next);
+        window.dispatchEvent(new Event('onboarding-target-measured'));
+      }
       setReadyStepId(step.id);
     };
 
-    const prepare = () => {
+    const scheduleMeasure = () => {
+      if (measureFrame) return;
+      measureFrame = window.requestAnimationFrame(() => {
+        measureFrame = 0;
+        measure();
+      });
+    };
+
+    const discover = () => {
+      if (target?.isConnected) return true;
       const resolved = resolveTourTarget(step.targets);
       if (!resolved) return false;
-      if (target !== resolved.element) {
-        resizeObserver?.disconnect();
-        target = resolved.element;
-        setActiveTargetId(resolved.targetId);
-        if ('ResizeObserver' in window) {
-          resizeObserver = new ResizeObserver(measure);
-          resizeObserver.observe(target);
-        }
+      target = resolved.element;
+      targetRef.current = target;
+      setActiveTargetId(resolved.targetId);
+      resizeObserver?.disconnect();
+      if ('ResizeObserver' in window) {
+        resizeObserver = new ResizeObserver(scheduleMeasure);
+        resizeObserver.observe(target);
       }
-      const targetRect = target.getBoundingClientRect();
-      const largeOnMobile = window.innerWidth < 640 && targetRect.height > 150;
-      target.scrollIntoView({
-        behavior: reducedMotion ? 'auto' : 'smooth',
-        block: largeOnMobile ? 'start' : 'center',
-        inline: 'nearest',
-      });
-      window.cancelAnimationFrame(settleFrame);
-      settleFrame = window.requestAnimationFrame(() => window.requestAnimationFrame(measure));
+      if (!hasScrolled) {
+        hasScrolled = true;
+        const targetRect = target.getBoundingClientRect();
+        target.scrollIntoView({ behavior: 'auto', block: window.innerWidth < 640 && targetRect.height > 150 ? 'start' : 'center', inline: 'nearest' });
+      }
+      settleFrame = window.requestAnimationFrame(() => window.requestAnimationFrame(scheduleMeasure));
       return true;
     };
 
     const initialFrame = window.requestAnimationFrame(() => {
       setSpotlight(null);
+      spotlightRef.current = null;
+      targetRef.current = null;
+      cardPlacementRef.current = null;
+      setCardPlacement(null);
       setActiveTargetId(undefined);
-      if (step.targets?.length) prepare();
+      if (step.targets?.length) discover();
     });
 
-    const mutationObserver = new MutationObserver(prepare);
-    mutationObserver.observe(document.body, { childList: true, subtree: true, attributes: true });
-    const retry = window.setInterval(prepare, 80);
+    const mutationObserver = new MutationObserver((mutations) => {
+      if (target?.isConnected) return;
+      if (mutations.every((mutation) => mutation.target instanceof Element && mutation.target.closest('.onboarding-tour-layer'))) return;
+      discover();
+    });
+    mutationObserver.observe(document.body, { childList: true, subtree: true });
+    discoveryTimer = window.setInterval(() => {
+      if (discover()) window.clearInterval(discoveryTimer);
+    }, 100);
     const skipMissing = window.setTimeout(() => {
       if (!target && !cancelled) {
         skipUnavailableTargetedStep(stepIndex);
       }
     }, 1600);
     const onLayout = () => {
-      if (!target || !isVisibleInViewport(target)) prepare();
-      else measure();
+      if (!target?.isConnected) discover();
+      else scheduleMeasure();
     };
     window.addEventListener('resize', onLayout);
     window.addEventListener('orientationchange', onLayout);
     window.addEventListener('scroll', onLayout, true);
-    void document.fonts?.ready.then(onLayout);
+    void document.fonts?.ready.then(scheduleMeasure);
 
     return () => {
       cancelled = true;
       mutationObserver.disconnect();
       resizeObserver?.disconnect();
-      window.clearInterval(retry);
+      window.clearInterval(discoveryTimer);
       window.clearTimeout(skipMissing);
       window.cancelAnimationFrame(initialFrame);
       window.cancelAnimationFrame(settleFrame);
+      window.cancelAnimationFrame(measureFrame);
       window.removeEventListener('resize', onLayout);
       window.removeEventListener('orientationchange', onLayout);
       window.removeEventListener('scroll', onLayout, true);
@@ -180,22 +206,29 @@ export function OnboardingExperience() {
   }, [location.pathname, skipUnavailableTargetedStep, step, stepIndex, tourActive]);
 
   useEffect(() => {
-    if (!tourActive || step.placement === 'center' || readyStepId !== step.id || !spotlight) return;
+    if (!tourActive || step.placement === 'center' || readyStepId !== step.id || !spotlightRef.current) return;
     let frame = 0;
+    let resizeTimer = 0;
     const measureCard = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(commitCardMeasurement);
+    };
+    const commitCardMeasurement = () => {
+      frame = 0;
       const card = dialogRef.current;
       const layer = layerRef.current;
-      if (!card || !layer) return;
+      const activeSpotlight = spotlightRef.current;
+      if (!card || !layer || !activeSpotlight) return;
       const cardRect = card.getBoundingClientRect();
       const layerStyle = window.getComputedStyle(layer);
-      const bottomNavigation = Array.from(document.querySelectorAll<HTMLElement>('.mobile-bottom-nav')).find(
-        isVisibleInViewport,
-      );
+      const rootStyle = window.getComputedStyle(document.documentElement);
+      const navHeight = Number.parseFloat(rootStyle.getPropertyValue('--mobile-nav-height')) || 0;
+      const mobileNavigationTop = window.innerWidth < 768 ? window.innerHeight - navHeight : undefined;
       const next = chooseTourCardPlacement(
         {
-          ...spotlight,
-          right: spotlight.left + spotlight.width,
-          bottom: spotlight.top + spotlight.height,
+          ...activeSpotlight,
+          right: activeSpotlight.left + activeSpotlight.width,
+          bottom: activeSpotlight.top + activeSpotlight.height,
         },
         {
           width: Math.min(window.innerWidth < 640 ? window.innerWidth - 24 : 480, cardRect.width || 480),
@@ -208,35 +241,41 @@ export function OnboardingExperience() {
           safeRight: Number.parseFloat(layerStyle.paddingRight) || 0,
           safeBottom: Number.parseFloat(layerStyle.paddingBottom) || 0,
           safeLeft: Number.parseFloat(layerStyle.paddingLeft) || 0,
-          bottomNavigationTop: bottomNavigation?.getBoundingClientRect().top,
+          bottomNavigationTop: mobileNavigationTop,
         },
       );
       setCardPlacement((current) => {
-        const positioned = { ...next, stepId: step.id };
-        return current &&
-          current.stepId === positioned.stepId &&
-          current.top === positioned.top &&
-          current.left === positioned.left &&
-          current.width === positioned.width &&
-          current.compact === positioned.compact
-          ? current
-          : positioned;
+        const positioned = { ...next, top: normalizeGeometry(next.top), left: normalizeGeometry(next.left), width: normalizeGeometry(next.width), stepId: step.id };
+        const stable = stabilizeTourCardPlacement(current, positioned);
+        cardPlacementRef.current = stable;
+        return stable;
       });
     };
-    frame = window.requestAnimationFrame(measureCard);
+    measureCard();
     const observer = 'ResizeObserver' in window ? new ResizeObserver(measureCard) : undefined;
     if (dialogRef.current) {
       observer?.observe(dialogRef.current);
     }
-    window.addEventListener('resize', measureCard);
-    window.addEventListener('orientationchange', measureCard);
+    const onViewportChange = () => {
+      window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(() => {
+        cardPlacementRef.current = null;
+        setCardPlacement(null);
+        measureCard();
+      }, 80);
+    };
+    window.addEventListener('onboarding-target-measured', measureCard);
+    window.addEventListener('resize', onViewportChange);
+    window.addEventListener('orientationchange', onViewportChange);
     return () => {
       window.cancelAnimationFrame(frame);
+      window.clearTimeout(resizeTimer);
       observer?.disconnect();
-      window.removeEventListener('resize', measureCard);
-      window.removeEventListener('orientationchange', measureCard);
+      window.removeEventListener('onboarding-target-measured', measureCard);
+      window.removeEventListener('resize', onViewportChange);
+      window.removeEventListener('orientationchange', onViewportChange);
     };
-  }, [readyStepId, spotlight, step.id, step.placement, tourActive]);
+  }, [readyStepId, step.id, step.placement, tourActive]);
 
   const welcomeOpen = !completed && !tourActive;
   useEffect(() => {
