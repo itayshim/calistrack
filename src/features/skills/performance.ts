@@ -71,7 +71,11 @@ export function deriveSkillLevelPerformance(
   return {
     best,
     latest,
-    bestAssessment: formal.reduce<SkillAssessmentRecord | undefined>((value, item) => !value || item.durationSeconds > value.durationSeconds ? item : value, undefined),
+    bestAssessment: formal.reduce<SkillAssessmentRecord | undefined>((value, item) => {
+      const score = item.measurementType === 'reps' ? (item.reps ?? 0) : (item.durationSeconds ?? 0);
+      const prior = value?.measurementType === 'reps' ? (value.reps ?? 0) : (value?.durationSeconds ?? 0);
+      return !value || score > prior ? item : value;
+    }, undefined),
     latestAssessment: formal.reduce<SkillAssessmentRecord | undefined>((value, item) => !value || Date.parse(item.completedAt) > Date.parse(value.completedAt) ? item : value, undefined),
   };
 }

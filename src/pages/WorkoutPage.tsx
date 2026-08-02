@@ -38,6 +38,7 @@ import {
 } from '../utils/workoutExperience';
 import { ExerciseReplacementSheet } from '../components/ExerciseReplacementSheet';
 import { timerCueService } from '../services/timerCue';
+import { getSkillDefinition } from '../features/skills/registry';
 
 export function WorkoutPage() {
   const { t, language } = useI18n();
@@ -52,7 +53,7 @@ export function WorkoutPage() {
     [notes, setNotes] = useState(''),
     [difficulty, setDifficulty] = useState(3),
     [feeling, setFeeling] = useState(3),
-    [skillTechnique, setSkillTechnique] = useState<'good' | 'needs-work'>('good');
+    [skillTechnique, setSkillTechnique] = useState<'good' | 'partial' | 'breakdown'>('good');
   const completeExerciseCountdown = useAppStore(
     (state) => state.completeExerciseCountdown,
   );
@@ -135,7 +136,7 @@ export function WorkoutPage() {
       </div>
     );
   if (active.skillWarmup && (active.skillWarmup.status === 'pending' || active.skillWarmup.status === 'in-progress')) {
-    return <SkillWarmupPhase active={active} onCancel={() => { store.cancelWorkout(); nav(active.skillLink?.preview ? '/admin/skills/front-lever' : '/skills/front-lever'); }} />;
+    return <SkillWarmupPhase active={active} onCancel={() => { const skillKey=active.skillLink?.skillKey; store.cancelWorkout(); nav(active.skillLink?.preview ? `/admin/skills/${skillKey}` : `/skills/${skillKey}`); }} />;
   }
   if (finish || active.completionReady)
     return (
@@ -155,7 +156,7 @@ export function WorkoutPage() {
         }}
         onSave={() => {
           store.finishWorkout(notes, difficulty, feeling, active.skillLink ? skillTechnique : undefined);
-          nav(active.skillLink?.preview ? '/admin/skills/front-lever' : active.skillLink ? '/skills/front-lever/history' : '/history');
+          nav(active.skillLink?.preview ? `/admin/skills/${active.skillLink.skillKey}` : active.skillLink ? `/skills/${active.skillLink.skillKey}/history` : '/history');
         }}
       />
     );
@@ -728,7 +729,7 @@ export function WorkoutPage() {
         onClose={() => setCancel(false)}
         onConfirm={() => {
           store.cancelWorkout();
-          nav(active.skillLink?.preview ? '/admin/skills/front-lever' : '/');
+          nav(active.skillLink?.preview ? `/admin/skills/${active.skillLink.skillKey}` : '/');
         }}
       />
     </div>
@@ -742,9 +743,10 @@ function SkillWarmupPhase({ active, onCancel }: { active: NonNullable<ReturnType
   const item = warmup.items[warmup.currentIndex];
   const exercise = item ? store.exercises.find((candidate) => candidate.id === item.exerciseId) : undefined;
   const label = (en: string, he: string) => language === 'he' ? he : en;
+  const skill = getSkillDefinition(active.skillLink?.skillKey ?? '');
   if (warmup.status === 'pending') return <div className="mx-auto max-w-xl py-8">
     <button className="icon-button" aria-label={label('Cancel workout', 'ביטול אימון')} onClick={onCancel}><X /></button>
-    <div className="card mt-6 text-center"><p className="eyebrow">{label('Optional warm-up', 'חימום אופציונלי')}</p><h1 className="mt-3 text-4xl font-black">{label('Prepare for Front Lever', 'הכנה לפרונט לבר')}</h1><p className="mt-3 text-slate-500">{label('Six simple preparation movements. No values are logged and warm-up does not affect skill success.', 'שישה תרגילי הכנה פשוטים. לא נשמרים ערכים והחימום אינו משפיע על הצלחת המיומנות.')}</p><div className="mt-6 grid gap-3"><button className="btn-primary" onClick={store.startSkillWarmup}>{label('Start warm-up', 'התחלת חימום')}</button><button className="btn-secondary" onClick={store.skipSkillWarmup}>{label('Skip warm-up', 'דילוג על החימום')}</button><button className="text-sm font-bold text-slate-500" onClick={store.skipSkillWarmup}>{label('Already warmed up', 'כבר התחממתי')}</button></div></div>
+    <div className="card mt-6 text-center"><p className="eyebrow">{label('Optional warm-up', 'חימום אופציונלי')}</p><h1 className="mt-3 text-4xl font-black">{label(`Prepare for ${skill?.nameEn ?? 'skill training'}`,`הכנה ל${skill?.nameHe ?? 'אימון מיומנות'}`)}</h1><p className="mt-3 text-slate-500">{label(`${warmup.items.length} simple preparation movements. No values are logged and warm-up does not affect skill success.`,`${warmup.items.length} תרגילי הכנה פשוטים. לא נשמרים ערכים והחימום אינו משפיע על הצלחת המיומנות.`)}</p><div className="mt-6 grid gap-3"><button className="btn-primary" onClick={store.startSkillWarmup}>{label('Start warm-up', 'התחלת חימום')}</button><button className="btn-secondary" onClick={store.skipSkillWarmup}>{label('Skip warm-up', 'דילוג על החימום')}</button><button className="text-sm font-bold text-slate-500" onClick={store.skipSkillWarmup}>{label('Already warmed up', 'כבר התחממתי')}</button></div></div>
   </div>;
   return <div className="mx-auto max-w-xl py-6">
     <div className="flex items-center justify-between"><button className="icon-button" aria-label={label('Cancel workout', 'ביטול אימון')} onClick={onCancel}><X /></button><span className="rounded-full bg-brand/15 px-3 py-2 text-xs font-black text-brand">{label('Warm-up', 'חימום')} · <bdi>{warmup.currentIndex + 1}/{warmup.items.length}</bdi></span></div>
@@ -772,13 +774,14 @@ function WorkoutFinish({
   setDifficulty: (v: number) => void;
   feeling: number;
   setFeeling: (v: number) => void;
-  skillTechnique: 'good' | 'needs-work';
-  setSkillTechnique: (v: 'good' | 'needs-work') => void;
+  skillTechnique: 'good' | 'partial' | 'breakdown';
+  setSkillTechnique: (v: 'good' | 'partial' | 'breakdown') => void;
   onBack: () => void;
   onSave: () => void;
 }) {
   const { t, language } = useI18n();
   const summary = workoutSummary(active);
+  const skillDefinition = getSkillDefinition(active.skillLink?.skillKey ?? '');
   return (
     <div className="mx-auto max-w-xl animate-rise py-6 text-center">
       <div className="mx-auto grid h-24 w-24 place-items-center rounded-[2rem] bg-brand text-ink shadow-glow">
@@ -801,9 +804,9 @@ function WorkoutFinish({
       </div>
       <div className="card text-start">
         {active.skillLink && <fieldset className="mb-6">
-          <legend className="label">{language === 'he' ? 'איכות הטכניקה' : 'Technique quality'}</legend>
-          <div className="grid grid-cols-2 gap-2">
-            {(['good', 'needs-work'] as const).map((value) => <button type="button" key={value} aria-pressed={skillTechnique === value} onClick={() => setSkillTechnique(value)} className={`min-h-12 rounded-2xl font-black ${skillTechnique === value ? 'bg-brand text-ink' : 'bg-slate-100 text-slate-500 dark:bg-white/[.06]'}`}>{language === 'he' ? (value === 'good' ? 'טכניקה טובה' : 'דרוש שיפור') : (value === 'good' ? 'Good technique' : 'Needs work')}</button>)}
+          <legend className="label">{skillDefinition ? (language === 'he' ? skillDefinition.techniquePromptHe : skillDefinition.techniquePromptEn) : (language === 'he' ? 'איכות הטכניקה' : 'Technique quality')}</legend>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {(['good', 'partial', 'breakdown'] as const).map((value) => <button type="button" key={value} aria-pressed={skillTechnique === value} onClick={() => setSkillTechnique(value)} className={`min-h-12 rounded-2xl px-2 font-black ${skillTechnique === value ? 'bg-brand text-ink' : 'bg-slate-100 text-slate-500 dark:bg-white/[.06]'}`}>{language === 'he' ? ({good:'טובה ובשליטה',partial:'שליטה חלקית',breakdown:'הטכניקה נשברה'} as const)[value] : ({good:'Good and controlled',partial:'Partly controlled',breakdown:'Form broke down'} as const)[value]}</button>)}
           </div>
         </fieldset>}
         <Rating label={t('difficultyQuestion')} value={difficulty} set={setDifficulty} />

@@ -23,7 +23,8 @@ import {
   normalizeMeasurementType,
   normalizeSetInput,
 } from '../utils/performance';
-import { evaluateSkillSession, nextFrontLeverLevel } from '../features/skills/frontLever';
+import { evaluateSkillSession } from '../features/skills/skillEngine';
+import { getDefaultSkillProgress, getNextSkillLevel } from '../features/skills/registry';
 interface Store extends AppData {
   hydrated: boolean;
   toast: string | null;
@@ -57,7 +58,7 @@ interface Store extends AppData {
       targetConfiguration?: Partial<WorkoutTemplate['exercises'][number]>;
     },
   ) => void;
-  finishWorkout: (notes?: string, difficulty?: number, feeling?: number, technique?: 'good' | 'needs-work') => void;
+  finishWorkout: (notes?: string, difficulty?: number, feeling?: number, technique?: 'good' | 'partial' | 'breakdown' | 'needs-work') => void;
   activateSkillLevel: (skillKey: string, levelKey: string) => void;
   cancelWorkout: () => void;
   updateSession: (s: WorkoutSession) => void;
@@ -482,7 +483,7 @@ export const useAppStore = create<Store>((set, get) => ({
   },
   activateSkillLevel: (skillKey, levelKey) => {
     set((state) => {
-      const current = state.skillProgress[skillKey] ?? defaultFrontLeverProgress();
+      const current = state.skillProgress[skillKey] ?? getDefaultSkillProgress(skillKey);
       if (!current.unlockedLevelKeys.includes(levelKey)) return state;
       return { skillProgress: { ...state.skillProgress, [skillKey]: { ...current, activeLevelKey: levelKey } } };
     });
@@ -732,15 +733,6 @@ const skillExerciseSignature = (exercise: WorkoutTemplate['exercises'][number]) 
   skillSection: exercise.skillSection, requiredForSkillSuccess: exercise.requiredForSkillSuccess,
 });
 
-const defaultFrontLeverProgress = (): UserSkillProgress => ({
-  skillKey: 'front-lever',
-  activeLevelKey: 'tuck',
-  unlockedLevelKeys: ['tuck'],
-  masteredLevelKeys: [],
-  completedWorkoutSessionIds: [],
-  assessments: [],
-});
-
 const updateSkillProgress = (
   records: Record<string, UserSkillProgress>,
   session: WorkoutSession,
@@ -748,14 +740,17 @@ const updateSkillProgress = (
 ) => {
   const link = session.skillLink;
   if (!link) return records;
-  const current = records[link.skillKey] ?? defaultFrontLeverProgress();
+  const current = records[link.skillKey] ?? getDefaultSkillProgress(link.skillKey);
   if (current.completedWorkoutSessionIds.includes(session.id)) return records;
   const completedWorkoutSessionIds = [...current.completedWorkoutSessionIds, session.id];
   if (link.kind === 'workout') {
     return { ...records, [link.skillKey]: { ...current, completedWorkoutSessionIds } };
   }
-  const durationSeconds = session.exercises[0]?.sets[0]?.durationSeconds ?? 0;
-  const next = nextFrontLeverLevel(link.levelKey);
+  const firstExercise = session.exercises[0];
+  const firstSet = firstExercise?.sets.find((set) => set.completed);
+  const durationSeconds = firstSet?.durationSeconds;
+  const reps = firstSet?.reps;
+  const next = getNextSkillLevel(link.skillKey, link.levelKey);
   const unlockedLevelKeys = successful && next && !current.unlockedLevelKeys.includes(next.key)
     ? [...current.unlockedLevelKeys, next.key]
     : current.unlockedLevelKeys;
@@ -771,7 +766,8 @@ const updateSkillProgress = (
       completedWorkoutSessionIds,
       assessments: [...current.assessments, {
         id: createId(), levelKey: link.levelKey, sessionId: session.id, passed: successful,
-        durationSeconds, techniqueRating: session.skillTechniqueRating ?? 'needs-work',
+        durationSeconds, reps, measurementType: firstExercise?.measurementType,
+        techniqueRating: session.skillTechniqueRating ?? 'needs-work',
         completedAt: session.completedAt ?? new Date().toISOString(),
       }],
     },

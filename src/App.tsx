@@ -10,7 +10,7 @@ import { translations } from './locales/translations';
 import { restAlertService } from './services/restAlert';
 import { backgroundNotificationService } from './services/backgroundNotifications';
 import { canHandleForegroundCompletion } from './services/foregroundCompletion';
-import { validateFrontLeverContent } from './features/skills/frontLever';
+import { skillRegistry, validateRegisteredSkill } from './features/skills/registry';
 const notificationClientId = crypto.randomUUID();
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((module) => ({ default: module.DashboardPage })));
 const ExerciseDetailPage = lazy(() => import('./pages/ExerciseDetailPage').then((module) => ({ default: module.ExerciseDetailPage })));
@@ -24,9 +24,9 @@ const ProgressPage = lazy(() => import('./pages/ProgressPage').then((module) => 
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then((module) => ({ default: module.SettingsPage })));
 const WorkoutPage = lazy(() => import('./pages/WorkoutPage').then((module) => ({ default: module.WorkoutPage })));
 const SkillsPage = lazy(() => import('./pages/SkillsPage').then((module) => ({ default: module.SkillsPage })));
-const FrontLeverSkillPage = lazy(() => import('./pages/FrontLeverSkillPage').then((module) => ({ default: module.FrontLeverSkillPage })));
-const FrontLeverLevelPage = lazy(() => import('./pages/FrontLeverLevelPage').then((module) => ({ default: module.FrontLeverLevelPage })));
-const FrontLeverHistoryPage = lazy(() => import('./pages/FrontLeverHistoryPage').then((module) => ({ default: module.FrontLeverHistoryPage })));
+const SkillPage = lazy(() => import('./pages/SkillPage').then((module) => ({ default: module.SkillPage })));
+const SkillLevelPage = lazy(() => import('./pages/SkillLevelPage').then((module) => ({ default: module.SkillLevelPage })));
+const SkillHistoryPage = lazy(() => import('./pages/SkillHistoryPage').then((module) => ({ default: module.SkillHistoryPage })));
 const AdminLoginPage = lazy(() => import('./pages/admin/AdminLoginPage').then((module) => ({ default: module.AdminLoginPage })));
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout').then((module) => ({ default: module.AdminLayout })));
 const AdminExercisesPage = lazy(() => import('./pages/admin/AdminExercisesPage').then((module) => ({ default: module.AdminExercisesPage })));
@@ -177,8 +177,10 @@ export default function App() {
     if (!hydrated) return;
     loadGlobalContent(useAppStore.getState().exercises).then(({ exercises, stale }) => {
       if (import.meta.env.DEV) {
-        const validation = validateFrontLeverContent(exercises);
-        if (!validation.valid) console.error('[skill-content-validation]', validation.blockingErrors.map(({ code, levelKey, exerciseKey }) => ({ code, levelKey, exerciseKey })));
+        skillRegistry.forEach((skill) => {
+          const validation = validateRegisteredSkill(skill.key, exercises);
+          if (!validation.valid) console.error('[skill-content-validation]', { skillKey: skill.key, issues: validation.blockingErrors.map(({ code, levelKey, exerciseKey }) => ({ code, levelKey, exerciseKey })) });
+        });
       }
       setSharedExercises(exercises);
       if (stale) useAppStore.getState().setToast(translations[settings.language].offlineContent);
@@ -199,8 +201,8 @@ export default function App() {
             <Route path="exercises/:exerciseId/edit" element={<AdminExerciseEditorPage />} />
             <Route path="media" element={<Navigate to="../exercises" replace />} />
             <Route path="skills" element={<AdminSkillQaPage />} />
-            <Route path="skills/front-lever" element={<AdminSkillQaPage />} />
-            <Route path="skills/front-lever/test/:levelKey" element={<WorkoutPage />} />
+            <Route path="skills/:skillKey" element={<AdminSkillQaPage />} />
+            <Route path="skills/:skillKey/test/:levelKey" element={<WorkoutPage />} />
           </Route>
         </Route>
         <Route element={<AppLayout />}>
@@ -217,10 +219,10 @@ export default function App() {
           <Route path="goals" element={<GoalsPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="skills" element={<SkillsPage />} />
-          <Route path="skills/front-lever" element={<FrontLeverSkillPage />} />
-          <Route path="skills/front-lever/levels/:levelKey" element={<FrontLeverLevelPage />} />
-          <Route path="skills/front-lever/assessment" element={<FrontLeverSkillPage />} />
-          <Route path="skills/front-lever/history" element={<FrontLeverHistoryPage />} />
+          <Route path="skills/:skillKey" element={<SkillPage />} />
+          <Route path="skills/:skillKey/levels/:levelKey" element={<SkillLevelPage />} />
+          <Route path="skills/:skillKey/assessment" element={<SkillPage />} />
+          <Route path="skills/:skillKey/history" element={<SkillHistoryPage />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Route>
       </Routes>

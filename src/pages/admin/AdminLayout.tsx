@@ -48,7 +48,7 @@ export function AdminLayout() {
                 <Plus size={18} />
                 {t('newExercise')}
               </Link>
-              <Link className="btn-secondary" to="/admin/skills/front-lever">
+              <Link className="btn-secondary" to="/admin/skills">
                 <ShieldCheck size={18} />
                 {t('skills')} QA
               </Link>

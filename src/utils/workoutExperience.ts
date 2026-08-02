@@ -93,7 +93,7 @@ const difficultyIndex = { beginner: 0, intermediate: 1, advanced: 2 };
 export function rankReplacementExercises(
   current: Exercise,
   exercises: Exercise[],
-  skillRole?: 'primary-skill' | 'secondary-skill' | 'pulling-strength' | 'core-strength' | 'warm-up',
+  skillRole?: string,
 ): Exercise[] {
   return exercises
     .filter((exercise) => exercise.id !== current.id)

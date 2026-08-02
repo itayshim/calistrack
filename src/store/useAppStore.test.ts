@@ -3,6 +3,7 @@ import { createInitialData } from '../data/seed';
 import type { WorkoutTemplate } from '../types';
 import { useAppStore } from './useAppStore';
 import { createFrontLeverAssessment, createFrontLeverWorkout } from '../features/skills/frontLever';
+import { createHandstandPushUpAssessment } from '../features/skills/handstandPushUp';
 const t: WorkoutTemplate = {
   id: 't',
   programId: 'p',
@@ -47,6 +48,16 @@ describe('workout flow', () => {
     expect(progress.unlockedLevelKeys).toContain('advanced-tuck');
     expect(progress.masteredLevelKeys).toContain('tuck');
     expect(progress.activeLevelKey).toBe('tuck');
+  });
+  it('keeps Handstand Push-Up progress independent and unlocks its next level idempotently', () => {
+    const assessment = createHandstandPushUpAssessment('pike-push-up', useAppStore.getState().exercises);
+    useAppStore.getState().startWorkout(assessment);
+    useAppStore.getState().completeSet(0, { reps: 10 });
+    useAppStore.getState().finishWorkout('', 3, 3, 'good');
+    const progress = useAppStore.getState().skillProgress['handstand-push-up'];
+    expect(progress).toMatchObject({ activeLevelKey: 'pike-push-up', unlockedLevelKeys: ['pike-push-up', 'advanced-pike-push-up'] });
+    expect(progress.assessments[0]).toMatchObject({ reps: 10, measurementType: 'reps', passed: true });
+    expect(useAppStore.getState().skillProgress['front-lever']).toBeUndefined();
   });
   it('discards administrator preview sessions without history or skill progress', () => {
     const before = useAppStore.getState();

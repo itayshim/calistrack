@@ -53,12 +53,12 @@ export interface WorkoutExercise {
   restSeconds: number;
   notes?: string;
   measurementType?: MeasurementType;
-  skillRole?: 'primary-skill' | 'secondary-skill' | 'pulling-strength' | 'core-strength' | 'warm-up';
+  skillRole?: string;
   skillSection?: 'warm-up' | 'work';
   requiredForSkillSuccess?: boolean;
 }
 export interface SkillWorkoutLink {
-  skillKey: 'front-lever';
+  skillKey: string;
   levelKey: string;
   templateVersion: number;
   kind: 'workout' | 'assessment';
@@ -70,6 +70,7 @@ export interface SkillWarmupItem {
   stableKey: string;
   guidanceEn: string;
   guidanceHe: string;
+  durationSeconds?: number;
   status?: 'pending' | 'done' | 'skipped';
 }
 export interface SkillWarmupState {
@@ -135,7 +136,7 @@ export interface WorkoutSession {
   notes?: string;
   completionReady?: boolean;
   skillLink?: SkillWorkoutLink;
-  skillTechniqueRating?: 'good' | 'needs-work';
+  skillTechniqueRating?: 'good' | 'partial' | 'breakdown' | 'needs-work';
   skillSuccessful?: boolean;
   skillWarmup?: SkillWarmupState;
 }
@@ -144,12 +145,14 @@ export interface SkillAssessmentRecord {
   levelKey: string;
   sessionId: string;
   passed: boolean;
-  durationSeconds: number;
-  techniqueRating: 'good' | 'needs-work';
+  durationSeconds?: number;
+  reps?: number;
+  measurementType?: MeasurementType;
+  techniqueRating: 'good' | 'partial' | 'breakdown' | 'needs-work';
   completedAt: string;
 }
 export interface UserSkillProgress {
-  skillKey: 'front-lever';
+  skillKey: string;
   activeLevelKey: string;
   unlockedLevelKeys: string[];
   masteredLevelKeys: string[];
