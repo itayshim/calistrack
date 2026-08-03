@@ -15,6 +15,8 @@ export interface SkillPrescription {
   measurementType: MeasurementType;
   role: string;
   restSeconds?: number;
+  noteEn?: string;
+  noteHe?: string;
 }
 export interface SkillWarmupPrescription {
   exerciseKey: string;
@@ -27,6 +29,11 @@ export interface SkillAssessmentDefinition {
   target: number;
   measurementType: MeasurementType;
   techniqueRequired: boolean;
+  instructionsEn?: string;
+  instructionsHe?: string;
+  manuallyVerifiedRequirements?: boolean;
+  unlocksNextLevel?: boolean;
+  marksSkillMastered?: boolean;
 }
 export type SkillLifecycleStatus = 'draft' | 'ready' | 'published' | 'unpublished' | 'archived';
 export interface SkillReplacementDefinition {
@@ -52,6 +59,10 @@ export interface SkillLevelDefinition {
   number: number;
   nameEn: string;
   nameHe: string;
+  descriptionEn?: string;
+  descriptionHe?: string;
+  techniquePromptEn?: string;
+  techniquePromptHe?: string;
   work: SkillPrescription[];
   assessment: SkillAssessmentDefinition;
   performance: { exerciseKey: string; metric: MeasurementType; sideMode?: 'left-right' };
@@ -298,14 +309,26 @@ export function validateSkillContent(
         });
     });
     validateReference(level.assessment.exerciseKey, level.assessment.measurementType, level.key);
+    if (level.assessment.manuallyVerifiedRequirements) {
+      warnings.push({
+        levelKey: level.key,
+        exerciseKey: level.assessment.exerciseKey,
+        code: 'manual_assessment_requirement',
+        message:
+          'Part of this assessment is confirmed by the user and is not automatically measured.',
+      });
+    }
+    const primaryPerformanceWork = level.work.find(
+      (item) => item.exerciseKey === level.performance.exerciseKey,
+    );
     if (
-      level.performance.exerciseKey !== level.work[0]?.exerciseKey ||
-      level.performance.metric !== level.work[0]?.measurementType
+      !primaryPerformanceWork ||
+      level.performance.metric !== primaryPerformanceWork.measurementType
     )
       blockingErrors.push({
         levelKey: level.key,
         code: 'primary_performance_mismatch',
-        message: `${level.key} primary performance must match its first work exercise.`,
+        message: `${level.key} primary performance must match an official work exercise and measurement type.`,
       });
   });
   for (const replacement of definition.metadata?.replacements ?? []) {

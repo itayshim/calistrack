@@ -1,10 +1,12 @@
 import type { Exercise } from '../../types';
 import { frontLeverSkill } from './frontLever';
 import { handstandPushUpSkill } from './handstandPushUp';
+import { handstandSkill } from './handstand';
 import { createSkillAssessment, createSkillWorkout, validateSkillContent } from './skillEngine';
 import type { SkillDefinition } from './skillEngine';
 
-const builtInSkills: SkillDefinition[] = [frontLeverSkill, handstandPushUpSkill];
+const builtInSkills: SkillDefinition[] = [frontLeverSkill, handstandPushUpSkill, handstandSkill];
+export const builtInSkillRegistry: readonly SkillDefinition[] = builtInSkills;
 const managedSkills: SkillDefinition[] = [];
 export const skillRegistry: SkillDefinition[] = [...builtInSkills];
 export const installManagedSkillDefinitions = (definitions: SkillDefinition[]) => {

@@ -2,15 +2,296 @@ import { ArrowLeft, Check, LockKeyhole, Play, Plus } from 'lucide-react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { ExerciseDemonstrationButton } from '../components/ExerciseDemonstration';
 import { deriveSkillLevelPerformance } from '../features/skills/performance';
-import { createRegisteredSkillAssessment, createRegisteredSkillWorkout, getDefaultSkillProgress, getSkillDefinition, validateRegisteredSkill } from '../features/skills/registry';
-import { useI18n } from '../hooks/useI18n'; import { useAppStore } from '../store/useAppStore'; import type { Program } from '../types'; import { getExerciseName } from '../utils/exerciseLocalization'; import { createId } from '../utils/id'; import { formatDuration, formatReps } from '../utils/performance';
+import {
+  createRegisteredSkillAssessment,
+  createRegisteredSkillWorkout,
+  getDefaultSkillProgress,
+  getSkillDefinition,
+  validateRegisteredSkill,
+} from '../features/skills/registry';
+import { useI18n } from '../hooks/useI18n';
+import { useAppStore } from '../store/useAppStore';
+import type { Program } from '../types';
+import { getExerciseName } from '../utils/exerciseLocalization';
+import { createId } from '../utils/id';
+import { formatDuration, formatReps } from '../utils/performance';
 
-export function SkillLevelPage(){const{skillKey='',levelKey=''}=useParams();const skill=getSkillDefinition(skillKey);const level=skill?.levels.find(x=>x.key===levelKey);const{language}=useI18n();const store=useAppStore();const nav=useNavigate();if(!skill||!level)return <Navigate to={skill?`/skills/${skill.key}`:'/skills'} replace/>;const label=(en:string,he:string)=>language==='he'?he:en;const progress=store.skillProgress[skill.key]??getDefaultSkillProgress(skill.key);const summary=deriveSkillLevelPerformance(level.performance,store.exercises,store.workoutSessions,progress.assessments,level.key);const unlocked=progress.unlockedLevelKeys.includes(level.key),active=progress.activeLevelKey===level.key,mastered=progress.masteredLevelKeys.includes(level.key),valid=validateRegisteredSkill(skill.key,store.exercises,level.key).valid;const format=(value:number,type=level.performance.metric)=>type==='duration'?formatDuration(value,language):formatReps(value,language);const successfulWorkout=store.workoutSessions.some(s=>s.skillLink?.skillKey===skill.key&&s.skillLink.levelKey===level.key&&s.skillLink.kind==='workout'&&s.skillSuccessful);
-const start=(assessment=false)=>{if(!unlocked||!valid||(assessment&&!successfulWorkout))return;if(store.activeWorkout){nav(`/workout/${store.activeWorkout.id}`);return;}const workout=assessment?createRegisteredSkillAssessment(skill.key,level.key,store.exercises):createRegisteredSkillWorkout(skill.key,level.key,store.exercises,true);if(store.startWorkout(workout))nav(`/workout/${useAppStore.getState().activeWorkout?.id}`)};
-const add=()=>{if(!unlocked||!valid)return;const existing=store.programs.find(p=>p.id===store.activeProgramId);if(existing?.workouts.some(w=>w.skillLink?.skillKey===skill.key&&w.skillLink.levelKey===level.key)){store.setToast(label('This level is already in the active program.','השלב כבר נמצא בתוכנית הפעילה.'));return;}const now=new Date().toISOString(),programId=existing?.id??createId(),workout=createRegisteredSkillWorkout(skill.key,level.key,store.exercises,false,programId);const program:Program=existing?{...existing,workouts:[...existing.workouts,workout],updatedAt:now}:{id:programId,name:label(`${skill.nameEn} Program`,`תוכנית ${skill.nameHe}`),workouts:[workout],createdAt:now,updatedAt:now};store.saveProgram(program)};
-return <div className="animate-rise pb-8"><Link className="inline-flex min-h-11 items-center gap-2 font-bold text-slate-500" to={`/skills/${skill.key}`}><ArrowLeft className="directional-icon" size={18}/>{language==='he'?skill.nameHe:skill.nameEn}</Link><header className="mt-3"><p className="eyebrow"><bdi>{label(`Level ${level.number} of ${skill.levels.length}`,`שלב ${level.number} מתוך ${skill.levels.length}`)}</bdi></p><h1 className="mt-2 text-4xl font-black">{language==='he'?level.nameHe:level.nameEn}</h1><div className="mt-3 flex flex-wrap gap-2"><span className="rounded-full bg-brand/15 px-3 py-1 text-sm font-black text-brand">{mastered?label('Mastered','נשלט'):active?label('Active','פעיל'):unlocked?label('Unlocked','פתוח'):label('Locked','נעול')}</span>{!unlocked&&<span className="inline-flex items-center gap-1 text-sm text-slate-500"><LockKeyhole size={15}/>{label(`Pass Level ${level.number-1} assessment to unlock`,`יש לעבור את מבחן שלב ${level.number-1} כדי לפתוח`)}</span>}</div></header>
-<section className="surface-panel mt-6 rounded-3xl p-5"><h2 className="text-xl font-black">{label('Level performance','ביצועי השלב')}</h2>{summary.best?<div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3"><div><p className="label">{label('Best result','תוצאה מיטבית')}</p><p className="mt-1 text-2xl font-black"><bdi>{format(summary.best.value)}</bdi></p></div><div><p className="label">{label('Current work target','יעד האימון הנוכחי')}</p><p className="mt-1 font-black"><bdi>{level.work[0].sets} × {format(level.work[0].target,level.work[0].measurementType)}</bdi></p></div><div><p className="label">{label('Assessment target','יעד המבחן')}</p><p className="mt-1 font-black"><bdi>{format(level.assessment.target,level.assessment.measurementType)}</bdi></p></div></div>:<div className="mt-3"><p className="font-bold">{label('No recorded result yet','עדיין אין תוצאה מתועדת')}</p><p className="text-sm text-slate-500">{label('Complete this progression to establish your first best result.','השלם ביצוע של השלב כדי לקבוע תוצאה ראשונה.')}</p></div>}<div className="mt-4 border-t border-slate-200/70 pt-3 text-sm dark:border-white/[.08]"><strong>{label('Assessment','מבחן')}:</strong> {summary.bestAssessment?.passed?label('Assessment passed','המבחן עבר בהצלחה'):label('Assessment not yet passed','המבחן עדיין לא עבר')}</div></section>
-<section className="mt-7"><h2 className="text-2xl font-black">{label("Today's prescription",'תוכנית האימון')}</h2><div className="mt-4 grid gap-3">{level.work.map(item=>{const exercise=store.exercises.find(x=>x.stableKey===item.exerciseKey);return <article className="card" key={item.exerciseKey}><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-black">{exercise?getExerciseName(exercise,language):item.exerciseKey}</h3><p className="mt-1 text-sm text-slate-500"><bdi>{item.sets} × {format(item.target,item.measurementType)} · {label(`${item.restSeconds??90} sec rest`,`${item.restSeconds??90} שניות מנוחה`)}</bdi></p></div>{exercise&&<ExerciseDemonstrationButton exercise={exercise}/>}</div></article>})}</div></section>
-<section className="surface-subtle mt-7 rounded-3xl p-5"><h2 className="text-xl font-black">{label('Optional warm-up','חימום אופציונלי')}</h2><p className="mt-1 text-sm text-slate-500">{label('Done or Skip only. Warm-up is excluded from records and success.','בוצע או דילוג בלבד. החימום אינו נכלל בשיאים ובהצלחת האימון.')}</p><div className="mt-4 grid gap-2 sm:grid-cols-2">{skill.warmup.map(item=>{const exercise=store.exercises.find(x=>x.stableKey===item.exerciseKey);return <div className="rounded-2xl bg-white p-3 dark:bg-white/[.05]" key={item.exerciseKey}><strong>{exercise?getExerciseName(exercise,language):item.exerciseKey}</strong><p className="text-sm text-slate-500"><bdi>{language==='he'?item.guidanceHe:item.guidanceEn}</bdi></p>{exercise&&<ExerciseDemonstrationButton exercise={exercise} className="mt-2"/>}</div>})}</div></section>
-<section className="card mt-7"><h2 className="text-xl font-black">{label('Assessment','מבחן')}</h2><p className="mt-2 text-slate-500"><bdi>{format(level.assessment.target,level.assessment.measurementType)} · {label('technique confirmation required','נדרש אישור טכניקה')}</bdi></p>{!successfulWorkout&&<p className="mt-2 text-sm text-amber-600">{label('Complete one successful official workout to unlock the assessment.','יש להשלים אימון רשמי מוצלח כדי לפתוח את המבחן.')}</p>}</section>
-<div className="mt-7 grid gap-3 sm:grid-cols-3"><button className="btn-primary" disabled={!unlocked||!valid} onClick={()=>start()}><Play size={18}/>{unlocked?label('Start this level','התחלת השלב'):label('Preview only','תצוגה בלבד')}</button><button className="btn-secondary" disabled={!unlocked||active} onClick={()=>store.activateSkillLevel(skill.key,level.key)}><Check size={18}/>{label('Set as active level','הגדרה כשלב פעיל')}</button><button className="btn-secondary" disabled={!unlocked||!valid} onClick={add}><Plus size={18}/>{label('Add to program','הוספה לתוכנית')}</button><button className="btn-secondary sm:col-span-3" disabled={!unlocked||!valid||!successfulWorkout} onClick={()=>start(true)}>{label(`Run assessment · ${format(level.assessment.target,level.assessment.measurementType)}`,`הפעלת מבחן · ${format(level.assessment.target,level.assessment.measurementType)}`)}</button></div></div>}
+export function SkillLevelPage() {
+  const { skillKey = '', levelKey = '' } = useParams();
+  const skill = getSkillDefinition(skillKey);
+  const level = skill?.levels.find((x) => x.key === levelKey);
+  const { language } = useI18n();
+  const store = useAppStore();
+  const nav = useNavigate();
+  if (!skill || !level) return <Navigate to={skill ? `/skills/${skill.key}` : '/skills'} replace />;
+  const label = (en: string, he: string) => (language === 'he' ? he : en);
+  const progress = store.skillProgress[skill.key] ?? getDefaultSkillProgress(skill.key);
+  const summary = deriveSkillLevelPerformance(
+    level.performance,
+    store.exercises,
+    store.workoutSessions,
+    progress.assessments,
+    level.key,
+  );
+  const unlocked = progress.unlockedLevelKeys.includes(level.key),
+    active = progress.activeLevelKey === level.key,
+    mastered = progress.masteredLevelKeys.includes(level.key),
+    valid = validateRegisteredSkill(skill.key, store.exercises, level.key).valid;
+  const format = (value: number, type = level.performance.metric) =>
+    type === 'duration' ? formatDuration(value, language) : formatReps(value, language);
+  const primaryWork =
+    level.work.find((item) => item.exerciseKey === level.performance.exerciseKey) ?? level.work[0];
+  const successfulWorkout = store.workoutSessions.some(
+    (s) =>
+      s.skillLink?.skillKey === skill.key &&
+      s.skillLink.levelKey === level.key &&
+      s.skillLink.kind === 'workout' &&
+      s.skillSuccessful,
+  );
+  const start = (assessment = false) => {
+    if (!unlocked || !valid || (assessment && !successfulWorkout)) return;
+    if (store.activeWorkout) {
+      nav(`/workout/${store.activeWorkout.id}`);
+      return;
+    }
+    const workout = assessment
+      ? createRegisteredSkillAssessment(skill.key, level.key, store.exercises)
+      : createRegisteredSkillWorkout(skill.key, level.key, store.exercises, true);
+    if (store.startWorkout(workout)) nav(`/workout/${useAppStore.getState().activeWorkout?.id}`);
+  };
+  const add = () => {
+    if (!unlocked || !valid) return;
+    const existing = store.programs.find((p) => p.id === store.activeProgramId);
+    if (
+      existing?.workouts.some(
+        (w) => w.skillLink?.skillKey === skill.key && w.skillLink.levelKey === level.key,
+      )
+    ) {
+      store.setToast(
+        label('This level is already in the active program.', 'השלב כבר נמצא בתוכנית הפעילה.'),
+      );
+      return;
+    }
+    const now = new Date().toISOString(),
+      programId = existing?.id ?? createId(),
+      workout = createRegisteredSkillWorkout(
+        skill.key,
+        level.key,
+        store.exercises,
+        false,
+        programId,
+      );
+    const program: Program = existing
+      ? { ...existing, workouts: [...existing.workouts, workout], updatedAt: now }
+      : {
+          id: programId,
+          name: label(`${skill.nameEn} Program`, `תוכנית ${skill.nameHe}`),
+          workouts: [workout],
+          createdAt: now,
+          updatedAt: now,
+        };
+    store.saveProgram(program);
+  };
+  return (
+    <div className="animate-rise pb-8">
+      <Link
+        className="inline-flex min-h-11 items-center gap-2 font-bold text-slate-500"
+        to={`/skills/${skill.key}`}
+      >
+        <ArrowLeft className="directional-icon" size={18} />
+        {language === 'he' ? skill.nameHe : skill.nameEn}
+      </Link>
+      <header className="mt-3">
+        <p className="eyebrow">
+          <bdi>
+            {label(
+              `Level ${level.number} of ${skill.levels.length}`,
+              `שלב ${level.number} מתוך ${skill.levels.length}`,
+            )}
+          </bdi>
+        </p>
+        <h1 className="mt-2 text-4xl font-black">
+          {language === 'he' ? level.nameHe : level.nameEn}
+        </h1>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <span className="rounded-full bg-brand/15 px-3 py-1 text-sm font-black text-brand">
+            {mastered
+              ? label('Mastered', 'נשלט')
+              : active
+                ? label('Active', 'פעיל')
+                : unlocked
+                  ? label('Unlocked', 'פתוח')
+                  : label('Locked', 'נעול')}
+          </span>
+          {!unlocked && (
+            <span className="inline-flex items-center gap-1 text-sm text-slate-500">
+              <LockKeyhole size={15} />
+              {label(
+                `Pass Level ${level.number - 1} assessment to unlock`,
+                `יש לעבור את מבחן שלב ${level.number - 1} כדי לפתוח`,
+              )}
+            </span>
+          )}
+        </div>
+      </header>
+      <section className="surface-panel mt-6 rounded-3xl p-5">
+        <h2 className="text-xl font-black">{label('Level performance', 'ביצועי השלב')}</h2>
+        {summary.best ? (
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <div>
+              <p className="label">{label('Best result', 'תוצאה מיטבית')}</p>
+              <p className="mt-1 text-2xl font-black">
+                <bdi>{format(summary.best.value)}</bdi>
+              </p>
+            </div>
+            <div>
+              <p className="label">{label('Current work target', 'יעד האימון הנוכחי')}</p>
+              <p className="mt-1 font-black">
+                <bdi>
+                  {primaryWork.sets} × {format(primaryWork.target, primaryWork.measurementType)}
+                </bdi>
+              </p>
+            </div>
+            <div>
+              <p className="label">{label('Assessment target', 'יעד המבחן')}</p>
+              <p className="mt-1 font-black">
+                <bdi>{format(level.assessment.target, level.assessment.measurementType)}</bdi>
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-3">
+            <p className="font-bold">{label('No recorded result yet', 'עדיין אין תוצאה מתועדת')}</p>
+            <p className="text-sm text-slate-500">
+              {label(
+                'Complete this progression to establish your first best result.',
+                'השלם ביצוע של השלב כדי לקבוע תוצאה ראשונה.',
+              )}
+            </p>
+          </div>
+        )}
+        <div className="mt-4 border-t border-slate-200/70 pt-3 text-sm dark:border-white/[.08]">
+          <strong>{label('Assessment', 'מבחן')}:</strong>{' '}
+          {summary.bestAssessment?.passed
+            ? label('Assessment passed', 'המבחן עבר בהצלחה')
+            : label('Assessment not yet passed', 'המבחן עדיין לא עבר')}
+        </div>
+      </section>
+      <section className="mt-7">
+        <h2 className="text-2xl font-black">{label("Today's prescription", 'תוכנית האימון')}</h2>
+        <div className="mt-4 grid gap-3">
+          {level.work.map((item) => {
+            const exercise = store.exercises.find((x) => x.stableKey === item.exerciseKey);
+            return (
+              <article className="card" key={item.exerciseKey}>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3 className="font-black">
+                      {exercise ? getExerciseName(exercise, language) : item.exerciseKey}
+                    </h3>
+                    <p className="mt-1 text-sm text-slate-500">
+                      <bdi>
+                        {item.sets} × {format(item.target, item.measurementType)} ·{' '}
+                        {label(
+                          `${item.restSeconds ?? 90} sec rest`,
+                          `${item.restSeconds ?? 90} שניות מנוחה`,
+                        )}
+                      </bdi>
+                    </p>
+                    {(item.noteEn || item.noteHe) && (
+                      <p className="mt-2 text-sm leading-6 text-slate-500">
+                        {language === 'he' ? item.noteHe : item.noteEn}
+                      </p>
+                    )}
+                  </div>
+                  {exercise && <ExerciseDemonstrationButton exercise={exercise} />}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+      <section className="surface-subtle mt-7 rounded-3xl p-5">
+        <h2 className="text-xl font-black">{label('Optional warm-up', 'חימום אופציונלי')}</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          {label(
+            'Done or Skip only. Warm-up is excluded from records and success.',
+            'בוצע או דילוג בלבד. החימום אינו נכלל בשיאים ובהצלחת האימון.',
+          )}
+        </p>
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          {skill.warmup.map((item) => {
+            const exercise = store.exercises.find((x) => x.stableKey === item.exerciseKey);
+            return (
+              <div className="rounded-2xl bg-white p-3 dark:bg-white/[.05]" key={item.exerciseKey}>
+                <strong>{exercise ? getExerciseName(exercise, language) : item.exerciseKey}</strong>
+                <p className="text-sm text-slate-500">
+                  <bdi>{language === 'he' ? item.guidanceHe : item.guidanceEn}</bdi>
+                </p>
+                {exercise && <ExerciseDemonstrationButton exercise={exercise} className="mt-2" />}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+      <section className="card mt-7">
+        <h2 className="text-xl font-black">{label('Assessment', 'מבחן')}</h2>
+        <p className="mt-2 text-slate-500">
+          <bdi>
+            {format(level.assessment.target, level.assessment.measurementType)} ·{' '}
+            {label('technique confirmation required', 'נדרש אישור טכניקה')}
+          </bdi>
+        </p>
+        {(level.assessment.instructionsEn || level.assessment.instructionsHe) && (
+          <p className="mt-3 text-sm leading-6">
+            {language === 'he' ? level.assessment.instructionsHe : level.assessment.instructionsEn}
+          </p>
+        )}
+        {level.assessment.manuallyVerifiedRequirements && (
+          <p className="mt-2 text-sm text-amber-600">
+            {label(
+              'Some technique requirements are confirmed by you and are not measured automatically.',
+              'חלק מדרישות הטכניקה מאושרות על ידך ואינן נמדדות אוטומטית.',
+            )}
+          </p>
+        )}
+        {!successfulWorkout && (
+          <p className="mt-2 text-sm text-amber-600">
+            {label(
+              'Complete one successful official workout to unlock the assessment.',
+              'יש להשלים אימון רשמי מוצלח כדי לפתוח את המבחן.',
+            )}
+          </p>
+        )}
+      </section>
+      <div className="mt-7 grid gap-3 sm:grid-cols-3">
+        <button className="btn-primary" disabled={!unlocked || !valid} onClick={() => start()}>
+          <Play size={18} />
+          {unlocked ? label('Start this level', 'התחלת השלב') : label('Preview only', 'תצוגה בלבד')}
+        </button>
+        <button
+          className="btn-secondary"
+          disabled={!unlocked || active}
+          onClick={() => store.activateSkillLevel(skill.key, level.key)}
+        >
+          <Check size={18} />
+          {label('Set as active level', 'הגדרה כשלב פעיל')}
+        </button>
+        <button className="btn-secondary" disabled={!unlocked || !valid} onClick={add}>
+          <Plus size={18} />
+          {label('Add to program', 'הוספה לתוכנית')}
+        </button>
+        <button
+          className="btn-secondary sm:col-span-3"
+          disabled={!unlocked || !valid || !successfulWorkout}
+          onClick={() => start(true)}
+        >
+          {label(
+            `Run assessment · ${format(level.assessment.target, level.assessment.measurementType)}`,
+            `הפעלת מבחן · ${format(level.assessment.target, level.assessment.measurementType)}`,
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}

@@ -6,7 +6,7 @@ import { getDefaultSkillProgress, skillRegistry } from './registry';
 
 describe('Handstand Push-Up Skill', () => {
   it('is registered alongside Front Lever with five ordered levels', () => {
-    expect(skillRegistry.map((skill) => skill.key)).toEqual(['front-lever', 'handstand-push-up']);
+    expect(skillRegistry.map((skill) => skill.key)).toEqual(['front-lever', 'handstand-push-up', 'handstand']);
     expect(handstandPushUpSkill.levels.map((level) => level.key)).toEqual(['pike-push-up','advanced-pike-push-up','wall-handstand-push-up','negative-handstand-push-up','handstand-push-up']);
     expect(getDefaultSkillProgress('handstand-push-up')).toMatchObject({ activeLevelKey: 'pike-push-up', unlockedLevelKeys: ['pike-push-up'] });
   });

@@ -9,7 +9,7 @@ import type {
   SkillWarmupPrescription,
 } from '../../features/skills/skillEngine';
 import { validateSkillContent } from '../../features/skills/skillEngine';
-import { getSkillDefinition, skillRegistry } from '../../features/skills/registry';
+import { builtInSkillRegistry, getSkillDefinition } from '../../features/skills/registry';
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard';
 import { useI18n } from '../../hooks/useI18n';
 import {
@@ -73,7 +73,7 @@ export function AdminSkillBuilderListPage() {
     void setSkillLifecycle(id, status).then(() =>
       setManaged((items) => items.map((item) => (item.id === id ? { ...item, status } : item))),
     );
-  const builtIns = skillRegistry.slice(0, 2);
+  const builtIns = builtInSkillRegistry;
   return (
     <main className="mx-auto max-w-5xl pb-12">
       <div className="flex flex-wrap items-end justify-between gap-3">

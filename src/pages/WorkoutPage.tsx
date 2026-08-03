@@ -804,7 +804,7 @@ function WorkoutFinish({
       </div>
       <div className="card text-start">
         {active.skillLink && <fieldset className="mb-6">
-          <legend className="label">{skillDefinition ? (language === 'he' ? skillDefinition.techniquePromptHe : skillDefinition.techniquePromptEn) : (language === 'he' ? 'איכות הטכניקה' : 'Technique quality')}</legend>
+          <legend className="label">{skillDefinition ? (() => { const skillLevel = skillDefinition.levels.find((level) => level.key === active.skillLink?.levelKey); return language === 'he' ? (skillLevel?.techniquePromptHe ?? skillDefinition.techniquePromptHe) : (skillLevel?.techniquePromptEn ?? skillDefinition.techniquePromptEn); })() : (language === 'he' ? 'איכות הטכניקה' : 'Technique quality')}</legend>
           <div className="grid gap-2 sm:grid-cols-3">
             {(['good', 'partial', 'breakdown'] as const).map((value) => <button type="button" key={value} aria-pressed={skillTechnique === value} onClick={() => setSkillTechnique(value)} className={`min-h-12 rounded-2xl px-2 font-black ${skillTechnique === value ? 'bg-brand text-ink' : 'bg-slate-100 text-slate-500 dark:bg-white/[.06]'}`}>{language === 'he' ? ({good:'טובה ובשליטה',partial:'שליטה חלקית',breakdown:'הטכניקה נשברה'} as const)[value] : ({good:'Good and controlled',partial:'Partly controlled',breakdown:'Form broke down'} as const)[value]}</button>)}
           </div>
