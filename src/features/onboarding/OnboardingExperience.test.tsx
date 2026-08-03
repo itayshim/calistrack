@@ -205,15 +205,28 @@ describe('first-run onboarding', () => {
     expect(useAppStore.getState().settings.onboardingCompleted).toBe(true);
   });
 
-  it('does not restore a stale step after a fresh-tour remount', async () => {
+  it('restores the active stable step after a tour remount', async () => {
     const user = userEvent.setup();
     const rendered = renderExperience();
     await user.click(screen.getByRole('button', { name: 'Start tour' }));
     expect(screen.getByText('Step 1 of 11')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    expect(await screen.findByText('Step 2 of 11')).toBeInTheDocument();
     rendered.unmount();
     renderExperience();
-    expect(screen.getByRole('dialog', { name: 'Welcome to CalisTrack 👋' })).toBeInTheDocument();
-    expect(screen.queryByText('Step 2 of 11')).not.toBeInTheDocument();
+    expect(await screen.findByText('Step 2 of 11')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Your training hub' })).toBeInTheDocument();
+  });
+
+  it('falls back to Welcome when a persisted stable step ID is unknown', () => {
+    localStorage.setItem('calistrack.onboarding.tour.v2', JSON.stringify({
+      version: 2,
+      active: true,
+      stepId: 'removed-step',
+    }));
+    renderExperience();
+    expect(screen.getByText('Step 1 of 11')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Train with structure' })).toBeInTheDocument();
   });
 
   it('finishes all eleven steps and persists completion', async () => {

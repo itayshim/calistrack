@@ -50,7 +50,7 @@ export function AdminLayout() {
               </Link>
               <Link className="btn-secondary" to="/admin/skills">
                 <ShieldCheck size={18} />
-                {t('skills')} QA
+                {t('skills')} Builder
               </Link>
               <button
                 className="btn-secondary"

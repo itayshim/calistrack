@@ -10,7 +10,8 @@ import { translations } from './locales/translations';
 import { restAlertService } from './services/restAlert';
 import { backgroundNotificationService } from './services/backgroundNotifications';
 import { canHandleForegroundCompletion } from './services/foregroundCompletion';
-import { skillRegistry, validateRegisteredSkill } from './features/skills/registry';
+import { installManagedSkillDefinitions, skillRegistry, validateRegisteredSkill } from './features/skills/registry';
+import { loadPublishedSkillDefinitions } from './services/skillDefinitions';
 const notificationClientId = crypto.randomUUID();
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((module) => ({ default: module.DashboardPage })));
 const ExerciseDetailPage = lazy(() => import('./pages/ExerciseDetailPage').then((module) => ({ default: module.ExerciseDetailPage })));
@@ -32,6 +33,8 @@ const AdminLayout = lazy(() => import('./pages/admin/AdminLayout').then((module)
 const AdminExercisesPage = lazy(() => import('./pages/admin/AdminExercisesPage').then((module) => ({ default: module.AdminExercisesPage })));
 const AdminExerciseEditorPage = lazy(() => import('./pages/admin/AdminExerciseEditorPage').then((module) => ({ default: module.AdminExerciseEditorPage })));
 const AdminSkillQaPage = lazy(() => import('./pages/admin/AdminSkillQaPage').then((module) => ({ default: module.AdminSkillQaPage })));
+const AdminSkillBuilderListPage = lazy(() => import('./pages/admin/AdminSkillBuilderPage').then((module) => ({ default: module.AdminSkillBuilderListPage })));
+const AdminSkillEditorPage = lazy(() => import('./pages/admin/AdminSkillBuilderPage').then((module) => ({ default: module.AdminSkillEditorPage })));
 export default function App() {
   const hydrate = useAppStore((s) => s.hydrate),
     hydrated = useAppStore((s) => s.hydrated),
@@ -175,6 +178,7 @@ export default function App() {
   }, [hydrated]);
   useEffect(() => {
     if (!hydrated) return;
+    void loadPublishedSkillDefinitions().then(installManagedSkillDefinitions);
     loadGlobalContent(useAppStore.getState().exercises).then(({ exercises, stale }) => {
       if (import.meta.env.DEV) {
         skillRegistry.forEach((skill) => {
@@ -200,8 +204,10 @@ export default function App() {
             <Route path="exercises/new" element={<AdminExerciseEditorPage />} />
             <Route path="exercises/:exerciseId/edit" element={<AdminExerciseEditorPage />} />
             <Route path="media" element={<Navigate to="../exercises" replace />} />
-            <Route path="skills" element={<AdminSkillQaPage />} />
-            <Route path="skills/:skillKey" element={<AdminSkillQaPage />} />
+            <Route path="skills" element={<AdminSkillBuilderListPage />} />
+            <Route path="skills/new" element={<AdminSkillEditorPage />} />
+            <Route path="skills/:skillKey/edit" element={<AdminSkillEditorPage />} />
+            <Route path="skills/:skillKey/preview" element={<AdminSkillQaPage />} />
             <Route path="skills/:skillKey/test/:levelKey" element={<WorkoutPage />} />
           </Route>
         </Route>

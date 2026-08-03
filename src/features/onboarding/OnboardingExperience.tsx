@@ -16,6 +16,21 @@ interface SpotlightRect {
   borderRadius: string;
 }
 
+const ONBOARDING_TOUR_STATE_KEY = 'calistrack.onboarding.tour.v2';
+const readPersistedTourState = () => {
+  try {
+    const value = JSON.parse(localStorage.getItem(ONBOARDING_TOUR_STATE_KEY) ?? '{}') as { version?: number; active?: boolean; stepId?: string };
+    const validStepId = tourSteps.some((step) => step.id === value.stepId) ? value.stepId! : tourSteps[0].id;
+    return { active: value.version === 2 && value.active === true, stepId: validStepId };
+  } catch {
+    return { active: false, stepId: tourSteps[0].id };
+  }
+};
+const persistTourState = (active: boolean, stepId: string) => {
+  localStorage.setItem(ONBOARDING_TOUR_STATE_KEY, JSON.stringify({ version: 2, active, stepId }));
+};
+const clearPersistedTourState = () => localStorage.removeItem(ONBOARDING_TOUR_STATE_KEY);
+
 export function OnboardingExperience() {
   const { t, direction } = useI18n();
   const navigate = useNavigate();
@@ -25,12 +40,14 @@ export function OnboardingExperience() {
   const activeWorkout = useAppStore((state) => state.activeWorkout);
   const replayRequest = useAppStore((state) => state.onboardingReplayRequest);
   const setCompleted = useAppStore((state) => state.setOnboardingCompleted);
-  const [tourActive, setTourActive] = useState(false);
-  const [stepIndex, setStepIndex] = useState(0);
+  const [restoredTour] = useState(() => readPersistedTourState());
+  const [tourActive, setTourActive] = useState(restoredTour.active);
+  const [stepId, setStepId] = useState(restoredTour.stepId);
   const [spotlight, setSpotlight] = useState<SpotlightRect | null>(null);
   const [readyStepId, setReadyStepId] = useState<string>();
   const [activeTargetId, setActiveTargetId] = useState<string>();
   const [cardPlacement, setCardPlacement] = useState<(TourCardPlacement & { stepId: string }) | null>(null);
+  const [fallbackStepId, setFallbackStepId] = useState<string>();
   const layerRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLElement>(null);
   const welcomeRef = useRef<HTMLElement>(null);
@@ -39,26 +56,53 @@ export function OnboardingExperience() {
   const spotlightRef = useRef<SpotlightRect | null>(null);
   const cardPlacementRef = useRef<(TourCardPlacement & { stepId: string }) | null>(null);
   const seenReplayRequest = useRef(replayRequest);
+  const transitionGeneration = useRef(0);
+  const transitionLocked = useRef(false);
+  const stepIndex = Math.max(0, tourSteps.findIndex((item) => item.id === stepId));
   const step = tourSteps[stepIndex];
+
+  const resetTransientStepState = useCallback(() => {
+    transitionGeneration.current += 1;
+    targetRef.current = null;
+    spotlightRef.current = null;
+    cardPlacementRef.current = null;
+    setSpotlight(null);
+    setCardPlacement(null);
+    setActiveTargetId(undefined);
+    setReadyStepId(undefined);
+    setFallbackStepId(undefined);
+  }, []);
+
+  const transitionTo = useCallback((nextStepId: string, source: 'next' | 'back') => {
+    if (transitionLocked.current || nextStepId === stepId) return;
+    transitionLocked.current = true;
+    resetTransientStepState();
+    setStepId(nextStepId);
+    persistTourState(true, nextStepId);
+    if (import.meta.env.DEV) console.debug('[onboarding-transition]', { previousStepId: stepId, nextStepId, source, generation: transitionGeneration.current });
+  }, [resetTransientStepState, stepId]);
+
+  useEffect(() => {
+    if (!tourActive) return;
+    if (step.type !== 'targeted' || readyStepId === step.id) transitionLocked.current = false;
+  }, [readyStepId, step.id, step.type, tourActive]);
 
   const goNext = useCallback((clickCount = 1) => {
     if (clickCount > 1) return;
-    setStepIndex((value) => Math.min(tourSteps.length - 1, value + 1));
-  }, []);
+    const next = tourSteps[stepIndex + 1];
+    if (next) transitionTo(next.id, 'next');
+  }, [stepIndex, transitionTo]);
 
   const goBack = useCallback(() => {
-    setStepIndex((value) => Math.max(0, value - 1));
-  }, []);
-
-  const skipUnavailableTargetedStep = useCallback((expectedIndex: number) => {
-    setStepIndex((value) =>
-      value === expectedIndex ? Math.min(tourSteps.length - 1, value + 1) : value,
-    );
-  }, []);
+    const previous = tourSteps[stepIndex - 1];
+    if (previous) transitionTo(previous.id, 'back');
+  }, [stepIndex, transitionTo]);
 
   const finishTour = useCallback((route?: string) => {
     setCompleted(true);
     setTourActive(false);
+    resetTransientStepState();
+    clearPersistedTourState();
     if (route) navigate(route);
     window.setTimeout(() => {
       const restoreTarget = restoreFocusRef.current?.isConnected
@@ -66,24 +110,29 @@ export function OnboardingExperience() {
         : document.querySelector<HTMLElement>('main button, main a[href]');
       restoreTarget?.focus();
     }, 0);
-  }, [navigate, setCompleted]);
+  }, [navigate, resetTransientStepState, setCompleted]);
 
   const startTour = useCallback((event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
     restoreFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    setStepIndex(0);
+    resetTransientStepState();
+    setStepId(tourSteps[0].id);
     setTourActive(true);
-  }, []);
+    persistTourState(true, tourSteps[0].id);
+  }, [resetTransientStepState]);
 
   useEffect(() => {
     if (replayRequest !== seenReplayRequest.current) {
       seenReplayRequest.current = replayRequest;
       restoreFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-      setStepIndex(0);
+      transitionLocked.current = false;
+      resetTransientStepState();
+      setStepId(tourSteps[0].id);
       setTourActive(true);
+      persistTourState(true, tourSteps[0].id);
     }
-  }, [replayRequest]);
+  }, [replayRequest, resetTransientStepState]);
 
   useEffect(() => {
     document.documentElement.classList.toggle('onboarding-active', tourActive);
@@ -98,6 +147,9 @@ export function OnboardingExperience() {
   useEffect(() => {
     if (!tourActive || step.type !== 'targeted' || location.pathname !== step.route) return;
     let cancelled = false;
+    const ownedGeneration = transitionGeneration.current;
+    const ownedStepId = step.id;
+    const ownsStep = () => !cancelled && transitionGeneration.current === ownedGeneration;
     let target: HTMLElement | undefined;
     let resizeObserver: ResizeObserver | undefined;
     let measureFrame = 0;
@@ -106,7 +158,7 @@ export function OnboardingExperience() {
     let hasScrolled = false;
 
     const measure = () => {
-      if (cancelled || !target || !isVisibleInViewport(target)) return;
+      if (!ownsStep() || !target || !isVisibleInViewport(target)) return;
       const rect = target.getBoundingClientRect();
       const padding = 7;
       const left = normalizeGeometry(Math.max(7, rect.left - padding));
@@ -125,7 +177,7 @@ export function OnboardingExperience() {
         setSpotlight(next);
         window.dispatchEvent(new Event('onboarding-target-measured'));
       }
-      setReadyStepId(step.id);
+      setReadyStepId(ownedStepId);
     };
 
     const scheduleMeasure = () => {
@@ -137,12 +189,14 @@ export function OnboardingExperience() {
     };
 
     const discover = () => {
+      if (!ownsStep()) return false;
       if (target?.isConnected) return true;
       const resolved = resolveTourTarget(step.targets);
       if (!resolved) return false;
       target = resolved.element;
       targetRef.current = target;
       setActiveTargetId(resolved.targetId);
+      setFallbackStepId(undefined);
       resizeObserver?.disconnect();
       if ('ResizeObserver' in window) {
         resizeObserver = new ResizeObserver(scheduleMeasure);
@@ -158,6 +212,7 @@ export function OnboardingExperience() {
     };
 
     const initialFrame = window.requestAnimationFrame(() => {
+      if (!ownsStep()) return;
       setSpotlight(null);
       spotlightRef.current = null;
       targetRef.current = null;
@@ -177,8 +232,10 @@ export function OnboardingExperience() {
       if (discover()) window.clearInterval(discoveryTimer);
     }, 100);
     const skipMissing = window.setTimeout(() => {
-      if (!target && !cancelled) {
-        skipUnavailableTargetedStep(stepIndex);
+      if (!target && ownsStep()) {
+        setFallbackStepId(ownedStepId);
+        setReadyStepId(ownedStepId);
+        if (import.meta.env.DEV) console.debug('[onboarding-fallback]', { stepId: ownedStepId, reason: 'target-timeout', generation: ownedGeneration });
       }
     }, 1600);
     const onLayout = () => {
@@ -203,7 +260,7 @@ export function OnboardingExperience() {
       window.removeEventListener('orientationchange', onLayout);
       window.removeEventListener('scroll', onLayout, true);
     };
-  }, [location.pathname, skipUnavailableTargetedStep, step, stepIndex, tourActive]);
+  }, [location.pathname, step, tourActive]);
 
   useEffect(() => {
     if (!tourActive || step.placement === 'center' || readyStepId !== step.id || !spotlightRef.current) return;
@@ -346,7 +403,8 @@ export function OnboardingExperience() {
   if (!tourActive) return null;
   const finalStep = stepIndex === tourSteps.length - 1;
   const targetReady = step.type !== 'targeted' || readyStepId === step.id;
-  const placementReady = step.placement === 'center' || cardPlacement?.stepId === step.id;
+  const targetFallback = fallbackStepId === step.id;
+  const placementReady = step.placement === 'center' || targetFallback || cardPlacement?.stepId === step.id;
 
   return (
     <div ref={layerRef} className="onboarding-tour-layer" aria-live="polite">
@@ -362,10 +420,10 @@ export function OnboardingExperience() {
           aria-modal="true"
           aria-labelledby="tour-step-title"
           aria-describedby="tour-step-description"
-          data-placement={step.placement === 'center' ? 'center' : cardPlacement?.side}
+          data-placement={step.placement === 'center' || targetFallback ? 'center' : cardPlacement?.side}
           data-overlap-ratio={cardPlacement?.overlapRatio}
           style={
-            step.placement === 'center'
+            step.placement === 'center' || targetFallback
               ? undefined
               : {
                   top: cardPlacement?.top ?? 0,
@@ -377,7 +435,7 @@ export function OnboardingExperience() {
                 }
           }
           className={`modal-surface onboarding-tour-card rounded-4xl ${
-            step.placement === 'center' ? 'onboarding-tour-card-center' : 'onboarding-tour-card-positioned'
+            step.placement === 'center' || targetFallback ? 'onboarding-tour-card-center' : 'onboarding-tour-card-positioned'
           } ${cardPlacement?.compact ? 'onboarding-tour-card-compact' : ''} p-5 sm:p-6`}
         >
           <div className="flex items-center justify-between gap-3">

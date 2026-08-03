@@ -136,7 +136,7 @@ export function WorkoutPage() {
       </div>
     );
   if (active.skillWarmup && (active.skillWarmup.status === 'pending' || active.skillWarmup.status === 'in-progress')) {
-    return <SkillWarmupPhase active={active} onCancel={() => { const skillKey=active.skillLink?.skillKey; store.cancelWorkout(); nav(active.skillLink?.preview ? `/admin/skills/${skillKey}` : `/skills/${skillKey}`); }} />;
+    return <SkillWarmupPhase active={active} onCancel={() => { const skillKey=active.skillLink?.skillKey; store.cancelWorkout(); nav(active.skillLink?.preview ? `/admin/skills/${skillKey}/preview` : `/skills/${skillKey}`); }} />;
   }
   if (finish || active.completionReady)
     return (
@@ -156,7 +156,7 @@ export function WorkoutPage() {
         }}
         onSave={() => {
           store.finishWorkout(notes, difficulty, feeling, active.skillLink ? skillTechnique : undefined);
-          nav(active.skillLink?.preview ? `/admin/skills/${active.skillLink.skillKey}` : active.skillLink ? `/skills/${active.skillLink.skillKey}/history` : '/history');
+          nav(active.skillLink?.preview ? `/admin/skills/${active.skillLink.skillKey}/preview` : active.skillLink ? `/skills/${active.skillLink.skillKey}/history` : '/history');
         }}
       />
     );
@@ -729,7 +729,7 @@ export function WorkoutPage() {
         onClose={() => setCancel(false)}
         onConfirm={() => {
           store.cancelWorkout();
-          nav(active.skillLink?.preview ? `/admin/skills/${active.skillLink.skillKey}` : '/');
+          nav(active.skillLink?.preview ? `/admin/skills/${active.skillLink.skillKey}/preview` : '/');
         }}
       />
     </div>
