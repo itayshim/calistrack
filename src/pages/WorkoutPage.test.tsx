@@ -95,7 +95,10 @@ describe('active workout previous performance and replacement UX', () => {
     vi.useRealTimers();
     vi.restoreAllMocks();
   });
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
 
   it('shows matching previous repetitions and copies without completing', async () => {
     const user = userEvent.setup();

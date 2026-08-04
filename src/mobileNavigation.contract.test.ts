@@ -8,10 +8,12 @@ describe('mobile navigation contract', () => {
     expect(layout).toContain("const mobileTabs = desktopTabs.filter(([to]) => to !== '/workout')");
     expect(layout).toContain('grid-cols-5');
   });
-  it('anchors to the safe-area edge and gives all app content matching clearance', () => {
-    expect(css).toContain('bottom: 0;');
-    expect(css).toContain('padding-bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px) + var(--mobile-nav-gap))');
-    expect(css).toContain('padding-bottom: max(0.375rem, env(safe-area-inset-bottom, 0px))');
+  it('floats within the safe area and gives all app content matching clearance', () => {
+    expect(css).toContain('--mobile-nav-inline-gap: 0.75rem');
+    expect(css).toContain('--mobile-nav-bottom-gap: 0.75rem');
+    expect(css).toContain('bottom: calc(env(safe-area-inset-bottom, 0px) + var(--mobile-nav-bottom-gap))');
+    expect(css).toContain('padding-bottom: var(--mobile-nav-content-clearance)');
+    expect(css).toContain('border-radius: var(--mobile-nav-radius)');
   });
   it('does not use the removed mobile Workout tab as an onboarding fallback', () => {
     expect(tour).not.toContain("'nav-workout'");

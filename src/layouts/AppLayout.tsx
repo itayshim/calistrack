@@ -7,11 +7,13 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { isTabActive } from '../utils/navigation';
 import { useI18n } from '../hooks/useI18n';
 import { BrandLogo } from '../components/BrandLogo';
 import { OnboardingExperience } from '../features/onboarding/OnboardingExperience';
+import type { WorkoutSession } from '../types';
 
 const desktopTabs = [
   ['/', 'home', Home],
@@ -23,11 +25,15 @@ const desktopTabs = [
 ] as const;
 const mobileTabs = desktopTabs.filter(([to]) => to !== '/workout');
 export function AppLayout() {
-  const active = useAppStore((s) => s.activeWorkout),
+  const activeWorkout = useAppStore((s) => s.activeWorkout),
+    restTimer = useAppStore((s) => s.restTimer),
+    exercises = useAppStore((s) => s.exercises),
     nav = useNavigate(),
     location = useLocation(),
     { t, direction } = useI18n();
+  const active = getRecoverableActiveWorkout(activeWorkout);
   const workoutPath = active ? `/workout/${active.id}` : '/program';
+  const isWorkoutRunner = /^\/workout\/[^/]+\/?$/.test(location.pathname);
   return (
     <div className="min-h-screen md:flex" dir={direction}>
       <aside className="fixed inset-y-0 start-0 z-30 hidden w-[17rem] border-e border-slate-200/80 bg-white/95 px-5 py-7 text-slate-950 backdrop-blur-xl dark:border-white/[.06] dark:bg-ink/95 dark:text-white md:flex md:flex-col">
@@ -72,37 +78,26 @@ export function AppLayout() {
         </div>
       </aside>
       <main
-        className={`app-shell-main mx-auto w-full max-w-[78rem] px-4 sm:px-6 md:ms-[17rem] md:px-10 md:pb-12 md:pt-8 ${active ? 'has-active-workout' : ''}`}
+        className="app-shell-main mx-auto w-full max-w-[78rem] px-4 sm:px-6 md:ms-[17rem] md:px-10 md:pb-12 md:pt-8"
       >
         <header className="mb-7 flex items-center justify-between md:hidden">
           <button onClick={() => nav('/')} className="flex items-center gap-2">
             <BrandLogo variant="wordmark" className="h-11 w-[10.5rem]" />
           </button>
-          {active && (
-            <button
-              onClick={() => nav(workoutPath)}
-              className="flex items-center gap-2 rounded-full bg-brand/15 px-3 py-2 text-xs font-black text-brand"
-            >
-              <span className="h-2 w-2 animate-pulse rounded-full bg-brand" />
-              {t('live')}
-            </button>
-          )}
         </header>
+        {active && !isWorkoutRunner && (
+          <ActiveWorkoutBanner
+            active={active}
+            language={direction === 'rtl' ? 'he' : 'en'}
+            exerciseName={(() => { const exercise = exercises.find((item) => item.id === active.exercises[active.currentExerciseIndex]?.exerciseId); return exercise ? (direction === 'rtl' ? exercise.nameHe : exercise.nameEn) : undefined; })()}
+            restTimer={restTimer}
+          />
+        )}
         <Outlet />
       </main>
-      {active && (
-        <Link
-          to={workoutPath}
-          data-testid="active-workout-return"
-          className="active-workout-return fixed z-40 flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-brand px-4 font-black text-ink shadow-lg md:hidden"
-        >
-          <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-ink" />
-          {t('returnToActiveWorkout')}
-        </Link>
-      )}
-      <nav
+      {!isWorkoutRunner && <nav
         aria-label={t('mainNavigation')}
-        className="mobile-bottom-nav fixed z-30 grid grid-cols-5 border border-slate-200/80 bg-white/95 p-1.5 shadow-lg backdrop-blur-xl dark:border-white/[.08] dark:bg-panel/95 dark:shadow-soft md:hidden"
+        className="mobile-bottom-nav fixed z-30 grid grid-cols-5 border border-slate-200/80 bg-white p-1.5 shadow-lg dark:border-white/[.08] dark:bg-panel dark:shadow-soft md:hidden"
       >
         {mobileTabs.map(([to, labelKey, Icon]) => {
           const destination = to;
@@ -124,8 +119,53 @@ export function AppLayout() {
             </Link>
           );
         })}
-      </nav>
+      </nav>}
       <OnboardingExperience />
     </div>
   );
+}
+
+function getRecoverableActiveWorkout(active: WorkoutSession | null) {
+  if (!active || active.status !== 'active' || active.skillLink?.preview) return null;
+  if (!active.id || active.exercises.length === 0) return null;
+  if (active.currentExerciseIndex < 0 || active.currentExerciseIndex >= active.exercises.length) return null;
+  return active;
+}
+
+function ActiveWorkoutBanner({ active, language, exerciseName, restTimer }: {
+  active: WorkoutSession;
+  language: 'en' | 'he';
+  exerciseName?: string;
+  restTimer: ReturnType<typeof useAppStore.getState>['restTimer'];
+}) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!restTimer.endsAt) return;
+    const refresh = () => setNow(Date.now());
+    const first = window.setTimeout(refresh, 0);
+    const id = window.setInterval(refresh, 1000);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(id);
+    };
+  }, [restTimer.endsAt]);
+  const current = active.exercises[active.currentExerciseIndex];
+  const targetSets = current.target?.targetSets;
+  const nextSet = Math.min(current.sets.length + 1, targetSets ?? current.sets.length + 1);
+  const restSeconds = restTimer.pausedRemaining ?? (restTimer.endsAt ? Math.max(0, Math.ceil((restTimer.endsAt - now) / 1000)) : null);
+  const warmup = active.skillWarmup?.status === 'in-progress';
+  const phase = warmup
+    ? (language === 'he' ? 'חימום' : 'Warm-up')
+    : restSeconds !== null
+    ? (language === 'he' ? `מנוחה · ${restSeconds} שנ׳` : `Resting · ${restSeconds}s`)
+    : targetSets
+      ? (language === 'he' ? `סט ${nextSet} מתוך ${targetSets}` : `Set ${nextSet} of ${targetSets}`)
+      : (language === 'he' ? `תרגיל ${active.currentExerciseIndex + 1} מתוך ${active.exercises.length}` : `Exercise ${active.currentExerciseIndex + 1} of ${active.exercises.length}`);
+  const title = language === 'he' ? 'אימון פעיל' : 'Workout in progress';
+  const resume = language === 'he' ? 'חזרה לאימון' : 'Resume';
+  return <Link to={`/workout/${active.id}`} data-testid="active-workout-return" className="active-workout-banner mb-6 flex min-h-16 items-center gap-3 rounded-2xl border border-brand/35 bg-brand/10 p-3 text-start shadow-sm hover:bg-brand/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand" aria-label={`${title}: ${active.workoutName}. ${exerciseName ?? phase}. ${resume}`}>
+    <span className="relative grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand text-ink" aria-hidden="true"><Play size={18} fill="currentColor" /><span className="absolute -top-1 -end-1 h-3 w-3 rounded-full border-2 border-white bg-emerald-500 dark:border-panel" /></span>
+    <span className="min-w-0 flex-1"><span className="block text-xs font-black uppercase tracking-[0.12em] text-lime-700 dark:text-brand">{title}</span><span className="block truncate font-black">{active.workoutName}{exerciseName ? ` · ${exerciseName}` : ''}</span><span className="block text-sm text-slate-600 dark:text-slate-300">{phase}</span></span>
+    <span className="shrink-0 rounded-xl bg-brand px-3 py-2 text-sm font-black text-ink">{resume}</span>
+  </Link>;
 }

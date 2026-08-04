@@ -41,15 +41,24 @@ import { ExerciseReplacementSheet } from '../components/ExerciseReplacementSheet
 import { timerCueService } from '../services/timerCue';
 import { getSkillDefinition } from '../features/skills/registry';
 
+type WorkoutDrafts = Record<string, { reps: string; duration: string; addedWeight: string }>;
+const draftStorageKey = (sessionId: string) => `calistrack.active-workout-drafts.${sessionId}`;
+function loadWorkoutDrafts(sessionId?: string): WorkoutDrafts {
+  if (!sessionId) return {};
+  try {
+    return JSON.parse(sessionStorage.getItem(draftStorageKey(sessionId)) ?? '{}') as WorkoutDrafts;
+  } catch {
+    return {};
+  }
+}
+
 export function WorkoutPage() {
   const { t, language } = useI18n();
   const active = useAppStore((s) => s.activeWorkout),
     store = useAppStore(),
     nav = useNavigate(),
     [now, setNow] = useState(Date.now()),
-    [drafts, setDrafts] = useState<
-      Record<string, { reps: string; duration: string; addedWeight: string }>
-    >({}),
+    [drafts, setDrafts] = useState<WorkoutDrafts>(() => loadWorkoutDrafts(active?.id)),
     [replaceOpen, setReplaceOpen] = useState(false),
     [finish, setFinish] = useState(false),
     [cancel, setCancel] = useState(false),
@@ -60,6 +69,10 @@ export function WorkoutPage() {
   const [historyScope, setHistoryScope] = useState<'program' | 'all'>('program');
   const completeExerciseCountdown = useAppStore((state) => state.completeExerciseCountdown);
   const exerciseStopwatch = useAppStore((state) => state.exerciseStopwatch);
+  useEffect(() => {
+    if (!active?.id) return;
+    sessionStorage.setItem(draftStorageKey(active.id), JSON.stringify(drafts));
+  }, [active?.id, drafts]);
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 500);
     return () => clearInterval(id);
