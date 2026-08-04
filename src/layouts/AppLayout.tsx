@@ -97,7 +97,7 @@ export function AppLayout() {
       </main>
       {!isWorkoutRunner && <nav
         aria-label={t('mainNavigation')}
-        className="mobile-bottom-nav fixed z-30 grid grid-cols-5 border border-slate-200/80 bg-white p-1.5 shadow-lg dark:border-white/[.08] dark:bg-panel dark:shadow-soft md:hidden"
+        className="mobile-bottom-nav fixed z-30 grid grid-cols-5 border-t border-slate-200/80 bg-white shadow-[0_-4px_16px_rgba(15,23,42,0.06)] dark:border-white/[.08] dark:bg-panel dark:shadow-[0_-4px_18px_rgba(0,0,0,0.24)] md:hidden"
       >
         {mobileTabs.map(([to, labelKey, Icon]) => {
           const destination = to;

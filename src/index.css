@@ -8,10 +8,8 @@
   --admin-header-top-spacing: 1rem;
   --admin-content-bottom-spacing: 1.5rem;
   --mobile-nav-height: 4.6rem;
-  --mobile-nav-inline-gap: 0.75rem;
-  --mobile-nav-bottom-gap: 0.75rem;
-  --mobile-nav-radius: 1.5rem;
-  --mobile-nav-content-clearance: calc(var(--mobile-nav-height) + var(--mobile-nav-bottom-gap) + env(safe-area-inset-bottom, 0px) + 1.25rem);
+  --mobile-nav-safe-area: env(safe-area-inset-bottom, 0px);
+  --mobile-nav-content-clearance: calc(var(--mobile-nav-height) + var(--mobile-nav-safe-area) + 1.25rem);
 }
 .dark {
   color-scheme: dark;
@@ -363,12 +361,11 @@ textarea:not(.control-input):focus-visible {
   }
 }
 .mobile-bottom-nav {
-  right: max(var(--mobile-nav-inline-gap), env(safe-area-inset-right, 0px));
-  bottom: calc(env(safe-area-inset-bottom, 0px) + var(--mobile-nav-bottom-gap));
-  left: max(var(--mobile-nav-inline-gap), env(safe-area-inset-left, 0px));
-  min-height: var(--mobile-nav-height, 4.6rem);
-  padding: 0.375rem;
-  border-radius: var(--mobile-nav-radius);
+  right: 0;
+  bottom: 0;
+  left: 0;
+  min-height: calc(var(--mobile-nav-height) + var(--mobile-nav-safe-area));
+  padding: 0.375rem 0.375rem calc(0.375rem + var(--mobile-nav-safe-area));
   contain: layout paint;
 }
 [dir='rtl'] .directional-icon {
