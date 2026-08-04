@@ -1,8 +1,4 @@
-import type {
-  MeasurementType,
-  WorkoutSet,
-  WorkoutSetInput,
-} from '../types';
+import type { MeasurementType, WorkoutSet, WorkoutSetInput } from '../types';
 
 export const normalizeMeasurementType = (value: unknown): MeasurementType => {
   if (value === 'time' || value === 'duration') return 'duration';
@@ -72,24 +68,26 @@ export const inferSetMeasurementType = (
 };
 
 export const formatDuration = (seconds: number, language: 'en' | 'he' = 'en') => {
-  const safe = Math.max(0, Math.round(seconds));
+  const safe = Math.max(0, Math.round(seconds * 100) / 100);
   const minutes = Math.floor(safe / 60);
-  const remaining = safe % 60;
+  const remaining = Math.round((safe % 60) * 100) / 100;
+  const formattedRemaining = new Intl.NumberFormat(language === 'he' ? 'he-IL' : 'en-US', {
+    maximumFractionDigits: 2,
+    useGrouping: false,
+  }).format(remaining);
   if (language === 'he') {
-    if (!minutes) return `${remaining} שניות`;
+    if (!minutes) return `${formattedRemaining} שניות`;
     if (!remaining) return minutes === 1 ? 'דקה' : `${minutes} דקות`;
     const minuteText = minutes === 1 ? 'דקה' : `${minutes} דקות`;
-    return `${minuteText} ו־${remaining} שניות`;
+    return `${minuteText} ו־${formattedRemaining} שניות`;
   }
-  if (!minutes) return `${remaining} sec`;
+  if (!minutes) return `${formattedRemaining} sec`;
   if (!remaining) return `${minutes} min`;
-  return `${minutes} min ${remaining} sec`;
+  return `${minutes} min ${formattedRemaining} sec`;
 };
 
 export const formatReps = (count: number, language: 'en' | 'he' = 'en') =>
-  language === 'he'
-    ? `${formatRepValue(count)} חזרות`
-    : `${formatRepValue(count)} reps`;
+  language === 'he' ? `${formatRepValue(count)} חזרות` : `${formatRepValue(count)} reps`;
 
 export const formatAddedWeight = (weightKg: number, language: 'en' | 'he' = 'en') => {
   const formatted = new Intl.NumberFormat(language === 'he' ? 'he-IL' : 'en-US', {

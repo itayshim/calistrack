@@ -60,9 +60,7 @@ export function AppLayout() {
           })}
         </nav>
         <div className="mt-auto rounded-3xl bg-brand p-5 text-ink">
-          <p className="text-xs font-black uppercase tracking-widest opacity-60">
-            {t('ready')}
-          </p>
+          <p className="text-xs font-black uppercase tracking-widest opacity-60">{t('ready')}</p>
           <p className="mt-1 text-lg font-black">{t('nextSet')}</p>
           <button
             onClick={() => nav(workoutPath)}
@@ -73,7 +71,9 @@ export function AppLayout() {
           </button>
         </div>
       </aside>
-      <main className="app-shell-main mx-auto w-full max-w-[78rem] px-4 sm:px-6 md:ms-[17rem] md:px-10 md:pb-12 md:pt-8">
+      <main
+        className={`app-shell-main mx-auto w-full max-w-[78rem] px-4 sm:px-6 md:ms-[17rem] md:px-10 md:pb-12 md:pt-8 ${active ? 'has-active-workout' : ''}`}
+      >
         <header className="mb-7 flex items-center justify-between md:hidden">
           <button onClick={() => nav('/')} className="flex items-center gap-2">
             <BrandLogo variant="wordmark" className="h-11 w-[10.5rem]" />
@@ -90,6 +90,16 @@ export function AppLayout() {
         </header>
         <Outlet />
       </main>
+      {active && (
+        <Link
+          to={workoutPath}
+          data-testid="active-workout-return"
+          className="active-workout-return fixed z-40 flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-brand px-4 font-black text-ink shadow-lg md:hidden"
+        >
+          <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-ink" />
+          {t('returnToActiveWorkout')}
+        </Link>
+      )}
       <nav
         aria-label={t('mainNavigation')}
         className="mobile-bottom-nav fixed z-30 grid grid-cols-5 border border-slate-200/80 bg-white/95 p-1.5 shadow-lg backdrop-blur-xl dark:border-white/[.08] dark:bg-panel/95 dark:shadow-soft md:hidden"
@@ -104,7 +114,9 @@ export function AppLayout() {
               aria-label={t(labelKey)}
               aria-current={isTabActive(to, location.pathname) ? 'page' : undefined}
               className={`relative flex min-h-[3.7rem] flex-col items-center justify-center gap-1 rounded-2xl text-[10px] font-extrabold transition ${
-                isTabActive(to, location.pathname) ? 'bg-brand/15 text-lime-700 dark:bg-white/[.07] dark:text-brand' : 'text-slate-500'
+                isTabActive(to, location.pathname)
+                  ? 'bg-brand/15 text-lime-700 dark:bg-white/[.07] dark:text-brand'
+                  : 'text-slate-500'
               }`}
             >
               <Icon size={21} strokeWidth={2.3} />

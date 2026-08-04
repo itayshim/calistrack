@@ -124,6 +124,8 @@ export interface ExerciseSession {
 }
 export interface WorkoutSession {
   id: string;
+  /** Stable origin used to scope runtime history without duplicating workout data. */
+  programId?: string;
   workoutTemplateId?: string;
   workoutName: string;
   startedAt: string;
@@ -176,11 +178,7 @@ export interface UserSettings {
   onboardingCompleted: boolean;
 }
 export type GoalType =
-  | 'weekly-workouts'
-  | 'exercise-reps'
-  | 'exercise-time'
-  | 'exercise-weighted-reps'
-  | 'first-skill';
+  'weekly-workouts' | 'exercise-reps' | 'exercise-time' | 'exercise-weighted-reps' | 'first-skill';
 export interface UserGoal {
   id: string;
   type: GoalType;
@@ -221,6 +219,7 @@ export interface ExerciseStopwatchState {
   mode?: 'countup' | 'countdown';
   endsAt?: number | null;
   targetSeconds?: number | null;
+  targetReached?: boolean;
 }
 
 export type WorkoutSetInput = Pick<
@@ -228,7 +227,8 @@ export type WorkoutSetInput = Pick<
   'reps' | 'durationSeconds' | 'addedWeightKg' | 'notes'
 >;
 
-export type MediaType = 'youtube' | 'uploaded_video' | 'image' | 'external_link' | 'coaching_note' | 'equipment_note';
+export type MediaType =
+  'youtube' | 'uploaded_video' | 'image' | 'external_link' | 'coaching_note' | 'equipment_note';
 export interface ExerciseMedia {
   id: string;
   exerciseId: string;

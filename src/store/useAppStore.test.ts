@@ -35,8 +35,37 @@ describe('workout flow', () => {
   it('starts, persists and restores an active workout', () => {
     expect(useAppStore.getState().startWorkout(t)).toBe(true);
     expect(useAppStore.getState().activeWorkout?.workoutName).toBe('Workout');
+    expect(useAppStore.getState().activeWorkout?.programId).toBe('p');
     useAppStore.getState().hydrate();
     expect(useAppStore.getState().activeWorkout).not.toBeNull();
+  });
+  it('stopping a target countdown preserves precise elapsed time without completing the set', () => {
+    const now = vi.spyOn(Date, 'now').mockReturnValue(10_000);
+    useAppStore
+      .getState()
+      .startWorkout({ ...t, exercises: [{ ...t.exercises[0], measurementType: 'duration' }] });
+    useAppStore
+      .getState()
+      .startExerciseCountdown(useAppStore.getState().activeWorkout!.exercises[0].id, 30);
+    now.mockReturnValue(30_420);
+    expect(useAppStore.getState().stopExerciseCountdown()).toEqual({ measuredSeconds: 17.42 });
+    expect(useAppStore.getState().exerciseStopwatch).toMatchObject({
+      running: false,
+      measuredSeconds: 17.42,
+      adjustedSeconds: 17.42,
+      targetReached: false,
+    });
+    expect(useAppStore.getState().activeWorkout?.exercises[0].sets).toHaveLength(0);
+    now.mockRestore();
+  });
+  it('skipping the final exercise enters completion but Back restores an editable exercise', () => {
+    useAppStore.getState().startWorkout(t);
+    useAppStore.getState().skipExercise(0);
+    expect(useAppStore.getState().activeWorkout).toMatchObject({ completionReady: true });
+    useAppStore.getState().setCurrentExercise(0);
+    expect(useAppStore.getState().activeWorkout?.exercises[0].skipped).toBe(false);
+    expect(useAppStore.getState().activeWorkout?.completionReady).toBe(false);
+    expect(useAppStore.getState().completeSet(0, 8)).toBe(true);
   });
   it('records a successful skill assessment and unlocks without auto-activating the next level', () => {
     const state = useAppStore.getState();
@@ -50,13 +79,23 @@ describe('workout flow', () => {
     expect(progress.activeLevelKey).toBe('tuck');
   });
   it('keeps Handstand Push-Up progress independent and unlocks its next level idempotently', () => {
-    const assessment = createHandstandPushUpAssessment('pike-push-up', useAppStore.getState().exercises);
+    const assessment = createHandstandPushUpAssessment(
+      'pike-push-up',
+      useAppStore.getState().exercises,
+    );
     useAppStore.getState().startWorkout(assessment);
     useAppStore.getState().completeSet(0, { reps: 10 });
     useAppStore.getState().finishWorkout('', 3, 3, 'good');
     const progress = useAppStore.getState().skillProgress['handstand-push-up'];
-    expect(progress).toMatchObject({ activeLevelKey: 'pike-push-up', unlockedLevelKeys: ['pike-push-up', 'advanced-pike-push-up'] });
-    expect(progress.assessments[0]).toMatchObject({ reps: 10, measurementType: 'reps', passed: true });
+    expect(progress).toMatchObject({
+      activeLevelKey: 'pike-push-up',
+      unlockedLevelKeys: ['pike-push-up', 'advanced-pike-push-up'],
+    });
+    expect(progress.assessments[0]).toMatchObject({
+      reps: 10,
+      measurementType: 'reps',
+      passed: true,
+    });
     expect(useAppStore.getState().skillProgress['front-lever']).toBeUndefined();
   });
   it('discards administrator preview sessions without history or skill progress', () => {
@@ -211,7 +250,9 @@ describe('workout flow', () => {
     useAppStore.getState().startWorkout(t);
     useAppStore.getState().completeSet(0, 10);
     const end = useAppStore.getState().restTimer.endsAt;
-    useAppStore.setState({ restTimer: { id: null, endsAt: null, duration: 0, pausedRemaining: null } });
+    useAppStore.setState({
+      restTimer: { id: null, endsAt: null, duration: 0, pausedRemaining: null },
+    });
     useAppStore.getState().hydrate();
     expect(useAppStore.getState().restTimer.endsAt).toBe(end);
   });
@@ -219,7 +260,12 @@ describe('workout flow', () => {
     useAppStore.getState().startWorkout(t);
     useAppStore.getState().completeSet(0, 10);
     useAppStore.setState({
-      restTimer: { id: 'rest-expired', endsAt: Date.now() - 1, duration: 60, pausedRemaining: null },
+      restTimer: {
+        id: 'rest-expired',
+        endsAt: Date.now() - 1,
+        duration: 60,
+        pausedRemaining: null,
+      },
     });
     useAppStore.getState().completeSet(0, 11);
     expect(useAppStore.getState().activeWorkout?.exercises[0].sets).toHaveLength(2);
@@ -235,13 +281,15 @@ describe('workout flow', () => {
   it('logs duration sets and preserves the normal rest flow', () => {
     const durationTemplate: WorkoutTemplate = {
       ...t,
-      exercises: [{
-        ...t.exercises[0],
-        exerciseId: 'builtin-plank',
-        measurementType: 'duration',
-        targetMin: 20,
-        targetMax: 30,
-      }],
+      exercises: [
+        {
+          ...t.exercises[0],
+          exerciseId: 'builtin-plank',
+          measurementType: 'duration',
+          targetMin: 20,
+          targetMax: 30,
+        },
+      ],
     };
     useAppStore.getState().startWorkout(durationTemplate);
     useAppStore.getState().completeSet(0, { durationSeconds: 27 });
@@ -254,14 +302,16 @@ describe('workout flow', () => {
   it('uses canonical no-rest progression when configured rest is zero', () => {
     const durationTemplate: WorkoutTemplate = {
       ...t,
-      exercises: [{
-        ...t.exercises[0],
-        exerciseId: 'builtin-plank',
-        measurementType: 'duration',
-        targetMin: 30,
-        targetMax: 30,
-        restSeconds: 0,
-      }],
+      exercises: [
+        {
+          ...t.exercises[0],
+          exerciseId: 'builtin-plank',
+          measurementType: 'duration',
+          targetMin: 30,
+          targetMax: 30,
+          restSeconds: 0,
+        },
+      ],
     };
     useAppStore.getState().startWorkout(durationTemplate);
     expect(useAppStore.getState().completeSet(0, { durationSeconds: 30 })).toBe(true);
@@ -272,12 +322,14 @@ describe('workout flow', () => {
   it('logs half weighted repetitions and decimal added weight independently', () => {
     const weightedTemplate: WorkoutTemplate = {
       ...t,
-      exercises: [{
-        ...t.exercises[0],
-        exerciseId: 'builtin-weighted-pull-up',
-        measurementType: 'weighted_reps',
-        targetAddedWeightKg: 7.5,
-      }],
+      exercises: [
+        {
+          ...t.exercises[0],
+          exerciseId: 'builtin-weighted-pull-up',
+          measurementType: 'weighted_reps',
+          targetAddedWeightKg: 7.5,
+        },
+      ],
     };
     useAppStore.getState().startWorkout(weightedTemplate);
     useAppStore.getState().completeSet(0, { reps: 6.5, addedWeightKg: 7.5 });
@@ -285,7 +337,9 @@ describe('workout flow', () => {
       reps: 6.5,
       addedWeightKg: 7.5,
     });
-    expect(useAppStore.getState().activeWorkout?.exercises[0].sets[0]).not.toHaveProperty('durationSeconds');
+    expect(useAppStore.getState().activeWorkout?.exercises[0].sets[0]).not.toHaveProperty(
+      'durationSeconds',
+    );
   });
   it('rejects incomplete, zero and negative metric-specific sets', () => {
     const weightedTemplate: WorkoutTemplate = {
@@ -357,9 +411,13 @@ describe('workout flow', () => {
     useAppStore.setState({ programs: [program] });
     useAppStore.getState().startWorkout(t);
     useAppStore.getState().replaceActiveExercise(0, 'builtin-chin-up');
-    expect(useAppStore.getState().programs[0].workouts[0].exercises[0].exerciseId).toBe('builtin-push-up');
+    expect(useAppStore.getState().programs[0].workouts[0].exercises[0].exerciseId).toBe(
+      'builtin-push-up',
+    );
     useAppStore.getState().replaceActiveExercise(0, 'builtin-pull-up', { updateProgram: true });
-    expect(useAppStore.getState().programs[0].workouts[0].exercises[0].exerciseId).toBe('builtin-pull-up');
+    expect(useAppStore.getState().programs[0].workouts[0].exercises[0].exerciseId).toBe(
+      'builtin-pull-up',
+    );
   });
 
   it('keeps original and replacement metrics separated after workout completion', () => {

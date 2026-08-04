@@ -3,6 +3,7 @@ import { builtInExercises } from '../data/exercises';
 import type { WorkoutSession, WorkoutSet } from '../types';
 import {
   copySetInput,
+  getBestPerformanceSet,
   getPreviousPerformance,
   rankReplacementExercises,
   validEnteredSet,
@@ -20,12 +21,14 @@ const completed = (
   completedAt,
   status: 'completed',
   currentExerciseIndex: 0,
-  exercises: [{
-    id: `${id}-exercise`,
-    exerciseId,
-    sets,
-    skipped: false,
-  }],
+  exercises: [
+    {
+      id: `${id}-exercise`,
+      exerciseId,
+      sets,
+      skipped: false,
+    },
+  ],
 });
 
 describe('previous workout performance', () => {
@@ -58,32 +61,64 @@ describe('previous workout performance', () => {
     expect(getPreviousPerformance([history], 'custom-1')).toBeNull();
   });
 
+  it('scopes previous and best performance to the current program by default', () => {
+    const current = {
+      ...completed('current', 'hold', '2026-07-10', [
+        { id: 'a', setNumber: 1, durationSeconds: 18, completed: true },
+      ]),
+      programId: 'program-a',
+    };
+    const other = {
+      ...completed('other', 'hold', '2026-07-12', [
+        { id: 'b', setNumber: 1, durationSeconds: 40, completed: true },
+      ]),
+      programId: 'program-b',
+    };
+    const scope = { programId: 'program-a' };
+    expect(
+      getPreviousPerformance([current, other], 'hold', '2026-07-13', scope)?.sets[0]
+        .durationSeconds,
+    ).toBe(18);
+    expect(
+      getBestPerformanceSet([current, other], 'hold', 'duration', '2026-07-13', scope)
+        ?.durationSeconds,
+    ).toBe(18);
+    expect(
+      getBestPerformanceSet([current, other], 'hold', 'duration', '2026-07-13')?.durationSeconds,
+    ).toBe(40);
+  });
+
   it('copies only repetitions for reps exercises', () => {
-    expect(copySetInput(
-      { id: 'set', setNumber: 1, reps: 10, addedWeightKg: 5, completed: true },
-      'reps',
-    )).toEqual({ reps: 10 });
+    expect(
+      copySetInput(
+        { id: 'set', setNumber: 1, reps: 10, addedWeightKg: 5, completed: true },
+        'reps',
+      ),
+    ).toEqual({ reps: 10 });
   });
 
   it('copies only duration for timed exercises', () => {
-    expect(copySetInput(
-      { id: 'set', setNumber: 1, durationSeconds: 24, reps: 10, completed: true },
-      'duration',
-    )).toEqual({ durationSeconds: 24 });
+    expect(
+      copySetInput(
+        { id: 'set', setNumber: 1, durationSeconds: 24, reps: 10, completed: true },
+        'duration',
+      ),
+    ).toEqual({ durationSeconds: 24 });
   });
 
   it('copies repetitions and decimal added weight for weighted exercises', () => {
-    expect(copySetInput(
-      { id: 'set', setNumber: 1, reps: 6, addedWeightKg: 7.5, completed: true },
-      'weighted_reps',
-    )).toEqual({ reps: 6, addedWeightKg: 7.5 });
+    expect(
+      copySetInput(
+        { id: 'set', setNumber: 1, reps: 6, addedWeightKg: 7.5, completed: true },
+        'weighted_reps',
+      ),
+    ).toEqual({ reps: 6, addedWeightKg: 7.5 });
   });
 
   it('does not permit copying an incomplete invalid current-workout set', () => {
-    expect(validEnteredSet(
-      { id: 'set', setNumber: 1, reps: 0, completed: false },
-      'reps',
-    )).toBe(false);
+    expect(validEnteredSet({ id: 'set', setNumber: 1, reps: 0, completed: false }, 'reps')).toBe(
+      false,
+    );
   });
 });
 
@@ -92,10 +127,18 @@ describe('replacement ranking', () => {
     const current = builtInExercises.find((exercise) => exercise.nameEn === 'Weighted Pull-Up')!;
     const ranked = rankReplacementExercises(current, builtInExercises);
     expect(ranked[0].movementFamily).toBe(current.movementFamily);
-    const sameFamily = ranked.filter((exercise) => exercise.movementFamily === current.movementFamily);
-    const weightedIndex = sameFamily.findIndex((exercise) => exercise.measurementType === 'weighted_reps');
-    const firstDifferentType = sameFamily.findIndex((exercise) => exercise.measurementType !== 'weighted_reps');
-    expect(weightedIndex === -1 || firstDifferentType === -1 || weightedIndex < firstDifferentType).toBe(true);
+    const sameFamily = ranked.filter(
+      (exercise) => exercise.movementFamily === current.movementFamily,
+    );
+    const weightedIndex = sameFamily.findIndex(
+      (exercise) => exercise.measurementType === 'weighted_reps',
+    );
+    const firstDifferentType = sameFamily.findIndex(
+      (exercise) => exercise.measurementType !== 'weighted_reps',
+    );
+    expect(
+      weightedIndex === -1 || firstDifferentType === -1 || weightedIndex < firstDifferentType,
+    ).toBe(true);
   });
 
   it('supports custom exercises as replacement candidates', () => {

@@ -28,7 +28,8 @@ const en = {
   openExternalMedia: 'Open demonstration',
   openVideo: 'Open video',
   loadingDemonstrationMedia: 'Loading demonstration media…',
-  demonstrationMediaLoadFailed: 'The demonstration media could not be loaded. Try again when you are online.',
+  demonstrationMediaLoadFailed:
+    'The demonstration media could not be loaded. Try again when you are online.',
   noPublishedDemonstrationMedia: 'No published demonstration media is available yet.',
   invalidYoutubeMedia: 'This YouTube link cannot be embedded safely.',
   admin: 'Administrator',
@@ -45,7 +46,8 @@ const en = {
   authNotAdmin: 'This account does not have administrator access.',
   authUnknown: 'Sign-in failed. Please try again.',
   adminSessionExpiredTitle: 'Administrator session expired',
-  adminSessionExpiredDescription: 'Your administrator session has expired. Please sign in again to continue managing shared exercises.',
+  adminSessionExpiredDescription:
+    'Your administrator session has expired. Please sign in again to continue managing shared exercises.',
   signInAgain: 'Sign in again',
   returnToApp: 'Return to app',
   published: 'Published',
@@ -58,6 +60,11 @@ const en = {
   missingConfig: 'Supabase is not configured.',
   brandTagline: 'Move with intent',
   live: 'Live',
+  returnToActiveWorkout: 'Return to active workout',
+  programBest: 'Program best',
+  allProgramsBest: 'All-programs best',
+  currentProgram: 'Current program',
+  allPrograms: 'All programs',
   mainNavigation: 'Main navigation',
   confirm: 'Confirm',
   cancel: 'Cancel',
@@ -119,7 +126,8 @@ const en = {
   media: 'Media',
   youtubeUrl: 'YouTube URL',
   uploadVideoOrImage: 'Upload video or image',
-  uploadRecommendation: 'Short MP4/H.264 clips are recommended. Maximum 50 MB. MOV/HEVC may not play in every browser.',
+  uploadRecommendation:
+    'Short MP4/H.264 clips are recommended. Maximum 50 MB. MOV/HEVC may not play in every browser.',
   englishContent: 'English',
   hebrewContent: 'עברית',
   name: 'Name',
@@ -130,7 +138,8 @@ const en = {
   exerciseSaved: 'Exercise saved.',
   saving: 'Saving…',
   requiredExerciseFields: 'Stable key, English name and measurement type are required.',
-  invalidStableKey: 'Use lowercase letters, numbers, and single hyphens only. For example: l-sit-pull-up.',
+  invalidStableKey:
+    'Use lowercase letters, numbers, and single hyphens only. For example: l-sit-pull-up.',
   createNewCategory: 'Create new category',
   createNewMovementFamily: 'Create new movement family',
   createNewMuscle: 'Create new muscle',
@@ -146,7 +155,8 @@ const en = {
   movementFamilyRequired: 'Select a movement family.',
   selectValidCategory: 'Select an existing category or create a new one.',
   selectValidMovementFamily: 'Select an existing movement family or create a new one.',
-  invalidTaxonomySelection: 'One of the taxonomy values is not supported. Select it again or create a new value.',
+  invalidTaxonomySelection:
+    'One of the taxonomy values is not supported. Select it again or create a new value.',
   validYoutubeRequired: 'Enter a valid YouTube URL.',
   unableToSave: 'Unable to save.',
   saveBeforeUpload: 'Save the exercise before uploading media.',
@@ -180,7 +190,8 @@ const en = {
   repeatTwice: 'Twice',
   repeatThreeTimes: 'Three times',
   previewSound: 'Play preview',
-  audioPlaybackBlocked: 'Sound preview was blocked. Tap Preview again or check your browser audio settings.',
+  audioPlaybackBlocked:
+    'Sound preview was blocked. Tap Preview again or check your browser audio settings.',
   vibrationSupportNote: 'Vibration availability depends on your device and browser.',
   restSoundClassic: 'Classic',
   restSoundClassicDescription: 'Balanced default alert',
@@ -249,7 +260,8 @@ const en = {
   replaceAllData: 'Replace all data?',
   replaceAllDataDescription: 'Importing will replace your current data. Export a backup first.',
   resetAllData: 'Reset all data',
-  resetAllDataDescription: 'All workouts, programs, goals, and custom exercises will be permanently deleted.',
+  resetAllDataDescription:
+    'All workouts, programs, goals, and custom exercises will be permanently deleted.',
   importFailed: 'Import failed.',
   errorTitle: 'Something went wrong',
   errorDescription: 'Your data is still saved. Refresh the page and try again.',
@@ -272,7 +284,8 @@ const en = {
   discardChanges: 'Discard changes',
   findSuggestedVideos: 'Find suggested videos',
   preparingExerciseMedia: 'Preparing media…',
-  saveExerciseBeforeSuggestions: 'Save this new exercise before finding or adding demonstration media.',
+  saveExerciseBeforeSuggestions:
+    'Save this new exercise before finding or adding demonstration media.',
   unableToPrepareExerciseMedia: 'This exercise could not be prepared for media. Please try again.',
   searchYoutube: 'Search YouTube',
   searchQuery: 'Search query',
@@ -282,7 +295,8 @@ const en = {
   addingVideo: 'Adding…',
   youtubeVideoAlreadyAdded: 'This video has already been added to this exercise.',
   addAnotherVideoTitle: 'Add another demonstration video?',
-  addAnotherVideoBody: 'This exercise already has a demonstration video. Do you want to add another one?',
+  addAnotherVideoBody:
+    'This exercise already has a demonstration video. Do you want to add another one?',
   addVideo: 'Add video',
   videoAddedAndPublished: 'Video added and published.',
   selected: 'Selected',
@@ -296,7 +310,8 @@ const en = {
   youtubeUnavailable: 'YouTube search is temporarily unavailable.',
   youtubeUnauthorized: 'Administrator authorization is required.',
   youtubeKeyMissing: 'YouTube search has not been configured.',
-  reviewVideoWarning: 'Review the video before publishing. Search results are not automatically verified for technique accuracy.',
+  reviewVideoWarning:
+    'Review the video before publishing. Search results are not automatically verified for technique accuracy.',
   mediaManager: 'Media',
   addYoutube: 'Add YouTube video',
   primary: 'Primary',
@@ -339,12 +354,14 @@ const en = {
   keepCompletedSets: 'Keep completed sets',
   discardCompletedSets: 'Discard completed sets and replace',
   replacedDuringWorkout: 'Replaced during workout',
-  differentMeasurementWarning: 'This exercise uses a different measurement type. Entered values will be cleared and will not be converted.',
+  differentMeasurementWarning:
+    'This exercise uses a different measurement type. Entered values will be cleared and will not be converted.',
   searchAlternatives: 'Search alternatives',
   noCompatibleAlternatives: 'No compatible alternatives found',
   allMovementFamilies: 'All movement families',
   replaceThisExercise: 'Replace this exercise?',
-  completedSetsReplaceWarning: 'You have already completed {count} sets. Choose whether to keep them in this workout history or discard them before replacing the exercise.',
+  completedSetsReplaceWarning:
+    'You have already completed {count} sets. Choose whether to keep them in this workout history or discard them before replacing the exercise.',
   resting: 'Resting',
   plannedSetsComplete: 'Planned sets complete',
   addExtraSet: 'Add extra set',
@@ -383,12 +400,14 @@ const en = {
   mediaReplaceFailed: 'The replacement upload failed. Existing media was kept.',
   recommendedStart: 'RECOMMENDED START',
   beginnerProgramName: 'Beginner Full Body',
-  beginnerProgramDescription: 'Three balanced full-body sessions designed to build your base without overwhelming you.',
+  beginnerProgramDescription:
+    'Three balanced full-body sessions designed to build your base without overwhelming you.',
   daysPerWeek: '3 DAYS / WEEK',
   beginner: 'BEGINNER',
   useProgram: 'Use this program',
   preferOwnStructure: 'Prefer your own structure?',
-  customProgramDescription: 'Build a training week around your goals, schedule, and favorite movements.',
+  customProgramDescription:
+    'Build a training week around your goals, schedule, and favorite movements.',
   createCustomProgram: 'Create a custom program',
   goals: 'Goals',
   goalsEyebrow: 'YOUR NORTH STAR',
@@ -480,7 +499,8 @@ const en = {
   noExerciseProgressDescription: 'Complete a workout to start tracking your progress.',
   viewProgram: 'View program',
   noProgressForExercise: 'No progress for this exercise yet',
-  noProgressForExerciseDescription: 'Complete this exercise in a workout to unlock progress insights.',
+  noProgressForExerciseDescription:
+    'Complete this exercise in a workout to unlock progress insights.',
   sessionsLabel: 'Sessions',
   latestLabel: 'Latest',
   personalBestLabel: 'Personal best',
@@ -511,7 +531,8 @@ const en = {
   editCustomExercise: 'Edit custom exercise',
   newCustomExercise: 'New custom exercise',
   deleteExerciseQuestion: 'Delete exercise?',
-  deleteExerciseDescription: 'The custom exercise will be removed from the library. Workout history will remain saved.',
+  deleteExerciseDescription:
+    'The custom exercise will be removed from the library. Workout history will remain saved.',
   programActions: 'Program actions',
   editProgramAction: 'Edit program',
   renameProgram: 'Rename program',
@@ -525,8 +546,10 @@ const en = {
   activeProgramUpdated: 'Active program updated.',
   programDeleted: 'Program deleted. Workout history was kept.',
   deleteProgramTitle: 'Delete this program?',
-  deleteProgramDescription: 'The saved program will be removed. Completed workout history will remain.',
-  deleteActiveProgramDescription: 'This is your active program. Deleting it will leave you without an active program. Completed workout history will remain.',
+  deleteProgramDescription:
+    'The saved program will be removed. Completed workout history will remain.',
+  deleteActiveProgramDescription:
+    'This is your active program. Deleting it will leave you without an active program. Completed workout history will remain.',
   inactiveProgram: 'Saved program',
   expandWorkout: 'Expand workout',
   collapseWorkout: 'Collapse workout',
@@ -550,7 +573,8 @@ const en = {
   selectDay: 'Select {day}',
   deselectDay: 'Deselect {day}',
   allowEmptyNumericFields: 'Allow empty numeric fields while editing',
-  allowEmptyNumericFieldsDescription: 'Lets you temporarily clear numeric fields while editing. Invalid or incomplete values still cannot be saved.',
+  allowEmptyNumericFieldsDescription:
+    'Lets you temporarily clear numeric fields while editing. Invalid or incomplete values still cannot be saved.',
   enterSets: 'Enter the number of sets.',
   enterValidRest: 'Enter a valid rest time.',
   enterBothRepetitionRange: 'Enter both ends of the repetition range.',
@@ -573,39 +597,55 @@ const en = {
   defaultProgramName: 'My program',
   defaultWorkoutName: 'Workout {letter}',
   onboardingWelcomeTitle: 'Welcome to CalisTrack 👋',
-  onboardingWelcomeDescription: "Let's get you ready for your first workout. Would you like a quick guided tour?",
+  onboardingWelcomeDescription:
+    "Let's get you ready for your first workout. Would you like a quick guided tour?",
   onboardingEstimatedTime: 'Estimated time: about 60–90 seconds.',
   startTour: 'Start tour',
   skipTour: 'Skip tour',
   tourStepProgress: 'Step {current} of {total}',
   tourWelcomeTitle: 'Train with structure',
-  tourWelcomeDescription: 'Track your calisthenics workouts, measure your progress, and build structured programs.',
+  tourWelcomeDescription:
+    'Track your calisthenics workouts, measure your progress, and build structured programs.',
   tourDashboardTitle: 'Your training hub',
-  tourDashboardDescription: 'Use this primary action to set up your program or continue your next workout.',
+  tourDashboardDescription:
+    'Use this primary action to set up your program or continue your next workout.',
   tourProgramNavigationTitle: 'Your program starts here',
-  tourProgramNavigationDescription: 'Open Programs from the main navigation to organize your weekly training.',
-  tourDashboardActionDescription: 'Use this primary action to set up your program or continue your next workout.',
-  tourProgramActionDescription: 'Create a program here, or open your active program to organize its workouts.',
-  tourExerciseSearchDescription: 'Search the exercise library and narrow results by category, difficulty, or measurement.',
+  tourProgramNavigationDescription:
+    'Open Programs from the main navigation to organize your weekly training.',
+  tourDashboardActionDescription:
+    'Use this primary action to set up your program or continue your next workout.',
+  tourProgramActionDescription:
+    'Create a program here, or open your active program to organize its workouts.',
+  tourExerciseSearchDescription:
+    'Search the exercise library and narrow results by category, difficulty, or measurement.',
   tourExerciseFiltersTitle: 'Narrow the library',
-  tourExerciseFiltersDescription: 'Use category, difficulty, and measurement filters to find the right movement.',
-  tourWorkoutEntryDescription: 'Use this entry point to start your next workout or resume one already in progress.',
-  tourProgressSummaryDescription: 'This summary shows the latest results for the exercise you select.',
-  tourSettingsPreferencesDescription: 'Choose your language, theme, rest timer, and workout preferences here.',
+  tourExerciseFiltersDescription:
+    'Use category, difficulty, and measurement filters to find the right movement.',
+  tourWorkoutEntryDescription:
+    'Use this entry point to start your next workout or resume one already in progress.',
+  tourProgressSummaryDescription:
+    'This summary shows the latest results for the exercise you select.',
+  tourSettingsPreferencesDescription:
+    'Choose your language, theme, rest timer, and workout preferences here.',
   tourSettingsPreferencesTitle: 'Personalize CalisTrack',
-  tourSettingsFocusedDescription: 'Choose your theme and workout preferences here. Additional options are available further down the page.',
+  tourSettingsFocusedDescription:
+    'Choose your theme and workout preferences here. Additional options are available further down the page.',
   tourExercisesTitle: 'Explore every movement',
-  tourExercisesDescription: 'Search the exercise library and narrow results by category, difficulty, or measurement.',
+  tourExercisesDescription:
+    'Search the exercise library and narrow results by category, difficulty, or measurement.',
   tourProgramsTitle: 'Build your routine',
-  tourProgramsDescription: 'Create a program here, or open your active program to organize its workouts.',
+  tourProgramsDescription:
+    'Create a program here, or open your active program to organize its workouts.',
   tourWorkoutTitle: 'Start when you are ready',
-  tourWorkoutDescription: 'Use this entry point to start your next workout or resume one already in progress.',
+  tourWorkoutDescription:
+    'Use this entry point to start your next workout or resume one already in progress.',
   tourProgressTitle: 'See your work add up',
   tourProgressDescription: 'This summary shows the latest results for the exercise you select.',
   tourSettingsTitle: 'Make CalisTrack yours',
   tourSettingsDescription: 'Choose your language, theme, rest timer, and workout preferences here.',
   tourHelpTitle: 'Help is always nearby',
-  tourHelpDescription: 'Replay or reset this guided tour from the Help section whenever you need it.',
+  tourHelpDescription:
+    'Replay or reset this guided tour from the Help section whenever you need it.',
   preparingTourStep: 'Preparing the next step…',
   tourReadyTitle: "You're ready!",
   tourReadyDescription: 'Your next step is creating your first program.',
@@ -624,17 +664,23 @@ const he: Record<keyof typeof en, string> = {
   startWorkoutNamed: 'התחלת האימון: {name}',
   resumeWorkoutNamed: 'המשך האימון: {name}',
   tourExerciseFiltersTitle: 'ממקדים את הספרייה',
-  tourExerciseFiltersDescription: 'מסננים לפי קטגוריה, רמת קושי וסוג מדידה כדי למצוא את התנועה המתאימה.',
+  tourExerciseFiltersDescription:
+    'מסננים לפי קטגוריה, רמת קושי וסוג מדידה כדי למצוא את התנועה המתאימה.',
   tourSettingsPreferencesTitle: 'מתאימים את CalisTrack',
-  tourSettingsFocusedDescription: 'כאן בוחרים ערכת נושא והעדפות אימון. אפשרויות נוספות זמינות בהמשך העמוד.',
+  tourSettingsFocusedDescription:
+    'כאן בוחרים ערכת נושא והעדפות אימון. אפשרויות נוספות זמינות בהמשך העמוד.',
   tourDashboardActionDescription: 'דרך הפעולה הראשית אפשר להגדיר תוכנית או להמשיך לאימון הבא.',
-  tourProgramActionDescription: 'כאן יוצרים תוכנית או פותחים את התוכנית הפעילה כדי לארגן את האימונים שלה.',
-  tourExerciseSearchDescription: 'מחפשים בספריית התרגילים ומצמצמים תוצאות לפי קטגוריה, קושי או סוג מדידה.',
-  tourWorkoutEntryDescription: 'דרך נקודת הכניסה הזאת מתחילים את האימון הבא או ממשיכים אימון שכבר פעיל.',
+  tourProgramActionDescription:
+    'כאן יוצרים תוכנית או פותחים את התוכנית הפעילה כדי לארגן את האימונים שלה.',
+  tourExerciseSearchDescription:
+    'מחפשים בספריית התרגילים ומצמצמים תוצאות לפי קטגוריה, קושי או סוג מדידה.',
+  tourWorkoutEntryDescription:
+    'דרך נקודת הכניסה הזאת מתחילים את האימון הבא או ממשיכים אימון שכבר פעיל.',
   tourProgressSummaryDescription: 'הסיכום הזה מציג את התוצאות האחרונות של התרגיל שנבחר.',
   tourSettingsPreferencesDescription: 'כאן בוחרים שפה, ערכת נושא, טיימר מנוחה והעדפות אימון.',
   tourProgramNavigationTitle: 'התוכנית מתחילה כאן',
-  tourProgramNavigationDescription: 'פותחים את אזור התוכניות מהניווט הראשי כדי לארגן את האימונים השבועיים.',
+  tourProgramNavigationDescription:
+    'פותחים את אזור התוכניות מהניווט הראשי כדי לארגן את האימונים השבועיים.',
   tourHelpTitle: 'העזרה תמיד קרובה',
   tourHelpDescription: 'אפשר להפעיל מחדש או לאפס את הסיור המודרך מאזור העזרה בכל עת.',
   preparingTourStep: 'מכינים את השלב הבא…',
@@ -678,7 +724,8 @@ const he: Record<keyof typeof en, string> = {
   authNotAdmin: 'לחשבון הזה אין הרשאת מנהל מערכת.',
   authUnknown: 'ההתחברות נכשלה. נסה שוב.',
   adminSessionExpiredTitle: 'פג תוקף החיבור למערכת הניהול',
-  adminSessionExpiredDescription: 'פג תוקף החיבור שלך כמנהל. יש להתחבר מחדש כדי להמשיך לנהל תרגילים משותפים.',
+  adminSessionExpiredDescription:
+    'פג תוקף החיבור שלך כמנהל. יש להתחבר מחדש כדי להמשיך לנהל תרגילים משותפים.',
   signInAgain: 'התחברות מחדש',
   returnToApp: 'חזרה לאפליקציה',
   published: 'פורסם',
@@ -691,6 +738,11 @@ const he: Record<keyof typeof en, string> = {
   missingConfig: 'Supabase עדיין לא הוגדר.',
   brandTagline: 'מתאמנים עם מטרה',
   live: 'פעיל',
+  returnToActiveWorkout: 'חזרה לאימון הפעיל',
+  programBest: 'השיא בתוכנית',
+  allProgramsBest: 'השיא בכל התוכניות',
+  currentProgram: 'התוכנית הנוכחית',
+  allPrograms: 'כל התוכניות',
   mainNavigation: 'ניווט ראשי',
   confirm: 'אישור',
   cancel: 'ביטול',
@@ -752,7 +804,8 @@ const he: Record<keyof typeof en, string> = {
   media: 'מדיה',
   youtubeUrl: 'קישור YouTube',
   uploadVideoOrImage: 'העלאת סרטון או תמונה',
-  uploadRecommendation: 'מומלץ להעלות סרטוני MP4/H.264 קצרים. הגודל המרבי הוא 50 MB. קובצי MOV/HEVC עלולים לא לפעול בכל דפדפן.',
+  uploadRecommendation:
+    'מומלץ להעלות סרטוני MP4/H.264 קצרים. הגודל המרבי הוא 50 MB. קובצי MOV/HEVC עלולים לא לפעול בכל דפדפן.',
   englishContent: 'English',
   hebrewContent: 'עברית',
   name: 'שם',
@@ -763,7 +816,8 @@ const he: Record<keyof typeof en, string> = {
   exerciseSaved: 'התרגיל נשמר.',
   saving: 'שומר…',
   requiredExerciseFields: 'יש להזין מזהה קבוע, שם באנגלית וסוג מדידה.',
-  invalidStableKey: 'יש להשתמש באותיות אנגליות קטנות, מספרים ומקפים בודדים בלבד. לדוגמה: l-sit-pull-up.',
+  invalidStableKey:
+    'יש להשתמש באותיות אנגליות קטנות, מספרים ומקפים בודדים בלבד. לדוגמה: l-sit-pull-up.',
   createNewCategory: 'יצירת קטגוריה חדשה',
   createNewMovementFamily: 'יצירת משפחת תנועה חדשה',
   createNewMuscle: 'יצירת ערך שריר חדש',
@@ -813,7 +867,8 @@ const he: Record<keyof typeof en, string> = {
   repeatTwice: 'פעמיים',
   repeatThreeTimes: 'שלוש פעמים',
   previewSound: 'השמעת תצוגה מקדימה',
-  audioPlaybackBlocked: 'הדפדפן חסם את השמעת הצליל. יש ללחוץ שוב על תצוגה מקדימה או לבדוק את הגדרות השמע בדפדפן.',
+  audioPlaybackBlocked:
+    'הדפדפן חסם את השמעת הצליל. יש ללחוץ שוב על תצוגה מקדימה או לבדוק את הגדרות השמע בדפדפן.',
   vibrationSupportNote: 'זמינות הרטט תלויה במכשיר ובדפדפן.',
   restSoundClassic: 'קלאסי',
   restSoundClassicDescription: 'התראת ברירת מחדל מאוזנת',
@@ -848,8 +903,7 @@ const he: Record<keyof typeof en, string> = {
   notificationEnabling: 'ההתראות מופעלות…',
   notificationDisabling: 'ההתראות נכבות…',
   timerReactionAdjustment: 'התאמת זמן תגובה',
-  timerReactionAdjustmentDescription:
-    'מפצה על הזמן המשוער הנדרש להיכנס לתנוחה וללחוץ על עצירה.',
+  timerReactionAdjustmentDescription: 'מפצה על הזמן המשוער הנדרש להיכנס לתנוחה וללחוץ על עצירה.',
   noAdjustment: 'ללא התאמה',
   customAdjustment: 'מותאם אישית',
   timedExerciseStartCountdown: 'ספירה לאחור לתרגיל מתוזמן',
@@ -929,7 +983,8 @@ const he: Record<keyof typeof en, string> = {
   youtubeUnavailable: 'החיפוש ב־YouTube אינו זמין כרגע.',
   youtubeUnauthorized: 'נדרשת הרשאת מנהל מערכת.',
   youtubeKeyMissing: 'החיפוש ב־YouTube עדיין לא הוגדר.',
-  reviewVideoWarning: 'יש לבדוק את הסרטון לפני הפרסום. תוצאות החיפוש אינן מאומתות אוטומטית מבחינת דיוק הטכניקה.',
+  reviewVideoWarning:
+    'יש לבדוק את הסרטון לפני הפרסום. תוצאות החיפוש אינן מאומתות אוטומטית מבחינת דיוק הטכניקה.',
   mediaManager: 'מדיה',
   addYoutube: 'הוספת סרטון YouTube',
   primary: 'ראשי',
@@ -977,7 +1032,8 @@ const he: Record<keyof typeof en, string> = {
   noCompatibleAlternatives: 'לא נמצאו חלופות מתאימות',
   allMovementFamilies: 'כל משפחות התנועה',
   replaceThisExercise: 'להחליף את התרגיל?',
-  completedSetsReplaceWarning: 'כבר השלמת {count} סטים. אפשר לשמור אותם בהיסטוריית האימון או למחוק אותם לפני החלפת התרגיל.',
+  completedSetsReplaceWarning:
+    'כבר השלמת {count} סטים. אפשר לשמור אותם בהיסטוריית האימון או למחוק אותם לפני החלפת התרגיל.',
   resting: 'במנוחה',
   plannedSetsComplete: 'הסטים המתוכננים הושלמו',
   addExtraSet: 'הוספת סט נוסף',
@@ -1159,7 +1215,8 @@ const he: Record<keyof typeof en, string> = {
   programDeleted: 'התוכנית נמחקה. היסטוריית האימונים נשמרה.',
   deleteProgramTitle: 'למחוק את התוכנית?',
   deleteProgramDescription: 'התוכנית השמורה תימחק. היסטוריית האימונים שהושלמו תישאר.',
-  deleteActiveProgramDescription: 'זו התוכנית הפעילה שלך. מחיקתה תשאיר אותך ללא תוכנית פעילה. היסטוריית האימונים שהושלמו תישאר.',
+  deleteActiveProgramDescription:
+    'זו התוכנית הפעילה שלך. מחיקתה תשאיר אותך ללא תוכנית פעילה. היסטוריית האימונים שהושלמו תישאר.',
   inactiveProgram: 'תוכנית שמורה',
   expandWorkout: 'הרחבת אימון',
   collapseWorkout: 'כיווץ אימון',
@@ -1183,7 +1240,8 @@ const he: Record<keyof typeof en, string> = {
   selectDay: 'בחירת {day}',
   deselectDay: 'ביטול בחירת {day}',
   allowEmptyNumericFields: 'אפשר להשאיר שדות מספריים ריקים בזמן עריכה',
-  allowEmptyNumericFieldsDescription: 'מאפשר למחוק זמנית ערכים מספריים בזמן עריכה. עדיין לא ניתן לשמור ערכים חסרים או לא תקינים.',
+  allowEmptyNumericFieldsDescription:
+    'מאפשר למחוק זמנית ערכים מספריים בזמן עריכה. עדיין לא ניתן לשמור ערכים חסרים או לא תקינים.',
   enterSets: 'יש להזין מספר סטים.',
   enterValidRest: 'יש להזין זמן מנוחה תקין.',
   enterBothRepetitionRange: 'יש להזין את שני הערכים בטווח החזרות.',
@@ -1212,19 +1270,24 @@ const he: Record<keyof typeof en, string> = {
   skipTour: 'דילוג על הסיור',
   tourStepProgress: 'שלב {current} מתוך {total}',
   tourWelcomeTitle: 'מתאמנים עם תוכנית',
-  tourWelcomeDescription: 'עוקבים אחר אימוני קליסטניקס, מודדים התקדמות ובונים תוכניות אימון מסודרות.',
+  tourWelcomeDescription:
+    'עוקבים אחר אימוני קליסטניקס, מודדים התקדמות ובונים תוכניות אימון מסודרות.',
   tourDashboardTitle: 'מרכז האימונים שלכם',
-  tourDashboardDescription: 'רואים את האימון של היום, פעילות אחרונה, עקביות שבועית ופעולות מהירות במקום אחד.',
+  tourDashboardDescription:
+    'רואים את האימון של היום, פעילות אחרונה, עקביות שבועית ופעולות מהירות במקום אחד.',
   tourExercisesTitle: 'מגלים כל תנועה',
-  tourExercisesDescription: 'מחפשים תרגילים לפי משפחת תנועה, קטגוריה ורמת קושי, וצופים בסרטונים ובהוראות.',
+  tourExercisesDescription:
+    'מחפשים תרגילים לפי משפחת תנועה, קטגוריה ורמת קושי, וצופים בסרטונים ובהוראות.',
   tourProgramsTitle: 'בונים שגרת אימונים',
   tourProgramsDescription: 'תוכנית כוללת אימון אחד או יותר. כאן יוצרים ומארגנים את השגרה השבועית.',
   tourWorkoutTitle: 'נשארים ממוקדים באימון',
-  tourWorkoutDescription: 'מתעדים סטים, רואים ביצועים קודמים, מעתיקים ערכים, מחליפים תרגילים, מוסיפים הערות ומשתמשים בטיימר המנוחה.',
+  tourWorkoutDescription:
+    'מתעדים סטים, רואים ביצועים קודמים, מעתיקים ערכים, מחליפים תרגילים, מוסיפים הערות ומשתמשים בטיימר המנוחה.',
   tourProgressTitle: 'רואים את ההשקעה מצטברת',
   tourProgressDescription: 'עוקבים אחר שיאים אישיים, היסטוריית אימונים, יעדים, אבני דרך וגרפים.',
   tourSettingsTitle: 'מתאימים את CalisTrack אליכם',
-  tourSettingsDescription: 'בוחרים שפה, ערכת נושא והעדפות טיימר, מנהלים נתונים ומפעילים מחדש את הסיור בכל עת.',
+  tourSettingsDescription:
+    'בוחרים שפה, ערכת נושא והעדפות טיימר, מנהלים נתונים ומפעילים מחדש את הסיור בכל עת.',
   tourReadyTitle: 'הכול מוכן!',
   tourReadyDescription: 'השלב הבא הוא ליצור את תוכנית האימונים הראשונה.',
   tourReadyExistingDescription: 'הכול מוכן. בואו נכיר את כל מה שזמין ב־CalisTrack.',

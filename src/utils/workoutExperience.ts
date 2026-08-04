@@ -6,46 +6,52 @@ import type {
   WorkoutSet,
   WorkoutSetInput,
 } from '../types';
-import {
-  getSetAddedWeight,
-  getSetDuration,
-  getSetReps,
-  isValidSetInput,
-} from './performance';
+import { getSetAddedWeight, getSetDuration, getSetReps, isValidSetInput } from './performance';
 
 export interface PreviousPerformance {
   completedAt: string;
   sets: WorkoutSet[];
 }
 
+export interface WorkoutHistoryScope {
+  programId?: string;
+  workoutTemplateIds?: string[];
+}
+
+export function isSessionInProgram(session: WorkoutSession, scope?: WorkoutHistoryScope): boolean {
+  if (!scope) return true;
+  if (session.programId && scope.programId) return session.programId === scope.programId;
+  return Boolean(
+    session.workoutTemplateId && scope.workoutTemplateIds?.includes(session.workoutTemplateId),
+  );
+}
+
 export function getPreviousPerformance(
   sessions: WorkoutSession[],
   exerciseId: string,
   beforeStartedAt?: string,
+  scope?: WorkoutHistoryScope,
 ): PreviousPerformance | null {
   const before = beforeStartedAt ? Date.parse(beforeStartedAt) : Number.POSITIVE_INFINITY;
   const match = sessions
     .filter(
       (session) =>
         session.status === 'completed' &&
+        isSessionInProgram(session, scope) &&
         Date.parse(session.completedAt ?? session.startedAt) < before,
     )
     .sort(
-      (a, b) =>
-        Date.parse(b.completedAt ?? b.startedAt) -
-        Date.parse(a.completedAt ?? a.startedAt),
+      (a, b) => Date.parse(b.completedAt ?? b.startedAt) - Date.parse(a.completedAt ?? a.startedAt),
     )
     .find((session) =>
       session.exercises.some(
         (exercise) =>
-          exercise.exerciseId === exerciseId &&
-          exercise.sets.some((set) => set.completed),
+          exercise.exerciseId === exerciseId && exercise.sets.some((set) => set.completed),
       ),
     );
   if (!match) return null;
   const exercise = match.exercises.find(
-    (item) =>
-      item.exerciseId === exerciseId && item.sets.some((set) => set.completed),
+    (item) => item.exerciseId === exerciseId && item.sets.some((set) => set.completed),
   );
   return exercise
     ? {
@@ -55,10 +61,39 @@ export function getPreviousPerformance(
     : null;
 }
 
-export function copySetInput(
-  set: WorkoutSet,
+export function getBestPerformanceSet(
+  sessions: WorkoutSession[],
+  exerciseId: string,
   measurementType: MeasurementType,
-): WorkoutSetInput {
+  beforeStartedAt?: string,
+  scope?: WorkoutHistoryScope,
+): WorkoutSet | null {
+  const before = beforeStartedAt ? Date.parse(beforeStartedAt) : Number.POSITIVE_INFINITY;
+  const sets = sessions
+    .filter(
+      (session) =>
+        session.status === 'completed' &&
+        Date.parse(session.completedAt ?? session.startedAt) < before &&
+        isSessionInProgram(session, scope),
+    )
+    .flatMap((session) =>
+      session.exercises
+        .filter((exercise) => exercise.exerciseId === exerciseId && !exercise.skipped)
+        .flatMap((exercise) => exercise.sets.filter((set) => set.completed)),
+    );
+  return sets.sort((a, b) => comparePerformance(b, a, measurementType))[0] ?? null;
+}
+
+function comparePerformance(a: WorkoutSet, b: WorkoutSet, type: MeasurementType): number {
+  if (type === 'duration') return (getSetDuration(a, type) ?? 0) - (getSetDuration(b, type) ?? 0);
+  if (type === 'weighted_reps') {
+    const weightDifference = (getSetAddedWeight(a) ?? 0) - (getSetAddedWeight(b) ?? 0);
+    return weightDifference || (getSetReps(a, type) ?? 0) - (getSetReps(b, type) ?? 0);
+  }
+  return (getSetReps(a, type) ?? 0) - (getSetReps(b, type) ?? 0);
+}
+
+export function copySetInput(set: WorkoutSet, measurementType: MeasurementType): WorkoutSetInput {
   if (measurementType === 'duration') {
     return { durationSeconds: getSetDuration(set, measurementType) };
   }
@@ -78,13 +113,8 @@ export function validEnteredSet(
   const input = set ? copySetInput(set, measurementType) : undefined;
   return Boolean(
     input &&
-      isValidSetInput(
-        input,
-        measurementType,
-      ) &&
-      (measurementType === 'duration'
-        ? (input.durationSeconds ?? 0) > 0
-        : (input.reps ?? 0) > 0),
+    isValidSetInput(input, measurementType) &&
+    (measurementType === 'duration' ? (input.durationSeconds ?? 0) > 0 : (input.reps ?? 0) > 0),
   );
 }
 
@@ -119,9 +149,12 @@ export function rankReplacementExercises(
 
 function isCompatibleSkillRole(exercise: Exercise, current: Exercise, role?: string) {
   if (!role) return false;
-  if (role === 'primary-skill' || role === 'secondary-skill') return exercise.movementFamily === current.movementFamily;
-  if (role === 'pulling-strength') return exercise.category === 'pull' || exercise.movementFamily === current.movementFamily;
-  if (role === 'core-strength') return exercise.category === 'core' || exercise.muscles.includes('core');
+  if (role === 'primary-skill' || role === 'secondary-skill')
+    return exercise.movementFamily === current.movementFamily;
+  if (role === 'pulling-strength')
+    return exercise.category === 'pull' || exercise.movementFamily === current.movementFamily;
+  if (role === 'core-strength')
+    return exercise.category === 'core' || exercise.muscles.includes('core');
   return exercise.category === 'mobility';
 }
 

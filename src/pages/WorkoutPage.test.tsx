@@ -13,27 +13,31 @@ import { createFrontLeverWorkout } from '../features/skills/frontLever';
 
 const active = (exerciseId: string, measurementType: MeasurementType): WorkoutSession => ({
   id: 'active',
+  programId: 'program-current',
+  workoutTemplateId: 'workout-current',
   workoutName: 'Training',
   startedAt: '2026-07-17T10:00:00.000Z',
   status: 'active',
   currentExerciseIndex: 0,
-  exercises: [{
-    id: 'active-exercise',
-    exerciseId,
-    measurementType,
-    target: {
-      id: 'target',
+  exercises: [
+    {
+      id: 'active-exercise',
       exerciseId,
-      order: 0,
-      targetSets: 3,
-      targetMin: measurementType === 'duration' ? 20 : 5,
-      targetMax: measurementType === 'duration' ? 30 : 8,
-      restSeconds: 60,
       measurementType,
+      target: {
+        id: 'target',
+        exerciseId,
+        order: 0,
+        targetSets: 3,
+        targetMin: measurementType === 'duration' ? 20 : 5,
+        targetMax: measurementType === 'duration' ? 30 : 8,
+        restSeconds: 60,
+        measurementType,
+      },
+      sets: [],
+      skipped: false,
     },
-    sets: [],
-    skipped: false,
-  }],
+  ],
 });
 
 const history = (
@@ -42,18 +46,22 @@ const history = (
   sets: WorkoutSet[],
 ): WorkoutSession => ({
   id: 'history',
+  programId: 'program-current',
+  workoutTemplateId: 'workout-current',
   workoutName: 'Earlier',
   startedAt: '2026-07-12T10:00:00.000Z',
   completedAt: '2026-07-12T10:30:00.000Z',
   status: 'completed',
   currentExerciseIndex: 0,
-  exercises: [{
-    id: 'history-exercise',
-    exerciseId,
-    measurementType,
-    sets,
-    skipped: false,
-  }],
+  exercises: [
+    {
+      id: 'history-exercise',
+      exerciseId,
+      measurementType,
+      sets,
+      skipped: false,
+    },
+  ],
 });
 
 function renderWorkout(
@@ -74,7 +82,9 @@ function renderWorkout(
   });
   return render(
     <MemoryRouter>
-      <I18nProvider><WorkoutPage /></I18nProvider>
+      <I18nProvider>
+        <WorkoutPage />
+      </I18nProvider>
     </MemoryRouter>,
   );
 }
@@ -92,7 +102,7 @@ describe('active workout previous performance and replacement UX', () => {
     renderWorkout('builtin-pull-up', 'reps', [
       { id: 'set-1', setNumber: 1, reps: 10, completed: true },
     ]);
-    expect(screen.getByText('10 reps')).toBeInTheDocument();
+    expect(screen.getAllByText('10 reps')).toHaveLength(2);
     await user.click(screen.getByRole('button', { name: 'Use previous workout' }));
     expect(screen.getByLabelText('reps — Set 1')).toHaveValue(10);
     expect(useAppStore.getState().activeWorkout?.exercises[0].sets).toHaveLength(0);
@@ -105,6 +115,18 @@ describe('active workout previous performance and replacement UX', () => {
     await user.type(input, '8.5');
     await user.click(screen.getByRole('button', { name: 'Complete set' }));
     expect(useAppStore.getState().activeWorkout?.exercises[0].sets[0].reps).toBe(8.5);
+  });
+
+  it('recovers the final repetitions input after an accidental Skip', async () => {
+    const user = userEvent.setup();
+    renderWorkout('builtin-pull-up', 'reps');
+    await user.click(screen.getByRole('button', { name: 'Skip' }));
+    expect(screen.getByRole('button', { name: 'Back to workout' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Back to workout' }));
+    expect(screen.getByLabelText(/Set 1/i)).toBeEnabled();
+    await user.type(screen.getByLabelText(/Set 1/i), '8');
+    await user.click(screen.getByRole('button', { name: 'Complete set' }));
+    expect(useAppStore.getState().activeWorkout?.exercises[0].sets[0].reps).toBe(8);
   });
 
   it('does not play or initialize audio when a set is completed', async () => {
@@ -128,7 +150,7 @@ describe('active workout previous performance and replacement UX', () => {
     await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Stop' })).toBeEnabled());
     await user.click(screen.getByRole('button', { name: 'Stop' }));
     expect(screen.getByLabelText(/Recorded duration/)).toHaveValue(12);
-    expect(screen.getByLabelText(/Recorded duration/)).toHaveAttribute('inputmode', 'numeric');
+    expect(screen.getByLabelText(/Recorded duration/)).toHaveAttribute('inputmode', 'decimal');
     expect(screen.getByText(/Measured/)).toBeInTheDocument();
     expect(useAppStore.getState().activeWorkout?.exercises[0].sets).toHaveLength(0);
     await user.clear(screen.getByLabelText(/Recorded duration/));
@@ -171,7 +193,7 @@ describe('active workout previous performance and replacement UX', () => {
     now.mockReturnValue(18_000);
     await vi.waitFor(() => expect(screen.getByRole('button', { name: 'עצירה' })).toBeEnabled());
     fireEvent.click(screen.getByRole('button', { name: 'עצירה' }));
-    expect(screen.getByLabelText(/משך שנרשם/)).toHaveAttribute('inputmode', 'numeric');
+    expect(screen.getByLabelText(/משך שנרשם/)).toHaveAttribute('inputmode', 'decimal');
   });
 
   it('plays exactly once only when an explicit duration countdown reaches zero', async () => {
@@ -217,6 +239,42 @@ describe('active workout previous performance and replacement UX', () => {
     expect(useAppStore.getState().restTimer.id).toBe(restId);
     now.mockRestore();
     vi.useRealTimers();
+  });
+
+  it('stops a target countdown early and drafts the precise achieved duration', async () => {
+    vi.useFakeTimers();
+    const now = vi.spyOn(Date, 'now').mockReturnValue(10_000);
+    vi.spyOn(timerCueService, 'unlock').mockResolvedValue(true);
+    renderWorkout('builtin-l-sit', 'duration');
+    fireEvent.click(screen.getByRole('button', { name: 'Start target countdown' }));
+    now.mockReturnValue(30_420);
+    await act(async () => vi.advanceTimersByTimeAsync(500));
+    fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
+    expect(screen.getByLabelText(/Hold time/)).toHaveValue(17.42);
+    expect(screen.getByLabelText(/Hold time/)).toHaveAttribute('inputmode', 'decimal');
+    expect(useAppStore.getState().activeWorkout?.exercises[0].sets).toHaveLength(0);
+    expect(useAppStore.getState().exerciseStopwatch.targetReached).toBe(false);
+  });
+
+  it('defaults previous performance and best to the current program with an all-programs toggle', async () => {
+    const user = userEvent.setup();
+    const current = history('builtin-l-sit', 'duration', [
+      { id: 'current-set', setNumber: 1, durationSeconds: 18, completed: true },
+    ]);
+    const other = {
+      ...history('builtin-l-sit', 'duration', [
+        { id: 'other-set', setNumber: 1, durationSeconds: 40, completed: true },
+      ]),
+      id: 'other-history',
+      programId: 'program-other',
+      completedAt: '2026-07-13T10:30:00.000Z',
+      startedAt: '2026-07-13T10:00:00.000Z',
+    };
+    renderWorkout('builtin-l-sit', 'duration');
+    act(() => useAppStore.setState({ workoutSessions: [current, other] }));
+    expect(screen.getByText('Program best').parentElement).toHaveTextContent('18 sec');
+    await user.click(screen.getByRole('button', { name: 'All programs' }));
+    expect(screen.getByText('All-programs best').parentElement).toHaveTextContent('40 sec');
   });
 
   it('starts target countdown immediately when preparation is Off and respects Silent', async () => {
@@ -290,7 +348,7 @@ describe('active workout previous performance and replacement UX', () => {
     renderWorkout('builtin-weighted-pull-up', 'weighted_reps', [
       { id: 'set-half', setNumber: 1, reps: 6.5, addedWeightKg: 7.5, completed: true },
     ]);
-    expect(screen.getByText(/6.5 reps/)).toBeInTheDocument();
+    expect(screen.getAllByText(/6.5 reps/)).toHaveLength(2);
     await user.click(screen.getByRole('button', { name: 'Use previous workout' }));
     expect(screen.getByLabelText(/Set 1/i)).toHaveValue(6.5);
   });
@@ -300,7 +358,7 @@ describe('active workout previous performance and replacement UX', () => {
     renderWorkout('builtin-l-sit', 'duration', [
       { id: 'set-1', setNumber: 1, durationSeconds: 24, completed: true },
     ]);
-    expect(screen.getByText('24 sec')).toBeInTheDocument();
+    expect(screen.getAllByText('24 sec')).toHaveLength(2);
     await user.click(screen.getByRole('button', { name: 'Use previous workout' }));
     expect(screen.getByLabelText('Hold time — Set 1')).toHaveValue(24);
   });
@@ -310,8 +368,8 @@ describe('active workout previous performance and replacement UX', () => {
     renderWorkout('builtin-weighted-pull-up', 'weighted_reps', [
       { id: 'set-1', setNumber: 1, reps: 6, addedWeightKg: 7.5, completed: true },
     ]);
-    expect(screen.getByText(/6 reps/)).toBeInTheDocument();
-    expect(screen.getByText(/\+7.5 kg/)).toBeInTheDocument();
+    expect(screen.getAllByText(/6 reps/)).toHaveLength(2);
+    expect(screen.getAllByText(/\+7.5 kg/)).toHaveLength(2);
     await user.click(screen.getByRole('button', { name: 'Use previous workout' }));
     expect(screen.getByLabelText('reps — Set 1')).toHaveValue(6);
     expect(screen.getByLabelText('Added weight (kg)')).toHaveValue(7.5);
@@ -319,7 +377,7 @@ describe('active workout previous performance and replacement UX', () => {
 
   it('shows a clear no-history state and disables historical copy', () => {
     renderWorkout('builtin-pull-up', 'reps');
-    expect(screen.getByText('No previous performance')).toBeInTheDocument();
+    expect(screen.getAllByText('No previous performance')).toHaveLength(2);
     expect(screen.getByRole('button', { name: 'Use previous workout' })).toBeDisabled();
   });
 
@@ -365,8 +423,9 @@ describe('active workout previous performance and replacement UX', () => {
     const confirmation = screen.getByTestId('replacement-confirmation');
     expect(confirmation).toHaveClass('action-surface');
     expect(confirmation).toHaveClass('pb-[max(1rem,env(safe-area-inset-bottom))]');
-    expect(within(confirmation).getByRole('button', { name: 'Replace only this workout' }))
-      .toHaveClass('action-surface-button');
+    expect(
+      within(confirmation).getByRole('button', { name: 'Replace only this workout' }),
+    ).toHaveClass('action-surface-button');
   });
 
   it('renders Hebrew actions in RTL mode', () => {
@@ -380,7 +439,13 @@ describe('active workout previous performance and replacement UX', () => {
     useAppStore.setState({ ...initial, hydrated: true });
     useAppStore.getState().startWorkout(createFrontLeverWorkout('tuck', initial.exercises, true));
     const user = userEvent.setup();
-    render(<MemoryRouter><I18nProvider><WorkoutPage /></I18nProvider></MemoryRouter>);
+    render(
+      <MemoryRouter>
+        <I18nProvider>
+          <WorkoutPage />
+        </I18nProvider>
+      </MemoryRouter>,
+    );
     expect(screen.getByRole('button', { name: 'Start warm-up' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Start warm-up' }));
     expect(screen.getByRole('button', { name: 'Done' })).toBeInTheDocument();
@@ -396,7 +461,13 @@ describe('active workout previous performance and replacement UX', () => {
     useAppStore.setState({ ...initial, hydrated: true });
     useAppStore.getState().startWorkout(createFrontLeverWorkout('tuck', initial.exercises, true));
     const user = userEvent.setup();
-    render(<MemoryRouter><I18nProvider><WorkoutPage /></I18nProvider></MemoryRouter>);
+    render(
+      <MemoryRouter>
+        <I18nProvider>
+          <WorkoutPage />
+        </I18nProvider>
+      </MemoryRouter>,
+    );
     await user.click(screen.getByRole('button', { name: 'Skip warm-up' }));
     expect(await screen.findByRole('heading', { name: 'Tuck Front Lever' })).toBeInTheDocument();
     expect(useAppStore.getState().activeWorkout?.skillWarmup?.status).toBe('skipped');

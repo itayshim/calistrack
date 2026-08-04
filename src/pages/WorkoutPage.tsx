@@ -33,6 +33,7 @@ import {
 } from '../utils/performance';
 import {
   copySetInput,
+  getBestPerformanceSet,
   getPreviousPerformance,
   validEnteredSet,
 } from '../utils/workoutExperience';
@@ -46,7 +47,9 @@ export function WorkoutPage() {
     store = useAppStore(),
     nav = useNavigate(),
     [now, setNow] = useState(Date.now()),
-    [drafts, setDrafts] = useState<Record<string, { reps: string; duration: string; addedWeight: string }>>({}),
+    [drafts, setDrafts] = useState<
+      Record<string, { reps: string; duration: string; addedWeight: string }>
+    >({}),
     [replaceOpen, setReplaceOpen] = useState(false),
     [finish, setFinish] = useState(false),
     [cancel, setCancel] = useState(false),
@@ -54,9 +57,8 @@ export function WorkoutPage() {
     [difficulty, setDifficulty] = useState(3),
     [feeling, setFeeling] = useState(3),
     [skillTechnique, setSkillTechnique] = useState<'good' | 'partial' | 'breakdown'>('good');
-  const completeExerciseCountdown = useAppStore(
-    (state) => state.completeExerciseCountdown,
-  );
+  const [historyScope, setHistoryScope] = useState<'program' | 'all'>('program');
+  const completeExerciseCountdown = useAppStore((state) => state.completeExerciseCountdown);
   const exerciseStopwatch = useAppStore((state) => state.exerciseStopwatch);
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 500);
@@ -64,12 +66,7 @@ export function WorkoutPage() {
   }, []);
   useEffect(() => {
     const timer = exerciseStopwatch;
-    if (
-      timer.mode !== 'countdown' ||
-      !timer.running ||
-      !timer.id ||
-      !timer.endsAt
-    ) {
+    if (timer.mode !== 'countdown' || !timer.running || !timer.id || !timer.endsAt) {
       return;
     }
     const completionId = timer.id;
@@ -78,11 +75,12 @@ export function WorkoutPage() {
       const currentState = useAppStore.getState();
       const completedTimer = currentState.exerciseStopwatch;
       const durationSeconds = completedTimer.targetSeconds ?? completedTimer.adjustedSeconds ?? 0;
-      const exerciseIndex = currentState.activeWorkout?.exercises.findIndex(
-        (item) => item.id === completedTimer.sessionExerciseId,
-      ) ?? -1;
-      const completed = exerciseIndex >= 0 &&
-        currentState.completeSet(exerciseIndex, { durationSeconds });
+      const exerciseIndex =
+        currentState.activeWorkout?.exercises.findIndex(
+          (item) => item.id === completedTimer.sessionExerciseId,
+        ) ?? -1;
+      const completed =
+        exerciseIndex >= 0 && currentState.completeSet(exerciseIndex, { durationSeconds });
       if (completed) {
         setDrafts((current) => {
           if (!completedTimer.sessionExerciseId) return current;
@@ -95,8 +93,11 @@ export function WorkoutPage() {
       } else {
         setDrafts((current) => {
           if (!completedTimer.sessionExerciseId) return current;
-          const existing = current[completedTimer.sessionExerciseId] ??
-            { reps: '', duration: '', addedWeight: '' };
+          const existing = current[completedTimer.sessionExerciseId] ?? {
+            reps: '',
+            duration: '',
+            addedWeight: '',
+          };
           return {
             ...current,
             [completedTimer.sessionExerciseId]: {
@@ -107,9 +108,7 @@ export function WorkoutPage() {
         });
       }
       const currentSettings = useAppStore.getState().settings;
-      void timerCueService.playRoundCompletion(
-        currentSettings.restCompletionSound !== 'silent',
-      );
+      void timerCueService.playRoundCompletion(currentSettings.restCompletionSound !== 'silent');
     };
     const wait = timer.endsAt - Date.now();
     if (wait <= 0) {
@@ -118,10 +117,7 @@ export function WorkoutPage() {
     }
     const timeout = window.setTimeout(finishCountdown, wait);
     return () => window.clearTimeout(timeout);
-  }, [
-    completeExerciseCountdown,
-    exerciseStopwatch,
-  ]);
+  }, [completeExerciseCountdown, exerciseStopwatch]);
   if (!active)
     return (
       <div className="mx-auto max-w-lg py-16 text-center">
@@ -135,8 +131,22 @@ export function WorkoutPage() {
         </button>
       </div>
     );
-  if (active.skillWarmup && (active.skillWarmup.status === 'pending' || active.skillWarmup.status === 'in-progress')) {
-    return <SkillWarmupPhase active={active} onCancel={() => { const skillKey=active.skillLink?.skillKey; store.cancelWorkout(); nav(active.skillLink?.preview ? `/admin/skills/${skillKey}/preview` : `/skills/${skillKey}`); }} />;
+  if (
+    active.skillWarmup &&
+    (active.skillWarmup.status === 'pending' || active.skillWarmup.status === 'in-progress')
+  ) {
+    return (
+      <SkillWarmupPhase
+        active={active}
+        onCancel={() => {
+          const skillKey = active.skillLink?.skillKey;
+          store.cancelWorkout();
+          nav(
+            active.skillLink?.preview ? `/admin/skills/${skillKey}/preview` : `/skills/${skillKey}`,
+          );
+        }}
+      />
+    );
   }
   if (finish || active.completionReady)
     return (
@@ -155,8 +165,19 @@ export function WorkoutPage() {
           setFinish(false);
         }}
         onSave={() => {
-          store.finishWorkout(notes, difficulty, feeling, active.skillLink ? skillTechnique : undefined);
-          nav(active.skillLink?.preview ? `/admin/skills/${active.skillLink.skillKey}/preview` : active.skillLink ? `/skills/${active.skillLink.skillKey}/history` : '/history');
+          store.finishWorkout(
+            notes,
+            difficulty,
+            feeling,
+            active.skillLink ? skillTechnique : undefined,
+          );
+          nav(
+            active.skillLink?.preview
+              ? `/admin/skills/${active.skillLink.skillKey}/preview`
+              : active.skillLink
+                ? `/skills/${active.skillLink.skillKey}/history`
+                : '/history',
+          );
         }}
       />
     );
@@ -180,10 +201,34 @@ export function WorkoutPage() {
     measurementType = normalizeMeasurementType(
       sessionExercise.measurementType ?? target?.measurementType ?? exercise?.measurementType,
     ),
+    activeProgramId =
+      active.programId ??
+      store.programs.find((program) =>
+        program.workouts.some((workout) => workout.id === active.workoutTemplateId),
+      )?.id,
+    programWorkoutIds = activeProgramId
+      ? (store.programs
+          .find((program) => program.id === activeProgramId)
+          ?.workouts.map((workout) => workout.id) ?? [])
+      : active.workoutTemplateId
+        ? [active.workoutTemplateId]
+        : [],
+    historyFilter =
+      historyScope === 'program'
+        ? { programId: activeProgramId, workoutTemplateIds: programWorkoutIds }
+        : undefined,
     historical = getPreviousPerformance(
       store.workoutSessions,
       sessionExercise.exerciseId,
       active.startedAt,
+      historyFilter,
+    ),
+    bestSet = getBestPerformanceSet(
+      store.workoutSessions,
+      sessionExercise.exerciseId,
+      measurementType,
+      active.startedAt,
+      historyFilter,
     ),
     previousSet = historical?.sets[done],
     currentPreviousSet = sessionExercise.sets[done - 1],
@@ -200,7 +245,9 @@ export function WorkoutPage() {
   const stopwatchElapsed =
     stopwatchForCurrent && stopwatch.running && stopwatch.startedAt
       ? Math.max(0, Math.floor((now - stopwatch.startedAt) / 1000))
-      : (stopwatchForCurrent ? stopwatch.measuredSeconds ?? 0 : 0);
+      : stopwatchForCurrent
+        ? (stopwatch.measuredSeconds ?? 0)
+        : 0;
   const stoppedCountup =
     stopwatchForCurrent &&
     stopwatch.mode !== 'countdown' &&
@@ -234,12 +281,9 @@ export function WorkoutPage() {
       ? duration !== ''
       : reps !== '' && (measurementType !== 'weighted_reps' || addedWeight !== '');
   const validInput =
-    hasRequiredInput &&
-    isValidSetInput(setInput, measurementType, target?.minimumAddedWeightKg);
+    hasRequiredInput && isValidSetInput(setInput, measurementType, target?.minimumAddedWeightKg);
   const invalidRepIncrement =
-    measurementType !== 'duration' &&
-    reps !== '' &&
-    !isHalfRepIncrement(Number(reps));
+    measurementType !== 'duration' && reps !== '' && !isHalfRepIncrement(Number(reps));
   const complete = () => {
     if (!validInput || restLocked || !canEnterSet) return;
     store.completeSet(i, setInput);
@@ -256,7 +300,13 @@ export function WorkoutPage() {
       className="btn-primary mt-4 min-h-16 w-full text-lg disabled:cursor-not-allowed disabled:opacity-40"
     >
       <Check size={23} strokeWidth={3} />
-      {restLocked ? <>{t('resting')} · <bdi>{remaining}</bdi></> : t('completeSet')}
+      {restLocked ? (
+        <>
+          {t('resting')} · <bdi>{remaining}</bdi>
+        </>
+      ) : (
+        t('completeSet')
+      )}
     </button>
   ) : (
     <div className="mt-4 rounded-3xl bg-emerald-500/10 p-4 text-center">
@@ -279,7 +329,11 @@ export function WorkoutPage() {
             <X />
           </button>
           <div className="text-center">
-            {active.skillLink?.preview && <span className="mb-1 inline-flex rounded-full bg-amber-500/15 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-amber-500">{language === 'he' ? 'מצב בדיקה' : 'Test mode'}</span>}
+            {active.skillLink?.preview && (
+              <span className="mb-1 inline-flex rounded-full bg-amber-500/15 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-amber-500">
+                {language === 'he' ? 'מצב בדיקה' : 'Test mode'}
+              </span>
+            )}
             <p className="text-sm font-black">{active.workoutName}</p>
             <p className="mt-0.5 flex items-center justify-center gap-1 text-xs font-bold text-slate-500">
               <Clock3 size={13} />
@@ -354,12 +408,59 @@ export function WorkoutPage() {
           </div>
         </div>
         <p className="mt-4 text-lg font-bold text-slate-400">
-          <span><bdi>{target?.targetSets}</bdi> {t('sets')}</span><span aria-hidden="true"> · </span><span><bdi>{target?.targetMin}–{target?.targetMax}</bdi> {measurementType === 'duration' ? t('seconds') : t('reps')}</span>
+          <span>
+            <bdi>{target?.targetSets}</bdi> {t('sets')}
+          </span>
+          <span aria-hidden="true"> · </span>
+          <span>
+            <bdi>
+              {target?.targetMin}–{target?.targetMax}
+            </bdi>{' '}
+            {measurementType === 'duration' ? t('seconds') : t('reps')}
+          </span>
           {measurementType === 'weighted_reps' && target?.targetAddedWeightKg !== undefined && (
-            <><span aria-hidden="true"> · </span><span>{t('targetAddedWeight')}: <bdi>+{target.targetAddedWeightKg} kg</bdi></span></>
+            <>
+              <span aria-hidden="true"> · </span>
+              <span>
+                {t('targetAddedWeight')}: <bdi>+{target.targetAddedWeightKg} kg</bdi>
+              </span>
+            </>
           )}
         </p>
         <div className="surface-subtle mt-6 rounded-2xl px-4 py-3">
+          <div
+            className="mb-3 grid grid-cols-2 rounded-xl bg-slate-200/70 p-1 dark:bg-black/20"
+            aria-label={t('programBest')}
+          >
+            <button
+              type="button"
+              aria-pressed={historyScope === 'program'}
+              className={`min-h-10 rounded-lg px-2 text-xs font-black ${historyScope === 'program' ? 'bg-white text-slate-950 shadow-sm dark:bg-white/10 dark:text-white' : 'text-slate-500'}`}
+              onClick={() => setHistoryScope('program')}
+            >
+              {t('currentProgram')}
+            </button>
+            <button
+              type="button"
+              aria-pressed={historyScope === 'all'}
+              className={`min-h-10 rounded-lg px-2 text-xs font-black ${historyScope === 'all' ? 'bg-white text-slate-950 shadow-sm dark:bg-white/10 dark:text-white' : 'text-slate-500'}`}
+              onClick={() => setHistoryScope('all')}
+            >
+              {t('allPrograms')}
+            </button>
+          </div>
+          <div className="mb-3 flex items-center justify-between gap-3 border-b border-slate-200/80 pb-3 dark:border-white/[.08]">
+            <span className="text-xs font-black uppercase tracking-wider text-slate-500">
+              {historyScope === 'program' ? t('programBest') : t('allProgramsBest')}
+            </span>
+            <span className="font-black">
+              {bestSet ? (
+                <bdi>{formatSetPerformance(bestSet, measurementType, language)}</bdi>
+              ) : (
+                <span className="text-sm text-slate-500">{t('noPreviousPerformance')}</span>
+              )}
+            </span>
+          </div>
           <div className="flex items-center justify-between gap-3">
             <span className="text-xs font-black uppercase tracking-wider text-slate-500">
               {historical
@@ -386,7 +487,9 @@ export function WorkoutPage() {
             <button
               className="btn-secondary min-h-11 px-2 text-xs"
               disabled={!validEnteredSet(currentPreviousSet, measurementType) || restLocked}
-              onClick={() => currentPreviousSet && applyInput(copySetInput(currentPreviousSet, measurementType))}
+              onClick={() =>
+                currentPreviousSet && applyInput(copySetInput(currentPreviousSet, measurementType))
+              }
             >
               <Copy size={16} />
               {t('copyPreviousSet')}
@@ -402,7 +505,9 @@ export function WorkoutPage() {
               <span className="grid h-9 w-9 place-items-center rounded-full bg-brand text-ink">
                 <Check size={18} strokeWidth={3} />
               </span>
-              <span className="w-16 text-sm font-black text-slate-400">{t('set')} <bdi>{set.setNumber}</bdi></span>
+              <span className="w-16 text-sm font-black text-slate-400">
+                {t('set')} <bdi>{set.setNumber}</bdi>
+              </span>
               {measurementType === 'duration' ? (
                 <MetricInput
                   label={t('holdTime')}
@@ -418,12 +523,14 @@ export function WorkoutPage() {
                     unit={t('reps')}
                     step={0.5}
                     invalidMessage={t('repsHalfIncrement')}
-                    onChange={(next) => store.editSet(i, set.id, {
-                      reps: next,
-                      ...(measurementType === 'weighted_reps'
-                        ? { addedWeightKg: getSetAddedWeight(set) ?? 0 }
-                        : {}),
-                    })}
+                    onChange={(next) =>
+                      store.editSet(i, set.id, {
+                        reps: next,
+                        ...(measurementType === 'weighted_reps'
+                          ? { addedWeightKg: getSetAddedWeight(set) ?? 0 }
+                          : {}),
+                      })
+                    }
                   />
                   {measurementType === 'weighted_reps' && (
                     <MetricInput
@@ -431,10 +538,12 @@ export function WorkoutPage() {
                       value={getSetAddedWeight(set) ?? 0}
                       unit="kg"
                       step={0.5}
-                      onChange={(next) => store.editSet(i, set.id, {
-                        reps: getSetReps(set, measurementType) ?? 0,
-                        addedWeightKg: next,
-                      })}
+                      onChange={(next) =>
+                        store.editSet(i, set.id, {
+                          reps: getSetReps(set, measurementType) ?? 0,
+                          addedWeightKg: next,
+                        })
+                      }
                     />
                   )}
                 </>
@@ -455,18 +564,23 @@ export function WorkoutPage() {
               ? t('recordedDuration')
               : measurementType === 'duration'
                 ? t('holdTime')
-                : t('reps')} — {t('set')} <bdi>{done + 1}</bdi>
+                : t('reps')}{' '}
+            — {t('set')} <bdi>{done + 1}</bdi>
           </label>
           <input
             id="set-value"
             autoFocus
             type="number"
             min="0"
-            step={measurementType === 'duration' ? 1 : 0.5}
-            inputMode={measurementType === 'duration' ? 'numeric' : 'decimal'}
+            step={measurementType === 'duration' ? 0.01 : 0.5}
+            inputMode="decimal"
             value={measurementType === 'duration' ? duration : reps}
             disabled={restLocked || !canEnterSet}
-            onChange={(e) => measurementType === 'duration' ? updateDraft({ duration: e.target.value }) : updateDraft({ reps: e.target.value })}
+            onChange={(e) =>
+              measurementType === 'duration'
+                ? updateDraft({ duration: e.target.value })
+                : updateDraft({ reps: e.target.value })
+            }
             onKeyDown={(e) => e.key === 'Enter' && complete()}
             placeholder="0"
             className={`mx-auto block w-full text-center font-black tabular-nums text-slate-950 outline-none placeholder:text-slate-300 disabled:cursor-not-allowed disabled:opacity-30 dark:text-white dark:placeholder:text-white/[.08] ${
@@ -491,10 +605,7 @@ export function WorkoutPage() {
                 className="surface-subtle mx-auto mt-5 max-w-md rounded-3xl p-4"
               >
                 <p className="label">{t('durationStopwatch')}</p>
-                <output
-                  aria-live="polite"
-                  className="mt-2 block text-5xl font-black tabular-nums"
-                >
+                <output aria-live="polite" className="mt-2 block text-5xl font-black tabular-nums">
                   {stopwatchCountdown > 0
                     ? stopwatchCountdown
                     : stopwatch.mode === 'countdown' && stopwatchForCurrent
@@ -503,21 +614,30 @@ export function WorkoutPage() {
                 </output>
                 {stopwatchForCurrent ? (
                   <p className="mt-1 text-sm font-bold text-slate-500">
-                    {stopwatch.mode === 'countdown'
-                      ? stopwatch.running
-                        ? stopwatchCountdown > 0
-                          ? t('getReady')
-                          : t('targetCountdownRunning')
-                        : <>
-                            {t('targetReachedRecordedPrefix')}{' '}
-                            <bdi>{stopwatch.targetSeconds ?? stopwatch.adjustedSeconds ?? 0}</bdi>{' '}
-                            {t('targetReachedRecordedSuffix')}
-                          </>
-                      : stopwatchCountdown > 0
-                        ? t('getReady')
-                        : stopwatch.running
-                          ? t('stopwatchRunning')
-                          : null}
+                    {stopwatch.mode === 'countdown' ? (
+                      stopwatch.running ? (
+                        stopwatchCountdown > 0 ? (
+                          t('getReady')
+                        ) : (
+                          t('targetCountdownRunning')
+                        )
+                      ) : stopwatch.targetReached ? (
+                        <>
+                          {t('targetReachedRecordedPrefix')}{' '}
+                          <bdi>{stopwatch.targetSeconds ?? stopwatch.adjustedSeconds ?? 0}</bdi>{' '}
+                          {t('targetReachedRecordedSuffix')}
+                        </>
+                      ) : (
+                        <>
+                          {t('measuredDuration')}: <bdi>{stopwatch.measuredSeconds ?? 0}</bdi>{' '}
+                          {t('seconds')}
+                        </>
+                      )
+                    ) : stopwatchCountdown > 0 ? (
+                      t('getReady')
+                    ) : stopwatch.running ? (
+                      t('stopwatchRunning')
+                    ) : null}
                   </p>
                 ) : null}
                 {stopwatch.mode !== 'countdown' &&
@@ -529,22 +649,30 @@ export function WorkoutPage() {
                         : t('fiveSecondStartCountdown')}
                     </p>
                   )}
-                {stopwatchForCurrent && stopwatch.measuredSeconds !== null && (
-                  <div className="mt-3 rounded-2xl bg-slate-100 p-3 text-sm dark:bg-white/[.06]">
-                    <p>
-                      {t('measuredDuration')}: <bdi>{stopwatch.measuredSeconds}</bdi> {t('seconds')}
-                    </p>
-                    <p>
-                      {t('timerAdjustment')}: <bdi>-{store.settings.timerReactionAdjustmentSeconds}</bdi> {t('seconds')}
-                    </p>
-                  </div>
-                )}
+                {stopwatchForCurrent &&
+                  stopwatch.measuredSeconds !== null &&
+                  stopwatch.mode !== 'countdown' && (
+                    <div className="mt-3 rounded-2xl bg-slate-100 p-3 text-sm dark:bg-white/[.06]">
+                      <p>
+                        {t('measuredDuration')}: <bdi>{stopwatch.measuredSeconds}</bdi>{' '}
+                        {t('seconds')}
+                      </p>
+                      <p>
+                        {t('timerAdjustment')}:{' '}
+                        <bdi>-{store.settings.timerReactionAdjustmentSeconds}</bdi> {t('seconds')}
+                      </p>
+                    </div>
+                  )}
                 <div className="mt-4 grid grid-cols-2 gap-2">
                   {stopwatchForCurrent && stopwatch.running && stopwatch.mode === 'countdown' ? (
                     <button
                       type="button"
                       className="btn-secondary"
-                      onClick={store.resetExerciseStopwatch}
+                      onClick={() => {
+                        const result = store.stopExerciseCountdown();
+                        if (result) updateDraft({ duration: String(result.measuredSeconds) });
+                        setNow(Date.now());
+                      }}
                     >
                       <Pause size={18} />
                       {t('stopStopwatch')}
@@ -615,7 +743,17 @@ export function WorkoutPage() {
               </section>
               <div className="mt-3 flex justify-center gap-2">
                 {[5, 10, 30].map((amount) => (
-                  <button key={amount} type="button" className="chip" disabled={restLocked} onClick={() => updateDraft({ duration: String(Number(duration || 0) + amount) })}>+{amount}s</button>
+                  <button
+                    key={amount}
+                    type="button"
+                    className="chip"
+                    disabled={restLocked}
+                    onClick={() =>
+                      updateDraft({ duration: String(Number(duration || 0) + amount) })
+                    }
+                  >
+                    +{amount}s
+                  </button>
                 ))}
               </div>
             </>
@@ -699,7 +837,13 @@ export function WorkoutPage() {
                   })()}
                 </span>
                 <span className="mt-1 block text-[10px] font-bold opacity-60">
-                  {item.skipped ? t('skipped') : <><bdi>{item.sets.length}</bdi> {t('setsDone')}</>}
+                  {item.skipped ? (
+                    t('skipped')
+                  ) : (
+                    <>
+                      <bdi>{item.sets.length}</bdi> {t('setsDone')}
+                    </>
+                  )}
                 </span>
               </button>
             ))}
@@ -729,29 +873,107 @@ export function WorkoutPage() {
         onClose={() => setCancel(false)}
         onConfirm={() => {
           store.cancelWorkout();
-          nav(active.skillLink?.preview ? `/admin/skills/${active.skillLink.skillKey}/preview` : '/');
+          nav(
+            active.skillLink?.preview ? `/admin/skills/${active.skillLink.skillKey}/preview` : '/',
+          );
         }}
       />
     </div>
   );
 }
 
-function SkillWarmupPhase({ active, onCancel }: { active: NonNullable<ReturnType<typeof useAppStore.getState>['activeWorkout']>; onCancel: () => void }) {
+function SkillWarmupPhase({
+  active,
+  onCancel,
+}: {
+  active: NonNullable<ReturnType<typeof useAppStore.getState>['activeWorkout']>;
+  onCancel: () => void;
+}) {
   const { language } = useI18n();
   const store = useAppStore();
   const warmup = active.skillWarmup!;
   const item = warmup.items[warmup.currentIndex];
-  const exercise = item ? store.exercises.find((candidate) => candidate.id === item.exerciseId) : undefined;
-  const label = (en: string, he: string) => language === 'he' ? he : en;
+  const exercise = item
+    ? store.exercises.find((candidate) => candidate.id === item.exerciseId)
+    : undefined;
+  const label = (en: string, he: string) => (language === 'he' ? he : en);
   const skill = getSkillDefinition(active.skillLink?.skillKey ?? '');
-  if (warmup.status === 'pending') return <div className="mx-auto max-w-xl py-8">
-    <button className="icon-button" aria-label={label('Cancel workout', 'ביטול אימון')} onClick={onCancel}><X /></button>
-    <div className="card mt-6 text-center"><p className="eyebrow">{label('Optional warm-up', 'חימום אופציונלי')}</p><h1 className="mt-3 text-4xl font-black">{label(`Prepare for ${skill?.nameEn ?? 'skill training'}`,`הכנה ל${skill?.nameHe ?? 'אימון מיומנות'}`)}</h1><p className="mt-3 text-slate-500">{label(`${warmup.items.length} simple preparation movements. No values are logged and warm-up does not affect skill success.`,`${warmup.items.length} תרגילי הכנה פשוטים. לא נשמרים ערכים והחימום אינו משפיע על הצלחת המיומנות.`)}</p><div className="mt-6 grid gap-3"><button className="btn-primary" onClick={store.startSkillWarmup}>{label('Start warm-up', 'התחלת חימום')}</button><button className="btn-secondary" onClick={store.skipSkillWarmup}>{label('Skip warm-up', 'דילוג על החימום')}</button><button className="text-sm font-bold text-slate-500" onClick={store.skipSkillWarmup}>{label('Already warmed up', 'כבר התחממתי')}</button></div></div>
-  </div>;
-  return <div className="mx-auto max-w-xl py-6">
-    <div className="flex items-center justify-between"><button className="icon-button" aria-label={label('Cancel workout', 'ביטול אימון')} onClick={onCancel}><X /></button><span className="rounded-full bg-brand/15 px-3 py-2 text-xs font-black text-brand">{label('Warm-up', 'חימום')} · <bdi>{warmup.currentIndex + 1}/{warmup.items.length}</bdi></span></div>
-    <section className="card mt-6 text-center"><p className="eyebrow">{label('Preparation', 'הכנה')}</p><h1 className="mt-3 text-4xl font-black">{exercise ? getExerciseName(exercise, language) : item.stableKey}</h1><p className="mt-3 text-xl font-black text-brand"><bdi>{language === 'he' ? item.guidanceHe : item.guidanceEn}</bdi></p>{exercise && <ExerciseDemonstrationButton exercise={exercise} className="mt-5" />}<div className="mt-7 grid gap-3"><button className="btn-primary min-h-16 text-lg" onClick={store.completeSkillWarmupItem}><Check size={22}/>{label('Done', 'בוצע')}</button><button className="btn-secondary" onClick={store.skipSkillWarmupItem}>{label('Skip this item', 'דילוג על התרגיל')}</button></div></section>
-  </div>;
+  if (warmup.status === 'pending')
+    return (
+      <div className="mx-auto max-w-xl py-8">
+        <button
+          className="icon-button"
+          aria-label={label('Cancel workout', 'ביטול אימון')}
+          onClick={onCancel}
+        >
+          <X />
+        </button>
+        <div className="card mt-6 text-center">
+          <p className="eyebrow">{label('Optional warm-up', 'חימום אופציונלי')}</p>
+          <h1 className="mt-3 text-4xl font-black">
+            {label(
+              `Prepare for ${skill?.nameEn ?? 'skill training'}`,
+              `הכנה ל${skill?.nameHe ?? 'אימון מיומנות'}`,
+            )}
+          </h1>
+          <p className="mt-3 text-slate-500">
+            {label(
+              `${warmup.items.length} simple preparation movements. No values are logged and warm-up does not affect skill success.`,
+              `${warmup.items.length} תרגילי הכנה פשוטים. לא נשמרים ערכים והחימום אינו משפיע על הצלחת המיומנות.`,
+            )}
+          </p>
+          <div className="mt-6 grid gap-3">
+            <button className="btn-primary" onClick={store.startSkillWarmup}>
+              {label('Start warm-up', 'התחלת חימום')}
+            </button>
+            <button className="btn-secondary" onClick={store.skipSkillWarmup}>
+              {label('Skip warm-up', 'דילוג על החימום')}
+            </button>
+            <button className="text-sm font-bold text-slate-500" onClick={store.skipSkillWarmup}>
+              {label('Already warmed up', 'כבר התחממתי')}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  return (
+    <div className="mx-auto max-w-xl py-6">
+      <div className="flex items-center justify-between">
+        <button
+          className="icon-button"
+          aria-label={label('Cancel workout', 'ביטול אימון')}
+          onClick={onCancel}
+        >
+          <X />
+        </button>
+        <span className="rounded-full bg-brand/15 px-3 py-2 text-xs font-black text-brand">
+          {label('Warm-up', 'חימום')} ·{' '}
+          <bdi>
+            {warmup.currentIndex + 1}/{warmup.items.length}
+          </bdi>
+        </span>
+      </div>
+      <section className="card mt-6 text-center">
+        <p className="eyebrow">{label('Preparation', 'הכנה')}</p>
+        <h1 className="mt-3 text-4xl font-black">
+          {exercise ? getExerciseName(exercise, language) : item.stableKey}
+        </h1>
+        <p className="mt-3 text-xl font-black text-brand">
+          <bdi>{language === 'he' ? item.guidanceHe : item.guidanceEn}</bdi>
+        </p>
+        {exercise && <ExerciseDemonstrationButton exercise={exercise} className="mt-5" />}
+        <div className="mt-7 grid gap-3">
+          <button className="btn-primary min-h-16 text-lg" onClick={store.completeSkillWarmupItem}>
+            <Check size={22} />
+            {label('Done', 'בוצע')}
+          </button>
+          <button className="btn-secondary" onClick={store.skipSkillWarmupItem}>
+            {label('Skip this item', 'דילוג על התרגיל')}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
 }
 
 function WorkoutFinish({
@@ -803,12 +1025,51 @@ function WorkoutFinish({
         ))}
       </div>
       <div className="card text-start">
-        {active.skillLink && <fieldset className="mb-6">
-          <legend className="label">{skillDefinition ? (() => { const skillLevel = skillDefinition.levels.find((level) => level.key === active.skillLink?.levelKey); return language === 'he' ? (skillLevel?.techniquePromptHe ?? skillDefinition.techniquePromptHe) : (skillLevel?.techniquePromptEn ?? skillDefinition.techniquePromptEn); })() : (language === 'he' ? 'איכות הטכניקה' : 'Technique quality')}</legend>
-          <div className="grid gap-2 sm:grid-cols-3">
-            {(['good', 'partial', 'breakdown'] as const).map((value) => <button type="button" key={value} aria-pressed={skillTechnique === value} onClick={() => setSkillTechnique(value)} className={`min-h-12 rounded-2xl px-2 font-black ${skillTechnique === value ? 'bg-brand text-ink' : 'bg-slate-100 text-slate-500 dark:bg-white/[.06]'}`}>{language === 'he' ? ({good:'טובה ובשליטה',partial:'שליטה חלקית',breakdown:'הטכניקה נשברה'} as const)[value] : ({good:'Good and controlled',partial:'Partly controlled',breakdown:'Form broke down'} as const)[value]}</button>)}
-          </div>
-        </fieldset>}
+        {active.skillLink && (
+          <fieldset className="mb-6">
+            <legend className="label">
+              {skillDefinition
+                ? (() => {
+                    const skillLevel = skillDefinition.levels.find(
+                      (level) => level.key === active.skillLink?.levelKey,
+                    );
+                    return language === 'he'
+                      ? (skillLevel?.techniquePromptHe ?? skillDefinition.techniquePromptHe)
+                      : (skillLevel?.techniquePromptEn ?? skillDefinition.techniquePromptEn);
+                  })()
+                : language === 'he'
+                  ? 'איכות הטכניקה'
+                  : 'Technique quality'}
+            </legend>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {(['good', 'partial', 'breakdown'] as const).map((value) => (
+                <button
+                  type="button"
+                  key={value}
+                  aria-pressed={skillTechnique === value}
+                  onClick={() => setSkillTechnique(value)}
+                  className={`min-h-12 rounded-2xl px-2 font-black ${skillTechnique === value ? 'bg-brand text-ink' : 'bg-slate-100 text-slate-500 dark:bg-white/[.06]'}`}
+                >
+                  {language === 'he'
+                    ? (
+                        {
+                          good: 'טובה ובשליטה',
+                          partial: 'שליטה חלקית',
+                          breakdown: 'הטכניקה נשברה',
+                        } as const
+                      )[value]
+                    : (
+                        {
+                          good: 'Good and controlled',
+                          partial: 'Partly controlled',
+                          breakdown: 'Form broke down',
+                        } as const
+                      )[value]}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+        )}
         <Rating label={t('difficultyQuestion')} value={difficulty} set={setDifficulty} />
         <div className="mt-6">
           <Rating label={t('feelingQuestion')} value={feeling} set={setFeeling} />
@@ -884,14 +1145,23 @@ function MetricInput({
           const next = event.target.value;
           setDraft(next);
           const parsed = Number(next);
-          if (next !== '' && Number.isFinite(parsed) && parsed >= 0 && (step !== 0.5 || isHalfRepIncrement(parsed))) {
+          if (
+            next !== '' &&
+            Number.isFinite(parsed) &&
+            parsed >= 0 &&
+            (step !== 0.5 || isHalfRepIncrement(parsed))
+          ) {
             onChange(parsed);
           }
         }}
         className="min-w-0 flex-1 bg-transparent text-end text-xl font-black outline-none"
       />
       <span className="whitespace-nowrap text-xs font-bold text-slate-500">{unit}</span>
-      {invalid && invalidMessage && <span className="sr-only" role="alert">{invalidMessage}</span>}
+      {invalid && invalidMessage && (
+        <span className="sr-only" role="alert">
+          {invalidMessage}
+        </span>
+      )}
     </label>
   );
 }

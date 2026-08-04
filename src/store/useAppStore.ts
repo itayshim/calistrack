@@ -58,7 +58,12 @@ interface Store extends AppData {
       targetConfiguration?: Partial<WorkoutTemplate['exercises'][number]>;
     },
   ) => void;
-  finishWorkout: (notes?: string, difficulty?: number, feeling?: number, technique?: 'good' | 'partial' | 'breakdown' | 'needs-work') => void;
+  finishWorkout: (
+    notes?: string,
+    difficulty?: number,
+    feeling?: number,
+    technique?: 'good' | 'partial' | 'breakdown' | 'needs-work',
+  ) => void;
   activateSkillLevel: (skillKey: string, levelKey: string) => void;
   cancelWorkout: () => void;
   updateSession: (s: WorkoutSession) => void;
@@ -79,6 +84,7 @@ interface Store extends AppData {
   startExerciseStopwatch: (sessionExerciseId: string) => void;
   startExerciseCountdown: (sessionExerciseId: string, durationSeconds: number) => void;
   stopExerciseStopwatch: () => { measuredSeconds: number; adjustedSeconds: number } | null;
+  stopExerciseCountdown: () => { measuredSeconds: number } | null;
   completeExerciseCountdown: (id: string) => boolean;
   resetExerciseStopwatch: () => void;
   startSkillWarmup: () => void;
@@ -192,7 +198,10 @@ export const useAppStore = create<Store>((set, get) => ({
         programId,
         createdAt: now,
         updatedAt: now,
-        exercises: workout.exercises.map((exercise) => ({ ...structuredClone(exercise), id: createId() })),
+        exercises: workout.exercises.map((exercise) => ({
+          ...structuredClone(exercise),
+          id: createId(),
+        })),
       })),
     };
     set((s) => ({
@@ -239,6 +248,7 @@ export const useAppStore = create<Store>((set, get) => ({
     if (get().activeWorkout) return false;
     const s: WorkoutSession = {
       id: createId(),
+      programId: t.programId,
       workoutTemplateId: t.id,
       workoutName: t.name,
       startedAt: new Date().toISOString(),
@@ -261,7 +271,13 @@ export const useAppStore = create<Store>((set, get) => ({
         })),
       completionReady: false,
       skillLink: t.skillLink,
-      skillWarmup: t.skillWarmup?.length ? { status: 'pending', currentIndex: 0, items: t.skillWarmup.map((item) => ({ ...item, status: 'pending' })) } : undefined,
+      skillWarmup: t.skillWarmup?.length
+        ? {
+            status: 'pending',
+            currentIndex: 0,
+            items: t.skillWarmup.map((item) => ({ ...item, status: 'pending' })),
+          }
+        : undefined,
     };
     set({ activeWorkout: s, restTimer: emptyTimer(), exerciseStopwatch: emptyStopwatch() });
     get().persist();
@@ -312,7 +328,10 @@ export const useAppStore = create<Store>((set, get) => ({
       restTimer: shouldRest
         ? { id: createId(), endsAt: Date.now() + duration * 1000, duration, pausedRemaining: null }
         : emptyTimer(),
-      toast: localized(get().settings.language, completedAllowedSets ? 'exerciseCompleted' : 'setCompleted'),
+      toast: localized(
+        get().settings.language,
+        completedAllowedSets ? 'exerciseCompleted' : 'setCompleted',
+      ),
     });
     get().persist();
     return true;
@@ -323,7 +342,11 @@ export const useAppStore = create<Store>((set, get) => ({
     a.exercises[i].extraSetCount = (a.exercises[i].extraSetCount ?? 0) + 1;
     a.currentExerciseIndex = i;
     a.completionReady = false;
-    set({ activeWorkout: a, restTimer: emptyTimer(), toast: localized(get().settings.language, 'extraSetAdded') });
+    set({
+      activeWorkout: a,
+      restTimer: emptyTimer(),
+      toast: localized(get().settings.language, 'extraSetAdded'),
+    });
     get().persist();
   },
   editSet: (i, id, value) => {
@@ -331,7 +354,9 @@ export const useAppStore = create<Store>((set, get) => ({
     if (!a) return;
     const st = a.exercises[i].sets.find((x) => x.id === id);
     const ex = a.exercises[i];
-    const measurementType = normalizeMeasurementType(ex.measurementType ?? ex.target?.measurementType);
+    const measurementType = normalizeMeasurementType(
+      ex.measurementType ?? ex.target?.measurementType,
+    );
     const input = normalizeSetInput(value, measurementType);
     if (st && isValidSetInput(input, measurementType, ex.target?.minimumAddedWeightKg)) {
       Object.assign(st, input);
@@ -354,6 +379,7 @@ export const useAppStore = create<Store>((set, get) => ({
     if (!a) return;
     a.exercises[i].skipped = true;
     a.currentExerciseIndex = Math.min(i + 1, a.exercises.length - 1);
+    a.completionReady = i === a.exercises.length - 1;
     set({ activeWorkout: a, restTimer: emptyTimer(), exerciseStopwatch: emptyStopwatch() });
     get().persist();
   },
@@ -363,6 +389,7 @@ export const useAppStore = create<Store>((set, get) => ({
       const changedExercise = a.currentExerciseIndex !== i;
       a.currentExerciseIndex = i;
       a.completionReady = false;
+      if (a.exercises[i]) a.exercises[i].skipped = false;
       set({
         activeWorkout: a,
         ...(changedExercise ? { exerciseStopwatch: emptyStopwatch() } : {}),
@@ -462,10 +489,16 @@ export const useAppStore = create<Store>((set, get) => ({
       feelingRating,
       skillTechniqueRating,
     });
-    const skillSuccessful = !!a.skillLink && evaluateSkillSession(a, skillTechniqueRating ?? 'needs-work');
+    const skillSuccessful =
+      !!a.skillLink && evaluateSkillSession(a, skillTechniqueRating ?? 'needs-work');
     a.skillSuccessful = skillSuccessful;
     if (a.skillLink?.preview) {
-      set({ activeWorkout: null, restTimer: emptyTimer(), exerciseStopwatch: emptyStopwatch(), toast: localized(get().settings.language, 'workoutCompleted') });
+      set({
+        activeWorkout: null,
+        restTimer: emptyTimer(),
+        exerciseStopwatch: emptyStopwatch(),
+        toast: localized(get().settings.language, 'workoutCompleted'),
+      });
       get().persist();
       return;
     }
@@ -485,7 +518,12 @@ export const useAppStore = create<Store>((set, get) => ({
     set((state) => {
       const current = state.skillProgress[skillKey] ?? getDefaultSkillProgress(skillKey);
       if (!current.unlockedLevelKeys.includes(levelKey)) return state;
-      return { skillProgress: { ...state.skillProgress, [skillKey]: { ...current, activeLevelKey: levelKey } } };
+      return {
+        skillProgress: {
+          ...state.skillProgress,
+          [skillKey]: { ...current, activeLevelKey: levelKey },
+        },
+      };
     });
     get().persist();
   },
@@ -586,6 +624,7 @@ export const useAppStore = create<Store>((set, get) => ({
         mode: 'countup',
         endsAt: null,
         targetSeconds: null,
+        targetReached: false,
       },
       restTimer: emptyTimer(),
     });
@@ -607,6 +646,7 @@ export const useAppStore = create<Store>((set, get) => ({
         mode: 'countdown',
         endsAt: startsAt + duration * 1000,
         targetSeconds: duration,
+        targetReached: false,
       },
       restTimer: emptyTimer(),
     });
@@ -630,14 +670,30 @@ export const useAppStore = create<Store>((set, get) => ({
     get().persist();
     return { measuredSeconds, adjustedSeconds };
   },
+  stopExerciseCountdown: () => {
+    const stopwatch = get().exerciseStopwatch;
+    if (!stopwatch.running || !stopwatch.startedAt || stopwatch.mode !== 'countdown') return null;
+    const targetSeconds = stopwatch.targetSeconds ?? 0;
+    const elapsedSeconds = Math.min(
+      targetSeconds,
+      Math.max(0, Math.round(Math.max(0, Date.now() - stopwatch.startedAt) / 10) / 100),
+    );
+    set({
+      exerciseStopwatch: {
+        ...stopwatch,
+        running: false,
+        endsAt: null,
+        measuredSeconds: elapsedSeconds,
+        adjustedSeconds: elapsedSeconds,
+        targetReached: false,
+      },
+    });
+    get().persist();
+    return { measuredSeconds: elapsedSeconds };
+  },
   completeExerciseCountdown: (id) => {
     const stopwatch = get().exerciseStopwatch;
-    if (
-      !id ||
-      stopwatch.id !== id ||
-      stopwatch.mode !== 'countdown' ||
-      !stopwatch.running
-    ) {
+    if (!id || stopwatch.id !== id || stopwatch.mode !== 'countdown' || !stopwatch.running) {
       return false;
     }
     const duration = stopwatch.targetSeconds ?? 0;
@@ -647,6 +703,7 @@ export const useAppStore = create<Store>((set, get) => ({
         running: false,
         measuredSeconds: duration,
         adjustedSeconds: duration,
+        targetReached: true,
       },
     });
     get().persist();
@@ -662,7 +719,12 @@ export const useAppStore = create<Store>((set, get) => ({
   skipSkillWarmupItem: () => updateWarmup(set, get, 'skip-item'),
 }));
 
-const emptyTimer = (): RestTimerState => ({ id: null, endsAt: null, duration: 0, pausedRemaining: null });
+const emptyTimer = (): RestTimerState => ({
+  id: null,
+  endsAt: null,
+  duration: 0,
+  pausedRemaining: null,
+});
 const emptyStopwatch = (): ExerciseStopwatchState => ({
   id: null,
   sessionExerciseId: null,
@@ -706,7 +768,8 @@ const updateWarmup = (
 ) => {
   const activeWorkout = structuredClone(get().activeWorkout);
   const warmup = activeWorkout?.skillWarmup;
-  if (!activeWorkout || !warmup || warmup.status === 'completed' || warmup.status === 'skipped') return;
+  if (!activeWorkout || !warmup || warmup.status === 'completed' || warmup.status === 'skipped')
+    return;
   if (action === 'start') warmup.status = 'in-progress';
   else if (action === 'skip-all') {
     warmup.status = 'skipped';
@@ -715,7 +778,9 @@ const updateWarmup = (
     const item = warmup.items[warmup.currentIndex];
     if (!item) return;
     item.status = action === 'done' ? 'done' : 'skipped';
-    const nextIndex = warmup.items.findIndex((candidate, index) => index > warmup.currentIndex && candidate.status === 'pending');
+    const nextIndex = warmup.items.findIndex(
+      (candidate, index) => index > warmup.currentIndex && candidate.status === 'pending',
+    );
     if (nextIndex < 0) warmup.status = 'completed';
     else warmup.currentIndex = nextIndex;
   }
@@ -724,13 +789,20 @@ const updateWarmup = (
 };
 
 const sameSkillConfiguration = (a: WorkoutTemplate, b: WorkoutTemplate) =>
-  JSON.stringify(a.exercises.map(skillExerciseSignature)) === JSON.stringify(b.exercises.map(skillExerciseSignature));
+  JSON.stringify(a.exercises.map(skillExerciseSignature)) ===
+  JSON.stringify(b.exercises.map(skillExerciseSignature));
 const skillExerciseSignature = (exercise: WorkoutTemplate['exercises'][number]) => ({
-  exerciseId: exercise.exerciseId, order: exercise.order, targetSets: exercise.targetSets,
-  targetMin: exercise.targetMin, targetMax: exercise.targetMax,
-  targetAddedWeightKg: exercise.targetAddedWeightKg, restSeconds: exercise.restSeconds,
-  measurementType: exercise.measurementType, skillRole: exercise.skillRole,
-  skillSection: exercise.skillSection, requiredForSkillSuccess: exercise.requiredForSkillSuccess,
+  exerciseId: exercise.exerciseId,
+  order: exercise.order,
+  targetSets: exercise.targetSets,
+  targetMin: exercise.targetMin,
+  targetMax: exercise.targetMax,
+  targetAddedWeightKg: exercise.targetAddedWeightKg,
+  restSeconds: exercise.restSeconds,
+  measurementType: exercise.measurementType,
+  skillRole: exercise.skillRole,
+  skillSection: exercise.skillSection,
+  requiredForSkillSuccess: exercise.requiredForSkillSuccess,
 });
 
 const updateSkillProgress = (
@@ -751,12 +823,14 @@ const updateSkillProgress = (
   const durationSeconds = firstSet?.durationSeconds;
   const reps = firstSet?.reps;
   const next = getNextSkillLevel(link.skillKey, link.levelKey);
-  const unlockedLevelKeys = successful && next && !current.unlockedLevelKeys.includes(next.key)
-    ? [...current.unlockedLevelKeys, next.key]
-    : current.unlockedLevelKeys;
-  const masteredLevelKeys = successful && !current.masteredLevelKeys.includes(link.levelKey)
-    ? [...current.masteredLevelKeys, link.levelKey]
-    : current.masteredLevelKeys;
+  const unlockedLevelKeys =
+    successful && next && !current.unlockedLevelKeys.includes(next.key)
+      ? [...current.unlockedLevelKeys, next.key]
+      : current.unlockedLevelKeys;
+  const masteredLevelKeys =
+    successful && !current.masteredLevelKeys.includes(link.levelKey)
+      ? [...current.masteredLevelKeys, link.levelKey]
+      : current.masteredLevelKeys;
   return {
     ...records,
     [link.skillKey]: {
@@ -764,12 +838,20 @@ const updateSkillProgress = (
       unlockedLevelKeys,
       masteredLevelKeys,
       completedWorkoutSessionIds,
-      assessments: [...current.assessments, {
-        id: createId(), levelKey: link.levelKey, sessionId: session.id, passed: successful,
-        durationSeconds, reps, measurementType: firstExercise?.measurementType,
-        techniqueRating: session.skillTechniqueRating ?? 'needs-work',
-        completedAt: session.completedAt ?? new Date().toISOString(),
-      }],
+      assessments: [
+        ...current.assessments,
+        {
+          id: createId(),
+          levelKey: link.levelKey,
+          sessionId: session.id,
+          passed: successful,
+          durationSeconds,
+          reps,
+          measurementType: firstExercise?.measurementType,
+          techniqueRating: session.skillTechniqueRating ?? 'needs-work',
+          completedAt: session.completedAt ?? new Date().toISOString(),
+        },
+      ],
     },
   };
 };
