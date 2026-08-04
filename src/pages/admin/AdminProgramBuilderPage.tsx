@@ -7,6 +7,7 @@ import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard';
 import { AdminPreviewBadge, AdminValidationBanner } from '../../components/AdminPreview';
 import { getExerciseName } from '../../utils/exerciseLocalization';
 import type { Exercise } from '../../types';
+import { contentHash } from '../../utils/contentHash';
 import { useAppStore } from '../../store/useAppStore';
 import {
   compileManagedWorkout,
@@ -19,6 +20,7 @@ import {
 import {
   getBuiltInManagedPrograms,
   getManagedProgram,
+  installManagedPrograms,
   loadAdminManagedPrograms,
   publishManagedProgram,
   saveManagedProgramDraft,
@@ -77,6 +79,14 @@ const sectionKinds: ManagedProgramSectionKind[] = [
   'custom',
 ];
 
+function mergeAdminProgramRows(builtIns: ManagedProgramRecord[], backend: ManagedProgramRecord[]) {
+  const overrides = new Map(backend.filter((item) => item.source === 'builtin_override' && item.status !== 'archived' && item.status !== 'unpublished').map((item) => [item.builtinKey, item]));
+  return [
+    ...builtIns.map((item) => overrides.get(item.stableKey) ?? item),
+    ...backend.filter((item) => item.source === 'admin-created'),
+  ];
+}
+
 export function AdminProgramBuilderListPage() {
   const { language } = useI18n();
   const l = (e: string, h: string) => (language === 'he' ? h : e);
@@ -84,9 +94,14 @@ export function AdminProgramBuilderListPage() {
   const [error, setError] = useState(false);
   useEffect(() => {
     void loadAdminManagedPrograms()
-      .then((backend) => setRows([...getBuiltInManagedPrograms(), ...backend.filter((row) => row.source !== 'built-in')]))
+      .then((backend) => setRows(mergeAdminProgramRows(getBuiltInManagedPrograms(), backend)))
       .catch(() => { setRows(getBuiltInManagedPrograms()); setError(true); });
   }, []);
+  const changeLifecycle = (id: string, status: 'unpublished' | 'archived') => void setManagedProgramLifecycle(id, status).then(() => setRows((items) => {
+    const next = items.map((item) => item.id === id ? { ...item, status } : item);
+    installManagedPrograms(next);
+    return mergeAdminProgramRows(getBuiltInManagedPrograms(), next);
+  }));
   return (
     <main className="mx-auto max-w-5xl pb-12">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -116,7 +131,7 @@ export function AdminProgramBuilderListPage() {
             <div className="flex flex-wrap justify-between gap-3">
               <div>
                 <span className="label">
-                  {row.status} · v{row.publishedVersion ?? row.draftVersion}
+                  {row.source === 'builtin_override' ? l('Managed override', 'גרסה מנוהלת') : row.source === 'built-in' ? l('Built-in · Using original', 'מובנה · בשימוש במקור') : l('Managed', 'מנוהל')} · {row.status} · v{row.publishedVersion ?? row.draftVersion}
                 </span>
                 <h2 className="text-xl font-black">
                   {language === 'he' ? row.definition.nameHe : row.definition.nameEn}
@@ -125,32 +140,33 @@ export function AdminProgramBuilderListPage() {
               </div>
               <div className="flex flex-wrap gap-2">
                 {row.source === 'built-in' ? (
-                  <Link className="btn-secondary" to={`/admin/programs/new?duplicate=${row.stableKey}`}>
-                    <Copy size={17} /> {l('Duplicate to draft', 'שכפול לטיוטה')}
+                  <Link className="btn-primary" to={`/admin/programs/new?override=${row.stableKey}`}>
+                    <Copy size={17} /> {l('Create editable version', 'יצירת גרסה ניתנת לעריכה')}
                   </Link>
                 ) : <Link className="btn-secondary" to={`/admin/programs/${row.stableKey}/edit`}>
-                  {l('Edit', 'עריכה')}
+                  {row.source === 'builtin_override' ? l('Edit managed version', 'עריכת גרסה מנוהלת') : l('Edit', 'עריכה')}
                 </Link>}
                 <Link className="btn-secondary" to={`/admin/programs/${row.stableKey}/preview`}>
                   <Eye size={17} />
                   {l('Preview', 'תצוגה')}
                 </Link>
+                {(row.source === 'built-in' || row.source === 'builtin_override') && <Link className="btn-secondary" to={`/admin/programs/${row.stableKey}/preview?source=original`}>{l('Preview original', 'תצוגת המקור')}</Link>}
                 <Link className="btn-secondary" to={`/admin/programs/${row.stableKey}/versions`}>
                   {l('Versions', 'גרסאות')}
                 </Link>
                 {row.status === 'published' && (
                   <button
                     className="btn-secondary"
-                    onClick={() => void setManagedProgramLifecycle(row.id, 'unpublished')}
+                    onClick={() => changeLifecycle(row.id, 'unpublished')}
                   >
                     {l('Unpublish', 'ביטול פרסום')}
                   </button>
                 )}
                 <button
                   className="btn-secondary text-red-500"
-                  onClick={() => void setManagedProgramLifecycle(row.id, 'archived')}
+                  onClick={() => changeLifecycle(row.id, 'archived')}
                 >
-                  {l('Archive', 'העברה לארכיון')}
+                  {row.source === 'builtin_override' ? l('Restore built-in version', 'שחזור הגרסה המובנית') : l('Archive', 'העברה לארכיון')}
                 </button>
               </div>
             </div>
@@ -173,6 +189,12 @@ export function AdminProgramEditorPage() {
   const [expanded, setExpanded] = useState('week-1');
   const nav = useNavigate();
   useEffect(() => {
+    const overrideKey = search.get('override');
+    if (!programKey && overrideKey) {
+      const source = getBuiltInManagedPrograms().find((item) => item.stableKey === overrideKey);
+      if (source) queueMicrotask(() => setDefinition(structuredClone(source.definition)));
+      return;
+    }
     const duplicateKey = search.get('duplicate');
     if (!programKey && duplicateKey) {
       const source = getManagedProgram(duplicateKey);
@@ -193,6 +215,11 @@ export function AdminProgramEditorPage() {
     [definition, exercises],
   );
   const guard = useUnsavedChangesGuard(dirty);
+  const overrideKey = search.get('override');
+  const builtinKey = record?.builtinKey ?? overrideKey ?? undefined;
+  const originalDefinition = builtinKey ? getBuiltInManagedPrograms().find((item) => item.stableKey === builtinKey)?.definition : undefined;
+  const breakingStructureKeys = Boolean(originalDefinition && originalDefinition.weeks.some((week) => !definition.weeks.some((candidate) => candidate.key === week.key)));
+  const storedValidation = breakingStructureKeys ? { ...validation, valid: false, blockingErrors: [...validation.blockingErrors, { severity: 'error' as const, code: 'week_key_migration_required', path: 'weeks', message: 'Existing built-in week keys require an explicit enrollment migration.' }] } : validation;
   const mutate = (fn: (d: ManagedProgramDefinition) => void) => {
     setDefinition((current) => {
       const next = structuredClone(current);
@@ -206,8 +233,11 @@ export function AdminProgramEditorPage() {
       id: record?.id,
       stableKey: definition.key,
       definition,
-      validation,
+      validation: storedValidation,
+      builtinKey,
+      basedOnBuiltinHash: builtinKey ? contentHash(getBuiltInManagedPrograms().find((item) => item.stableKey === builtinKey)?.definition) : undefined,
     });
+    if (!record) setRecord({ id, stableKey: definition.key, source: builtinKey ? 'builtin_override' : 'admin-created', status: 'draft', draftVersion: 1, publishedVersion: null, definition, validation: storedValidation, updatedAt: new Date().toISOString(), builtinKey, basedOnBuiltinHash: builtinKey ? contentHash(getBuiltInManagedPrograms().find((item) => item.stableKey === builtinKey)?.definition) : undefined });
     setDirty(false);
     useAppStore.getState().setToast(l('Draft saved', 'הטיוטה נשמרה'));
     if (!record) nav(`/admin/programs/${definition.key}/edit`, { replace: true });
@@ -222,6 +252,8 @@ export function AdminProgramEditorPage() {
     }));
   return (
     <main className="mx-auto max-w-5xl pb-28">
+      {builtinKey && <p className="mb-5 rounded-2xl border border-lime/30 bg-lime/10 p-4 font-bold">{l('You are editing a managed version. The built-in source remains unchanged.', 'אתם עורכים גרסה מנוהלת. המקור המובנה נשאר ללא שינוי.')}</p>}
+      {originalDefinition && <details className="card mb-5"><summary className="cursor-pointer font-black">{l('Compare managed version with original', 'השוואת הגרסה המנוהלת למקור')}</summary><dl className="mt-4 grid gap-3 sm:grid-cols-2"><div><dt className="text-xs text-slate-500">{l('Original content hash', 'חתימת תוכן מקורית')}</dt><dd><code>{contentHash(originalDefinition)}</code></dd></div><div><dt className="text-xs text-slate-500">{l('Current draft hash', 'חתימת הטיוטה הנוכחית')}</dt><dd><code>{contentHash(definition)}</code></dd></div><div><dt className="text-xs text-slate-500">{l('Weeks', 'שבועות')}</dt><dd>{originalDefinition.weeks.length} → {definition.weeks.length}</dd></div><div><dt className="text-xs text-slate-500">{l('Status', 'מצב')}</dt><dd>{contentHash(originalDefinition) === contentHash(definition) ? l('Matches original', 'זהה למקור') : l('Modified draft', 'טיוטה שונתה')}</dd></div></dl></details>}
       <p className="eyebrow">{l('Managed Program', 'תוכנית מנוהלת')}</p>
       <h1 className="text-4xl font-black">
         {programKey ? l('Edit Program', 'עריכת תוכנית') : l('New Program', 'תוכנית חדשה')}
@@ -244,7 +276,7 @@ export function AdminProgramEditorPage() {
               className="input mt-2"
               dir={field.endsWith('He') ? 'rtl' : 'ltr'}
               value={definition[field]}
-              disabled={field === 'key' && Boolean(record?.publishedVersion)}
+              disabled={field === 'key' && Boolean(record?.publishedVersion || builtinKey)}
               onChange={(e) =>
                 mutate((d) => {
                   if (field === 'key') d.key = keyify(e.target.value);
@@ -546,6 +578,7 @@ export function AdminProgramEditorPage() {
             <code>{issue.path}</code> · {issue.message}
           </p>
         ))}
+        {breakingStructureKeys && <p className="mt-2 text-sm text-red-500"><code>week_key_migration_required</code> · {l('Existing built-in week keys cannot be removed without an explicit enrollment migration.', 'לא ניתן להסיר מפתחות שבועות מובנים ללא מיפוי מפורש של הרשמות.')}</p>}
       </section>
       <div className="sticky bottom-3 z-20 mt-6 flex flex-wrap gap-2 rounded-3xl border bg-white p-3 shadow-xl dark:border-white/10 dark:bg-slate-950">
         <button className="btn-primary" onClick={() => void save()}>
@@ -555,7 +588,7 @@ export function AdminProgramEditorPage() {
         {record && (
           <button
             className="btn-secondary"
-            disabled={!validation.valid || dirty}
+            disabled={!validation.valid || dirty || breakingStructureKeys}
             onClick={() => void publishManagedProgram(record.id)}
           >
             {l('Publish immutable version', 'פרסום גרסה קבועה')}
@@ -704,6 +737,8 @@ export function LegacyAdminProgramPreviewPage() {
 
 export function AdminProgramPreviewPage() {
   const { programKey } = useParams();
+  const [previewParams] = useSearchParams();
+  const originalPreview = previewParams.get('source') === 'original';
   const { language } = useI18n();
   const text = (en: string, he: string) => language === 'he' ? he : en;
   const [record, setRecord] = useState<ManagedProgramRecord>();
@@ -715,10 +750,10 @@ export function AdminProgramPreviewPage() {
   const store = useAppStore();
   const navigate = useNavigate();
   useEffect(() => {
-    const builtIn = getManagedProgram(programKey ?? '');
-    if (builtIn?.source === 'built-in') { queueMicrotask(() => setRecord(builtIn)); return; }
-    void loadAdminManagedPrograms().then((rows) => setRecord(rows.find((row) => row.stableKey === programKey)));
-  }, [programKey]);
+    const builtIn = getBuiltInManagedPrograms().find((item) => item.stableKey === programKey);
+    if (originalPreview) { queueMicrotask(() => setRecord(builtIn)); return; }
+    void loadAdminManagedPrograms().then((rows) => setRecord(rows.find((row) => row.stableKey === programKey) ?? getManagedProgram(programKey ?? ''))).catch(() => setRecord(getManagedProgram(programKey ?? '')));
+  }, [originalPreview, programKey]);
   if (!record) return <p>{text('Loading Program…', 'טוען תוכנית…')}</p>;
   const definition = record.definition;
   const validation = validateManagedProgram(definition, store.exercises);

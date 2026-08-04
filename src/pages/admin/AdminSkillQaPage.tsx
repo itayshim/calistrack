@@ -1,11 +1,10 @@
 import { CheckCircle2, Play, ShieldCheck, TriangleAlert } from 'lucide-react';
-import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import {
-  createRegisteredSkillWorkout,
+  builtInSkillRegistry,
   getSkillDefinition,
   skillRegistry,
-  validateRegisteredSkill,
 } from '../../features/skills/registry';
 import {
   createSkillWorkout,
@@ -18,19 +17,21 @@ import { useAppStore } from '../../store/useAppStore';
 import { getExerciseName } from '../../utils/exerciseLocalization';
 export function AdminSkillQaPage() {
   const { skillKey } = useParams();
-  const builtInSkill = skillKey ? getSkillDefinition(skillKey) : undefined;
+  const [params] = useSearchParams();
+  const original = params.get('source') === 'original';
+  const builtInSkill = skillKey ? (original ? builtInSkillRegistry.find((item) => item.key === skillKey) : getSkillDefinition(skillKey)) : undefined;
   const [managedSkill, setManagedSkill] = useState<SkillDefinition>();
   const [loading, setLoading] = useState(Boolean(skillKey && !builtInSkill));
   useEffect(() => {
-    if (!skillKey || builtInSkill) return;
+    if (!skillKey || original) return;
     void loadAdminSkills()
       .then((records) => {
         setManagedSkill(records.find((record) => record.stableKey === skillKey)?.definition);
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [builtInSkill, skillKey]);
-  const skill = builtInSkill ?? managedSkill;
+  }, [original, skillKey]);
+  const skill = original ? builtInSkill : managedSkill ?? builtInSkill;
   const { language } = useI18n();
   const store = useAppStore();
   const nav = useNavigate();
@@ -60,16 +61,14 @@ export function AdminSkillQaPage() {
         </div>
       </main>
     );
-  if (loading)
+  if (!original && loading)
     return (
       <main className="mx-auto max-w-5xl">
         {label('Loading Skill preview…', 'טוען תצוגת מיומנות…')}
       </main>
     );
   if (!skill) return <Navigate to="/admin/skills" replace />;
-  const validation = builtInSkill
-    ? validateRegisteredSkill(skill.key, store.exercises)
-    : validateSkillContent(skill, store.exercises);
+  const validation = validateSkillContent(skill, store.exercises);
   const start = (levelKey: string) => {
     if (!validation.valid) return;
     if (store.activeWorkout) {
@@ -81,16 +80,7 @@ export function AdminSkillQaPage() {
       );
       return;
     }
-    const workout = builtInSkill
-      ? createRegisteredSkillWorkout(
-          skill.key,
-          levelKey,
-          store.exercises,
-          true,
-          'admin-skill-preview',
-          true,
-        )
-      : createSkillWorkout(skill, levelKey, store.exercises, true, 'admin-skill-preview', true);
+    const workout = createSkillWorkout(skill, levelKey, store.exercises, true, 'admin-skill-preview', true);
     if (store.startWorkout(workout)) nav(`/admin/skills/${skill.key}/test/${levelKey}`);
   };
   return (
@@ -138,9 +128,7 @@ export function AdminSkillQaPage() {
       </section>
       <div className="mt-6 grid gap-4">
         {skill.levels.map((level) => {
-          const result = builtInSkill
-            ? validateRegisteredSkill(skill.key, store.exercises, level.key)
-            : validateSkillContent(skill, store.exercises, level.key);
+          const result = validateSkillContent(skill, store.exercises, level.key);
           return (
             <article className="card" key={level.key}>
               <div className="flex flex-wrap items-start justify-between gap-3">

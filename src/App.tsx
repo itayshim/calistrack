@@ -10,7 +10,7 @@ import { translations } from './locales/translations';
 import { restAlertService } from './services/restAlert';
 import { backgroundNotificationService } from './services/backgroundNotifications';
 import { canHandleForegroundCompletion } from './services/foregroundCompletion';
-import { installManagedSkillDefinitions, skillRegistry, validateRegisteredSkill } from './features/skills/registry';
+import { installManagedSkillRecords, skillRegistry, validateRegisteredSkill } from './features/skills/registry';
 import { loadPublishedSkillDefinitions } from './services/skillDefinitions';
 import { installManagedPrograms, loadPublishedManagedPrograms } from './services/managedPrograms';
 const notificationClientId = crypto.randomUUID();
@@ -185,7 +185,7 @@ export default function App() {
   }, [hydrated]);
   useEffect(() => {
     if (!hydrated) return;
-    void loadPublishedSkillDefinitions().then(installManagedSkillDefinitions);
+    void loadPublishedSkillDefinitions().then(installManagedSkillRecords);
     void loadPublishedManagedPrograms().then(installManagedPrograms);
     loadGlobalContent(useAppStore.getState().exercises).then(({ exercises, stale }) => {
       if (import.meta.env.DEV) {

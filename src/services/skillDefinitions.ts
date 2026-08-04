@@ -6,7 +6,7 @@ import type {
 import { getAdminSession, supabaseConfigured, supabaseRequest } from './supabase';
 
 export const SKILL_DOCUMENT_SCHEMA_VERSION = 1;
-export type SkillSource = 'built-in' | 'admin-created';
+export type SkillSource = 'built-in' | 'admin-created' | 'builtin_override';
 export interface ManagedSkillRecord {
   id: string;
   stableKey: string;
@@ -17,6 +17,8 @@ export interface ManagedSkillRecord {
   definition: SkillDefinition;
   validation: SkillValidationResult | null;
   updatedAt: string;
+  builtinKey?: string;
+  basedOnBuiltinHash?: string;
 }
 
 interface SkillRow {
@@ -27,6 +29,8 @@ interface SkillRow {
   draft_version: number;
   published_version: number | null;
   updated_at: string;
+  builtin_key?: string | null;
+  based_on_builtin_hash?: string | null;
   skill_versions?: Array<{
     definition: SkillDefinition;
     validation: SkillValidationResult | null;
@@ -36,7 +40,8 @@ interface SkillRow {
 }
 
 const mapRow = (row: SkillRow): ManagedSkillRecord => {
-  const version = row.skill_versions?.[0];
+  const versions = row.skill_versions ?? [];
+  const version = versions.find((item) => item.lifecycle === 'draft') ?? versions.find((item) => item.lifecycle === 'published') ?? versions[0];
   if (!version?.definition) throw new Error('invalid_skill_document');
   return {
     id: row.id,
@@ -48,16 +53,18 @@ const mapRow = (row: SkillRow): ManagedSkillRecord => {
     definition: version.definition,
     validation: version.validation,
     updatedAt: row.updated_at,
+    builtinKey: row.builtin_key ?? undefined,
+    basedOnBuiltinHash: row.based_on_builtin_hash ?? undefined,
   };
 };
 
-export async function loadPublishedSkillDefinitions(): Promise<SkillDefinition[]> {
+export async function loadPublishedSkillDefinitions(): Promise<ManagedSkillRecord[]> {
   if (!supabaseConfigured) return [];
   try {
     const rows = await supabaseRequest<SkillRow[]>(
-      '/rest/v1/skills?status=eq.published&select=id,stable_key,source,status,draft_version,published_version,updated_at,skill_versions!inner(definition,validation,version,lifecycle)&skill_versions.lifecycle=eq.published',
+      '/rest/v1/skills?status=eq.published&select=id,stable_key,source,status,draft_version,published_version,updated_at,builtin_key,based_on_builtin_hash,skill_versions!inner(definition,validation,version,lifecycle)&skill_versions.lifecycle=eq.published',
     );
-    return rows.map(mapRow).map((row) => row.definition);
+    return rows.map(mapRow);
   } catch {
     return [];
   }
@@ -67,7 +74,7 @@ export async function loadAdminSkills(): Promise<ManagedSkillRecord[]> {
   const session = getAdminSession();
   if (!session) throw new Error('admin_session_required');
   const rows = await supabaseRequest<SkillRow[]>(
-    '/rest/v1/skills?select=id,stable_key,source,status,draft_version,published_version,updated_at,skill_versions(definition,validation,version,lifecycle)&skill_versions.lifecycle=eq.draft&order=updated_at.desc',
+    '/rest/v1/skills?select=id,stable_key,source,status,draft_version,published_version,updated_at,builtin_key,based_on_builtin_hash,skill_versions(definition,validation,version,lifecycle)&order=updated_at.desc',
     {},
     session.accessToken,
   );
@@ -77,6 +84,8 @@ export async function loadAdminSkills(): Promise<ManagedSkillRecord[]> {
 export async function saveSkillDraft(
   record: Pick<ManagedSkillRecord, 'id' | 'stableKey' | 'definition' | 'validation'> & {
     isNew: boolean;
+    builtinKey?: string;
+    basedOnBuiltinHash?: string;
   },
 ) {
   const session = getAdminSession();
@@ -90,6 +99,8 @@ export async function saveSkillDraft(
         p_stable_key: record.stableKey,
         p_definition: { schemaVersion: SKILL_DOCUMENT_SCHEMA_VERSION, ...record.definition },
         p_validation: record.validation,
+        p_builtin_key: record.builtinKey ?? null,
+        p_based_on_builtin_hash: record.basedOnBuiltinHash ?? null,
       }),
     },
     session.accessToken,

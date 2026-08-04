@@ -10,22 +10,26 @@ import { getAdminSession, supabaseConfigured, supabaseRequest } from './supabase
 export interface ManagedProgramRecord {
   id: string;
   stableKey: string;
-  source: 'built-in' | 'admin-created';
+  source: 'built-in' | 'admin-created' | 'builtin_override';
   status: ManagedProgramLifecycle;
   draftVersion: number;
   publishedVersion: number | null;
   definition: ManagedProgramDefinition;
   validation: ManagedProgramValidation | null;
   updatedAt: string;
+  builtinKey?: string;
+  basedOnBuiltinHash?: string;
 }
 interface Row {
   id: string;
   stable_key: string;
-  source: 'built-in' | 'admin-created';
+  source: 'built-in' | 'admin-created' | 'builtin_override';
   status: ManagedProgramLifecycle;
   draft_version: number;
   published_version: number | null;
   updated_at: string;
+  builtin_key?: string | null;
+  based_on_builtin_hash?: string | null;
   managed_program_versions?: Array<{
     definition: ManagedProgramDefinition;
     validation: ManagedProgramValidation | null;
@@ -50,10 +54,12 @@ const map = (row: Row): ManagedProgramRecord => {
     definition: version.definition,
     validation: version.validation,
     updatedAt: row.updated_at,
+    builtinKey: row.builtin_key ?? undefined,
+    basedOnBuiltinHash: row.based_on_builtin_hash ?? undefined,
   };
 };
 const select =
-  'id,stable_key,source,status,draft_version,published_version,updated_at,managed_program_versions(definition,validation,version,lifecycle)';
+  'id,stable_key,source,status,draft_version,published_version,updated_at,builtin_key,based_on_builtin_hash,managed_program_versions(definition,validation,version,lifecycle)';
 
 export async function loadPublishedManagedPrograms(): Promise<ManagedProgramRecord[]> {
   if (!supabaseConfigured) return [];
@@ -81,6 +87,8 @@ export async function saveManagedProgramDraft(record: {
   stableKey: string;
   definition: ManagedProgramDefinition;
   validation: ManagedProgramValidation;
+  builtinKey?: string;
+  basedOnBuiltinHash?: string;
 }) {
   const session = getAdminSession();
   if (!session) throw new Error('admin_session_required');
@@ -93,6 +101,8 @@ export async function saveManagedProgramDraft(record: {
         p_stable_key: record.stableKey,
         p_definition: { ...record.definition, schemaVersion: MANAGED_PROGRAM_SCHEMA_VERSION },
         p_validation: record.validation,
+        p_builtin_key: record.builtinKey ?? null,
+        p_based_on_builtin_hash: record.basedOnBuiltinHash ?? null,
       }),
     },
     session.accessToken,
@@ -135,8 +145,17 @@ resetBuiltIns();
 export const installManagedPrograms = (records: ManagedProgramRecord[]) => {
   resetBuiltIns();
   records.forEach((record) => {
-    if (!published.has(record.stableKey)) published.set(record.stableKey, record);
+    if (record.status !== 'published' || record.definition.key !== record.stableKey) return;
+    const builtIn = builtInRecords.some((candidate) => candidate.stableKey === record.stableKey);
+    if (builtIn) {
+      if (record.source === 'builtin_override' && record.builtinKey === record.stableKey) published.set(record.stableKey, record);
+      return;
+    }
+    if (record.source === 'admin-created' && !published.has(record.stableKey)) published.set(record.stableKey, record);
   });
+  if (import.meta.env.DEV && !import.meta.env.TEST) {
+    published.forEach((record) => console.info('[content_resolution]', { kind: 'managed_program', key: record.stableKey, state: record.source === 'builtin_override' ? 'managed_override' : record.source === 'built-in' ? 'builtin' : 'backend_custom' }));
+  }
 };
 export const getBuiltInManagedPrograms = () => [...builtInRecords];
 export const getManagedProgram = (key: string) => published.get(key);

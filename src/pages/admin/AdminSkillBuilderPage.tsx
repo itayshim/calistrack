@@ -9,7 +9,7 @@ import type {
   SkillWarmupPrescription,
 } from '../../features/skills/skillEngine';
 import { validateSkillContent } from '../../features/skills/skillEngine';
-import { builtInSkillRegistry, getSkillDefinition } from '../../features/skills/registry';
+import { builtInSkillRegistry, getSkillDefinition, installManagedSkillRecords } from '../../features/skills/registry';
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard';
 import { useI18n } from '../../hooks/useI18n';
 import {
@@ -22,6 +22,7 @@ import {
   type ManagedSkillRecord,
 } from '../../services/skillDefinitions';
 import { useAppStore } from '../../store/useAppStore';
+import { contentHash } from '../../utils/contentHash';
 
 const keyify = (value: string) =>
   value
@@ -70,10 +71,13 @@ export function AdminSkillBuilderListPage() {
       .catch(() => setError(true));
   }, []);
   const changeLifecycle = (id: string, status: 'unpublished' | 'archived') =>
-    void setSkillLifecycle(id, status).then(() =>
-      setManaged((items) => items.map((item) => (item.id === id ? { ...item, status } : item))),
-    );
+    void setSkillLifecycle(id, status).then(() => setManaged((items) => {
+      const next = items.map((item) => (item.id === id ? { ...item, status } : item));
+      installManagedSkillRecords(next);
+      return next;
+    }));
   const builtIns = builtInSkillRegistry;
+  const overrides = new Map(managed.filter((item) => item.source === 'builtin_override' && item.status !== 'archived' && item.status !== 'unpublished').map((item) => [item.builtinKey, item]));
   return (
     <main className="mx-auto max-w-5xl pb-12">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -95,11 +99,13 @@ export function AdminSkillBuilderListPage() {
         </p>
       )}
       <div className="mt-6 grid gap-4">
-        {builtIns.map((skill) => (
+        {builtIns.map((skill) => {
+          const override = overrides.get(skill.key);
+          return (
           <article className="card" key={skill.key}>
             <div className="flex flex-wrap justify-between gap-3">
               <div>
-                <span className="label">{label('Built-in · Published', 'מובנה · פורסם')}</span>
+                <span className="label">{override ? label('Built-in · Managed override', 'מובנה · גרסה מנוהלת') : label('Built-in · Using original', 'מובנה · בשימוש בגרסה המקורית')}</span>
                 <h2 className="text-xl font-black">
                   {language === 'he' ? skill.nameHe : skill.nameEn}
                 </h2>
@@ -110,15 +116,17 @@ export function AdminSkillBuilderListPage() {
                   <Eye size={17} />
                   {label('Preview', 'תצוגה')}
                 </Link>
-                <Link className="btn-secondary" to={`/admin/skills/new?duplicate=${skill.key}`}>
+                <Link className="btn-primary" to={override ? `/admin/skills/${skill.key}/edit` : `/admin/skills/new?override=${skill.key}`}>
                   <Copy size={17} />
-                  {label('Duplicate as draft', 'שכפול כטיוטה')}
+                  {override ? label('Edit managed version', 'עריכת גרסה מנוהלת') : label('Create editable version', 'יצירת גרסה ניתנת לעריכה')}
                 </Link>
+                <Link className="btn-secondary" to={`/admin/skills/${skill.key}/preview?source=original`}>{label('Preview original', 'תצוגת המקור')}</Link>
+                {override && <button className="btn-secondary text-red-500" onClick={() => changeLifecycle(override.id, 'archived')}>{label('Restore built-in version', 'שחזור הגרסה המובנית')}</button>}
               </div>
             </div>
           </article>
-        ))}
-        {managed.map((item) => (
+        )})}
+        {managed.filter((item) => item.source !== 'builtin_override').map((item) => (
           <article className="card" key={item.id}>
             <div className="flex flex-wrap justify-between gap-3">
               <div>
@@ -172,9 +180,13 @@ export function AdminSkillEditorPage() {
   const exercises = useAppStore((state) => state.exercises);
   const [record, setRecord] = useState<ManagedSkillRecord>();
   const duplicate = params.get('duplicate');
+  const overrideKey = params.get('override');
+  const overrideSource = overrideKey ? builtInSkillRegistry.find((skill) => skill.key === overrideKey) : undefined;
   const source = duplicate ? getSkillDefinition(duplicate) : undefined;
   const [definition, setDefinition] = useState<SkillDefinition>(() =>
-    source
+    overrideSource
+      ? structuredClone(overrideSource)
+      : source
       ? {
           ...structuredClone(source),
           key: `${source.key}-copy`,
@@ -189,6 +201,9 @@ export function AdminSkillEditorPage() {
   const [expanded, setExpanded] = useState(0);
   const importRef = useRef<HTMLInputElement>(null);
   const unsaved = useUnsavedChangesGuard(dirty);
+  const builtinKey = record?.builtinKey ?? overrideSource?.key;
+  const originalDefinition = builtinKey ? builtInSkillRegistry.find((skill) => skill.key === builtinKey) : undefined;
+  const breakingLevelKeys = Boolean(originalDefinition && originalDefinition.levels.some((level) => !definition.levels.some((candidate) => candidate.key === level.key)));
   useEffect(() => {
     if (!skillKey) return;
     void loadAdminSkills().then((rows) => {
@@ -204,6 +219,7 @@ export function AdminSkillEditorPage() {
     () => validateSkillContent(definition, exercises),
     [definition, exercises],
   );
+  const storedValidation = breakingLevelKeys ? { ...validation, valid: false, blockingErrors: [...validation.blockingErrors, { code: 'level_key_migration_required', message: 'Existing built-in level keys require an explicit progress migration.' }] } : validation;
   const mutate = (fn: (draft: SkillDefinition) => void) => {
     setDefinition((current) => {
       const next = structuredClone(current);
@@ -251,21 +267,25 @@ export function AdminSkillEditorPage() {
         id: record?.id ?? '',
         stableKey: definition.key,
         definition,
-        validation,
+        validation: storedValidation,
         isNew: !record,
+        builtinKey,
+        basedOnBuiltinHash: builtinKey ? contentHash(builtInSkillRegistry.find((skill) => skill.key === builtinKey)) : undefined,
       });
       setRecord(
         (old) =>
           old ?? {
             id,
             stableKey: definition.key,
-            source: 'admin-created',
-            status: validation.valid ? 'ready' : 'draft',
+            source: builtinKey ? 'builtin_override' : 'admin-created',
+            status: storedValidation.valid ? 'ready' : 'draft',
             draftVersion: 1,
             publishedVersion: null,
             definition,
-            validation,
+            validation: storedValidation,
             updatedAt: new Date().toISOString(),
+            builtinKey,
+            basedOnBuiltinHash: builtinKey ? contentHash(builtInSkillRegistry.find((skill) => skill.key === builtinKey)) : undefined,
           },
       );
       setDirty(false);
@@ -279,6 +299,8 @@ export function AdminSkillEditorPage() {
   };
   return (
     <main className="mx-auto max-w-5xl pb-[calc(env(safe-area-inset-bottom)+6rem)]">
+      {builtinKey && <p className="mb-5 rounded-2xl border border-lime/30 bg-lime/10 p-4 font-bold">{label('You are editing a managed version. The built-in source remains unchanged.', 'אתם עורכים גרסה מנוהלת. המקור המובנה נשאר ללא שינוי.')}</p>}
+      {originalDefinition && <details className="card mb-5"><summary className="cursor-pointer font-black">{label('Compare managed version with original', 'השוואת הגרסה המנוהלת למקור')}</summary><dl className="mt-4 grid gap-3 sm:grid-cols-2"><div><dt className="text-xs text-slate-500">{label('Original content hash', 'חתימת תוכן מקורית')}</dt><dd><code>{contentHash(originalDefinition)}</code></dd></div><div><dt className="text-xs text-slate-500">{label('Current draft hash', 'חתימת הטיוטה הנוכחית')}</dt><dd><code>{contentHash(definition)}</code></dd></div><div><dt className="text-xs text-slate-500">{label('Levels', 'שלבים')}</dt><dd>{originalDefinition.levels.length} → {definition.levels.length}</dd></div><div><dt className="text-xs text-slate-500">{label('Status', 'מצב')}</dt><dd>{contentHash(originalDefinition) === contentHash(definition) ? label('Matches original', 'זהה למקור') : label('Modified draft', 'טיוטה שונתה')}</dd></div></dl></details>}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="eyebrow">
@@ -333,7 +355,7 @@ export function AdminSkillEditorPage() {
           <input
             className="input mt-2"
             value={definition.key}
-            disabled={Boolean(record?.publishedVersion)}
+            disabled={Boolean(record?.publishedVersion || builtinKey)}
             onChange={(e) =>
               mutate((d) => {
                 d.key = keyify(e.target.value);
@@ -580,6 +602,7 @@ export function AdminSkillEditorPage() {
             <code>{issue.code}</code> · {issue.message}
           </p>
         ))}
+        {breakingLevelKeys && <p className="mt-2 text-sm text-red-500"><code>level_key_migration_required</code> · {label('Existing built-in level keys cannot be removed without an explicit progress migration.', 'לא ניתן להסיר מפתחות שלבים מובנים ללא מיפוי מפורש של התקדמות.')}</p>}
       </section>
       <div className="sticky bottom-[calc(env(safe-area-inset-bottom)+.75rem)] z-20 mt-6 flex flex-wrap gap-2 rounded-3xl border border-slate-200 bg-white p-3 shadow-xl dark:border-white/10 dark:bg-slate-950">
         <button className="btn-primary" disabled={busy} onClick={() => void save()}>
@@ -589,7 +612,7 @@ export function AdminSkillEditorPage() {
         {record && (
           <button
             className="btn-secondary"
-            disabled={!validation.valid || dirty}
+            disabled={!validation.valid || dirty || breakingLevelKeys}
             onClick={() =>
               void publishSkill(record.id).then(() =>
                 useAppStore.getState().setToast(label('Published', 'פורסם')),
