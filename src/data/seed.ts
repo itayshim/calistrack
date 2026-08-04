@@ -58,7 +58,7 @@ export const beginnerProgram: Program = {
   ],
 };
 export const createInitialData = (): AppData => ({
-  schemaVersion: 12,
+  schemaVersion: 13,
   exercises: builtInExercises,
   programs: [],
   activeProgramId: null,
@@ -92,4 +92,5 @@ export const createInitialData = (): AppData => ({
     targetSeconds: null,
   },
   skillProgress: {},
+  managedProgramEnrollments: [],
 });

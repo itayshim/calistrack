@@ -89,6 +89,7 @@ export function SettingsPage() {
           restTimer: store.restTimer,
           exerciseStopwatch: store.exerciseStopwatch,
           skillProgress: store.skillProgress,
+          managedProgramEnrollments: store.managedProgramEnrollments,
         }),
       ],
       { type: 'application/json' },

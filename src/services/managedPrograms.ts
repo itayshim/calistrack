@@ -1,0 +1,126 @@
+import type {
+  ManagedProgramDefinition,
+  ManagedProgramLifecycle,
+  ManagedProgramValidation,
+} from '../features/programs/managedProgram';
+import { MANAGED_PROGRAM_SCHEMA_VERSION } from '../features/programs/managedProgram';
+import { getAdminSession, supabaseConfigured, supabaseRequest } from './supabase';
+
+export interface ManagedProgramRecord {
+  id: string;
+  stableKey: string;
+  source: 'built-in' | 'admin-created';
+  status: ManagedProgramLifecycle;
+  draftVersion: number;
+  publishedVersion: number | null;
+  definition: ManagedProgramDefinition;
+  validation: ManagedProgramValidation | null;
+  updatedAt: string;
+}
+interface Row {
+  id: string;
+  stable_key: string;
+  source: 'built-in' | 'admin-created';
+  status: ManagedProgramLifecycle;
+  draft_version: number;
+  published_version: number | null;
+  updated_at: string;
+  managed_program_versions?: Array<{
+    definition: ManagedProgramDefinition;
+    validation: ManagedProgramValidation | null;
+    version: number;
+    lifecycle: string;
+  }>;
+}
+const map = (row: Row): ManagedProgramRecord => {
+  const versions = row.managed_program_versions ?? [];
+  const version =
+    versions.find((item) => item.lifecycle === 'draft') ??
+    versions.find((item) => item.lifecycle === 'published') ??
+    versions[0];
+  if (!version?.definition) throw new Error('invalid_managed_program_document');
+  return {
+    id: row.id,
+    stableKey: row.stable_key,
+    source: row.source,
+    status: row.status,
+    draftVersion: row.draft_version,
+    publishedVersion: row.published_version,
+    definition: version.definition,
+    validation: version.validation,
+    updatedAt: row.updated_at,
+  };
+};
+const select =
+  'id,stable_key,source,status,draft_version,published_version,updated_at,managed_program_versions(definition,validation,version,lifecycle)';
+
+export async function loadPublishedManagedPrograms(): Promise<ManagedProgramRecord[]> {
+  if (!supabaseConfigured) return [];
+  try {
+    const rows = await supabaseRequest<Row[]>(
+      `/rest/v1/managed_programs?status=eq.published&select=${select}&managed_program_versions.lifecycle=eq.published&order=sort_order.asc`,
+    );
+    return rows.map(map);
+  } catch {
+    return [];
+  }
+}
+export async function loadAdminManagedPrograms(): Promise<ManagedProgramRecord[]> {
+  const session = getAdminSession();
+  if (!session) throw new Error('admin_session_required');
+  const rows = await supabaseRequest<Row[]>(
+    `/rest/v1/managed_programs?select=${select}&order=updated_at.desc`,
+    {},
+    session.accessToken,
+  );
+  return rows.map(map);
+}
+export async function saveManagedProgramDraft(record: {
+  id?: string;
+  stableKey: string;
+  definition: ManagedProgramDefinition;
+  validation: ManagedProgramValidation;
+}) {
+  const session = getAdminSession();
+  if (!session) throw new Error('admin_session_required');
+  return supabaseRequest<string>(
+    '/rest/v1/rpc/save_managed_program_draft',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        p_program_id: record.id ?? null,
+        p_stable_key: record.stableKey,
+        p_definition: { ...record.definition, schemaVersion: MANAGED_PROGRAM_SCHEMA_VERSION },
+        p_validation: record.validation,
+      }),
+    },
+    session.accessToken,
+  );
+}
+export async function publishManagedProgram(id: string) {
+  const session = getAdminSession();
+  if (!session) throw new Error('admin_session_required');
+  return supabaseRequest<number>(
+    '/rest/v1/rpc/publish_managed_program_version',
+    { method: 'POST', body: JSON.stringify({ p_program_id: id }) },
+    session.accessToken,
+  );
+}
+export async function setManagedProgramLifecycle(id: string, status: 'unpublished' | 'archived') {
+  const session = getAdminSession();
+  if (!session) throw new Error('admin_session_required');
+  return supabaseRequest(
+    '/rest/v1/rpc/set_managed_program_lifecycle',
+    { method: 'POST', body: JSON.stringify({ p_program_id: id, p_status: status }) },
+    session.accessToken,
+  );
+}
+
+const published = new Map<string, ManagedProgramRecord>();
+export const installManagedPrograms = (records: ManagedProgramRecord[]) => {
+  published.clear();
+  records.forEach((record) => published.set(record.stableKey, record));
+};
+export const getManagedProgram = (key: string) => published.get(key);
+export const getManagedPrograms = () =>
+  [...published.values()].sort((a, b) => a.definition.sortOrder - b.definition.sortOrder);

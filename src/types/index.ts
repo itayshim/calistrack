@@ -56,6 +56,18 @@ export interface WorkoutExercise {
   skillRole?: string;
   skillSection?: 'warm-up' | 'work';
   requiredForSkillSuccess?: boolean;
+  managedSectionKey?: string;
+  managedSectionKind?: string;
+}
+export interface ManagedProgramLink {
+  programKey: string;
+  version: number;
+  phaseKey?: string;
+  weekKey: string;
+  workoutKey: string;
+  enrollmentId?: string;
+  source: 'managed_program';
+  preview?: boolean;
 }
 export interface SkillWorkoutLink {
   skillKey: string;
@@ -88,6 +100,7 @@ export interface WorkoutTemplate {
   updatedAt: string;
   skillLink?: SkillWorkoutLink;
   skillWarmup?: SkillWarmupItem[];
+  managedProgramLink?: ManagedProgramLink;
 }
 export interface Program {
   id: string;
@@ -141,6 +154,19 @@ export interface WorkoutSession {
   skillTechniqueRating?: 'good' | 'partial' | 'breakdown' | 'needs-work';
   skillSuccessful?: boolean;
   skillWarmup?: SkillWarmupState;
+  managedProgramLink?: ManagedProgramLink;
+}
+export interface ManagedProgramEnrollment {
+  id: string;
+  programKey: string;
+  programVersion: number;
+  startDate: string;
+  currentWeekKey: string;
+  completedWorkoutKeys: string[];
+  skippedWorkoutKeys: string[];
+  preferredWeekdays: number[];
+  status: 'active' | 'completed' | 'cancelled';
+  detached: boolean;
 }
 export interface SkillAssessmentRecord {
   id: string;
@@ -202,6 +228,7 @@ export interface AppData {
   restTimer: RestTimerState;
   exerciseStopwatch: ExerciseStopwatchState;
   skillProgress: Record<string, UserSkillProgress>;
+  managedProgramEnrollments: ManagedProgramEnrollment[];
 }
 export interface RestTimerState {
   id: string | null;

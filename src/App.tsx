@@ -12,6 +12,7 @@ import { backgroundNotificationService } from './services/backgroundNotification
 import { canHandleForegroundCompletion } from './services/foregroundCompletion';
 import { installManagedSkillDefinitions, skillRegistry, validateRegisteredSkill } from './features/skills/registry';
 import { loadPublishedSkillDefinitions } from './services/skillDefinitions';
+import { installManagedPrograms, loadPublishedManagedPrograms } from './services/managedPrograms';
 const notificationClientId = crypto.randomUUID();
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((module) => ({ default: module.DashboardPage })));
 const ExerciseDetailPage = lazy(() => import('./pages/ExerciseDetailPage').then((module) => ({ default: module.ExerciseDetailPage })));
@@ -35,6 +36,11 @@ const AdminExerciseEditorPage = lazy(() => import('./pages/admin/AdminExerciseEd
 const AdminSkillQaPage = lazy(() => import('./pages/admin/AdminSkillQaPage').then((module) => ({ default: module.AdminSkillQaPage })));
 const AdminSkillBuilderListPage = lazy(() => import('./pages/admin/AdminSkillBuilderPage').then((module) => ({ default: module.AdminSkillBuilderListPage })));
 const AdminSkillEditorPage = lazy(() => import('./pages/admin/AdminSkillBuilderPage').then((module) => ({ default: module.AdminSkillEditorPage })));
+const AdminProgramBuilderListPage = lazy(() => import('./pages/admin/AdminProgramBuilderPage').then((m) => ({ default: m.AdminProgramBuilderListPage })));
+const AdminProgramEditorPage = lazy(() => import('./pages/admin/AdminProgramBuilderPage').then((m) => ({ default: m.AdminProgramEditorPage })));
+const AdminProgramPreviewPage = lazy(() => import('./pages/admin/AdminProgramBuilderPage').then((m) => ({ default: m.AdminProgramPreviewPage })));
+const AdminProgramVersionsPage = lazy(() => import('./pages/admin/AdminProgramBuilderPage').then((m) => ({ default: m.AdminProgramVersionsPage })));
+const ManagedProgramPage = lazy(() => import('./pages/ManagedProgramPage').then((m) => ({ default: m.ManagedProgramPage })));
 export default function App() {
   const hydrate = useAppStore((s) => s.hydrate),
     hydrated = useAppStore((s) => s.hydrated),
@@ -179,6 +185,7 @@ export default function App() {
   useEffect(() => {
     if (!hydrated) return;
     void loadPublishedSkillDefinitions().then(installManagedSkillDefinitions);
+    void loadPublishedManagedPrograms().then(installManagedPrograms);
     loadGlobalContent(useAppStore.getState().exercises).then(({ exercises, stale }) => {
       if (import.meta.env.DEV) {
         skillRegistry.forEach((skill) => {
@@ -209,6 +216,13 @@ export default function App() {
             <Route path="skills/:skillKey/edit" element={<AdminSkillEditorPage />} />
             <Route path="skills/:skillKey/preview" element={<AdminSkillQaPage />} />
             <Route path="skills/:skillKey/test/:levelKey" element={<WorkoutPage />} />
+            <Route path="programs" element={<AdminProgramBuilderListPage />} />
+            <Route path="programs/new" element={<AdminProgramEditorPage />} />
+            <Route path="programs/:programKey/edit" element={<AdminProgramEditorPage />} />
+            <Route path="programs/:programKey/preview" element={<AdminProgramPreviewPage />} />
+            <Route path="programs/:programKey/preview/:weekKey/:workoutKey" element={<AdminProgramPreviewPage />} />
+            <Route path="programs/:programKey/versions" element={<AdminProgramVersionsPage />} />
+            <Route path="programs/:programKey/test/:weekKey/:workoutKey" element={<WorkoutPage />} />
           </Route>
         </Route>
         <Route element={<AppLayout />}>
@@ -216,6 +230,7 @@ export default function App() {
           <Route path="program" element={<ProgramsPage />} />
           <Route path="program/new" element={<ProgramEditorPage />} />
           <Route path="program/:id" element={<ProgramEditorPage />} />
+          <Route path="programs/managed/:programKey" element={<ManagedProgramPage />} />
           <Route path="exercises" element={<ExercisesPage />} />
           <Route path="exercises/:id" element={<ExerciseDetailPage />} />
           <Route path="workout/:id" element={<WorkoutPage />} />

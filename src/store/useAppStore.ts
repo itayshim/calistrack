@@ -25,6 +25,7 @@ import {
 } from '../utils/performance';
 import { evaluateSkillSession } from '../features/skills/skillEngine';
 import { getDefaultSkillProgress, getNextSkillLevel } from '../features/skills/registry';
+import { getManagedProgram } from '../services/managedPrograms';
 interface Store extends AppData {
   hydrated: boolean;
   toast: string | null;
@@ -112,6 +113,7 @@ export const useAppStore = create<Store>((set, get) => ({
       restTimer: get().restTimer,
       exerciseStopwatch: get().exerciseStopwatch,
       skillProgress: get().skillProgress,
+      managedProgramEnrollments: get().managedProgramEnrollments,
     }),
   setToast: (v) => set({ toast: v }),
   setSharedExercises: (exercises) => set({ exercises }),
@@ -271,6 +273,7 @@ export const useAppStore = create<Store>((set, get) => ({
         })),
       completionReady: false,
       skillLink: t.skillLink,
+      managedProgramLink: t.managedProgramLink,
       skillWarmup: t.skillWarmup?.length
         ? {
             status: 'pending',
@@ -492,7 +495,7 @@ export const useAppStore = create<Store>((set, get) => ({
     const skillSuccessful =
       !!a.skillLink && evaluateSkillSession(a, skillTechniqueRating ?? 'needs-work');
     a.skillSuccessful = skillSuccessful;
-    if (a.skillLink?.preview) {
+    if (a.skillLink?.preview || a.managedProgramLink?.preview) {
       set({
         activeWorkout: null,
         restTimer: emptyTimer(),
@@ -511,6 +514,20 @@ export const useAppStore = create<Store>((set, get) => ({
       skillProgress: a.skillLink
         ? updateSkillProgress(s.skillProgress, a, skillSuccessful)
         : s.skillProgress,
+      managedProgramEnrollments: a.managedProgramLink?.enrollmentId
+        ? s.managedProgramEnrollments.map((enrollment) => {
+            if (enrollment.id !== a.managedProgramLink?.enrollmentId) return enrollment;
+            const completionKey = `${a.managedProgramLink.weekKey}:${a.managedProgramLink.workoutKey}`;
+            const completedWorkoutKeys = enrollment.completedWorkoutKeys.includes(completionKey)
+              ? enrollment.completedWorkoutKeys
+              : [...enrollment.completedWorkoutKeys, completionKey];
+            const definition = getManagedProgram(a.managedProgramLink.programKey)?.definition;
+            const week = definition?.weeks.find((item) => item.key === enrollment.currentWeekKey);
+            const requiredComplete = week?.workouts.every((item) => completedWorkoutKeys.includes(`${week.key}:${item.key}`));
+            const nextWeek = requiredComplete ? definition?.weeks[definition.weeks.findIndex((item) => item.key === week?.key) + 1] : undefined;
+            return { ...enrollment, completedWorkoutKeys, currentWeekKey: nextWeek?.key ?? enrollment.currentWeekKey, status: requiredComplete && !nextWeek ? 'completed' as const : enrollment.status };
+          })
+        : s.managedProgramEnrollments,
     }));
     get().persist();
   },
