@@ -523,7 +523,9 @@ export const useAppStore = create<Store>((set, get) => ({
               : [...enrollment.completedWorkoutKeys, completionKey];
             const definition = getManagedProgram(a.managedProgramLink.programKey)?.definition;
             const week = definition?.weeks.find((item) => item.key === enrollment.currentWeekKey);
-            const requiredComplete = week?.workouts.every((item) => completedWorkoutKeys.includes(`${week.key}:${item.key}`));
+            const requiredComplete = week?.workouts
+              .filter((item) => item.required !== false)
+              .every((item) => completedWorkoutKeys.includes(`${week.key}:${item.key}`));
             const nextWeek = requiredComplete ? definition?.weeks[definition.weeks.findIndex((item) => item.key === week?.key) + 1] : undefined;
             return { ...enrollment, completedWorkoutKeys, currentWeekKey: nextWeek?.key ?? enrollment.currentWeekKey, status: requiredComplete && !nextWeek ? 'completed' as const : enrollment.status };
           })

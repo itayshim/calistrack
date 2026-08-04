@@ -4,6 +4,7 @@ import type {
   ManagedProgramValidation,
 } from '../features/programs/managedProgram';
 import { MANAGED_PROGRAM_SCHEMA_VERSION } from '../features/programs/managedProgram';
+import { beginnerCalisthenics12Week } from '../features/programs/beginnerCalisthenics12Week';
 import { getAdminSession, supabaseConfigured, supabaseRequest } from './supabase';
 
 export interface ManagedProgramRecord {
@@ -116,11 +117,28 @@ export async function setManagedProgramLifecycle(id: string, status: 'unpublishe
   );
 }
 
+const builtInRecords: ManagedProgramRecord[] = [{
+  id: `builtin:${beginnerCalisthenics12Week.key}`,
+  stableKey: beginnerCalisthenics12Week.key,
+  source: 'built-in', status: 'published',
+  draftVersion: beginnerCalisthenics12Week.version,
+  publishedVersion: beginnerCalisthenics12Week.version,
+  definition: beginnerCalisthenics12Week, validation: null,
+  updatedAt: '2026-08-04T00:00:00.000Z',
+}];
 const published = new Map<string, ManagedProgramRecord>();
-export const installManagedPrograms = (records: ManagedProgramRecord[]) => {
+const resetBuiltIns = () => {
   published.clear();
-  records.forEach((record) => published.set(record.stableKey, record));
+  builtInRecords.forEach((record) => published.set(record.stableKey, record));
 };
+resetBuiltIns();
+export const installManagedPrograms = (records: ManagedProgramRecord[]) => {
+  resetBuiltIns();
+  records.forEach((record) => {
+    if (!published.has(record.stableKey)) published.set(record.stableKey, record);
+  });
+};
+export const getBuiltInManagedPrograms = () => [...builtInRecords];
 export const getManagedProgram = (key: string) => published.get(key);
 export const getManagedPrograms = () =>
   [...published.values()].sort((a, b) => a.definition.sortOrder - b.definition.sortOrder);

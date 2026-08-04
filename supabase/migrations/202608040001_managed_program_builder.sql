@@ -51,6 +51,7 @@ declare p managed_programs; v integer;
 begin
  if not public.is_admin() then raise exception 'administrator access required'; end if;
  if p_definition->>'key' is distinct from p_stable_key then raise exception 'definition key mismatch'; end if;
+ if p_program_id is null and p_stable_key in ('beginner-calisthenics-12-week') then raise exception 'built-in managed program key is reserved'; end if;
  if p_program_id is null then insert into managed_programs(stable_key,featured,sort_order,created_by,updated_by) values(p_stable_key,coalesce((p_definition->>'featured')::boolean,false),coalesce((p_definition->>'sortOrder')::integer,0),auth.uid(),auth.uid()) returning * into p;
  else select * into p from managed_programs where id=p_program_id for update; if not found or p.source='built-in' then raise exception 'managed program is not editable'; end if; if p.published_version is not null and p.stable_key<>p_stable_key then raise exception 'published stable key is immutable'; end if; update managed_programs set stable_key=p_stable_key,featured=coalesce((p_definition->>'featured')::boolean,false),sort_order=coalesce((p_definition->>'sortOrder')::integer,0),updated_by=auth.uid() where id=p_program_id returning * into p; end if;
  v:=case when p.published_version is null then p.draft_version else greatest(p.draft_version,p.published_version+1) end;

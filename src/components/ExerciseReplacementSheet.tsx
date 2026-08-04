@@ -42,10 +42,14 @@ export function ExerciseReplacementSheet({
   const completed = activeExercise ? completedSetCount(activeExercise) : 0;
   const families = [...new Set(store.exercises.map((exercise) => exercise.movementFamily).filter(Boolean))] as string[];
   const candidates = useMemo(() => {
-    const ranked = rankReplacementExercises(current, store.exercises, skillRole);
+    const allowed = activeExercise?.target?.allowedReplacementExerciseIds;
+    const pool = allowed?.length
+      ? store.exercises.filter((exercise) => allowed.includes(exercise.id))
+      : store.exercises;
+    const ranked = rankReplacementExercises(current, pool, skillRole);
     const searched = query ? searchExercises(ranked, query) : ranked;
     return searched.filter((exercise) => !family || exercise.movementFamily === family);
-  }, [current, family, query, skillRole, store.exercises]);
+  }, [activeExercise?.target?.allowedReplacementExerciseIds, current, family, query, skillRole, store.exercises]);
 
   if (!open) return null;
   const replace = (keepCompleted: boolean, updateProgram = false) => {

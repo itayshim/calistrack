@@ -21,6 +21,7 @@ export interface Exercise {
   muscles: string[];
   aliases?: string[];
   keywords?: string[];
+  equipment?: string[];
   progressionOrder?: number;
   measurementType: MeasurementType;
   description: string;
@@ -58,6 +59,8 @@ export interface WorkoutExercise {
   requiredForSkillSuccess?: boolean;
   managedSectionKey?: string;
   managedSectionKind?: string;
+  allowedReplacementExerciseIds?: string[];
+  replacementCountsForCompletion?: boolean;
 }
 export interface ManagedProgramLink {
   programKey: string;

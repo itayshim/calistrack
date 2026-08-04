@@ -1,0 +1,53 @@
+[33m53124c6[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m feat: managed program builder
+[33m3421c6e[m Improve mobile workout shell and floating navigation
+[33mce7c486[m Improve workout runtime experience and fix workout flow issues
+[33mb53630f[m Add built-in Handstand skill path
+[33m4ea488c[m Add managed Skill Builder and fix onboarding transitions
+[33me01d37b[m feat: add Handstand Push-Up skill path
+[33ma538d57[m fix: stabilize onboarding step placement
+[33m4694d3c[m feat: refine skill navigation and level details
+[33ma89fbf3[m fix: audit Front Lever warm-up and add admin skill QA
+[33m8197324[m feat: add Front Lever skill training pilot
+[33ma6dc6eb[m feat: auto-complete target countdown sets
+[33m90d0c3a[m feat: refine duration exercise workflow
+[33m89a2824[m feat: improve target countdown and completion cue
+[33m0423476[m fix: improve duration stopwatch UX and state
+[33m6176d9a[m feat: improve duration stopwatch workflow
+[33m1909b35[m fix: correct notification status migration order
+[33mb9c0306[m fix: preserve background rest notifications
+[33m2931abf[m fix: normalize web push subscription structure
+[33m221960f[m fix: add push delivery diagnostics
+[33m928f01d[m fix: reconcile push notification registration state
+[33m8a6e013[m feat: add background timer alerts and duration stopwatch
+[33m5d96f45[m feat: improve progress exercise selector
+[33mf9f20d0[m feat: add configurable rest timer alert sounds
+[33m40493c1[m Improve workout replacement UI and add half-rep support
+[33m3059568[m fix: persist new exercise identity after creation
+[33m4ad0e68[m fix: enable YouTube media for built-in exercises
+[33mc715317[m fix: prevent onboarding welcome step auto-advance
+[33m573c2f7[m feat: refine onboarding placement and add workout editing
+[33mb504d8f[m fix: refine onboarding spotlight and navigation
+[33m7d3cd7a[m feat: add first-run onboarding tutorial
+[33meccf629[m feat: improve admin UX and standardize dropdowns
+[33m699c393[m feat: standardize dropdowns and action menus
+[33m4d7ca06[m fix: improve taxonomy dropdown layering and responsiveness
+[33mee27204[m feat: improve program management and exercise taxonomy
+[33m57402a7[m feat: improve program management and admin exercise creation
+[33m2246593[m feat: add previous performance, set copying, and exercise replacement
+[33ma1ffcc7[m feat: prevent duplicate YouTube media and publish selections immediately
+[33m1295e17[m chore: ignore Supabase temporary files
+[33m8a4c56f[m fix: correct CORS handling for YouTube suggestions
+[33ma274eee[m feat: add suggested YouTube videos for exercise demonstrations
+[33m2ce34b0[m fix: improve editor focus states and protect unsaved changes
+[33mb3d16cd[m fix: improve responsive exercise configuration controls
+[33md64e645[m feat: support timed holds and weighted exercise tracking
+[33m88035e5[m fix: complete live exercise media retrieval and public playback
+[33m1007ad3[m fix: refine CalisTrack branding and regenerate app assets
+[33mc678be9[m feat: finalize CalisTrack branding, localization, admin workflow, and exercise media
+[33ma09e32f[m feat: add localized exercise media guidance and stable exercise references
+[33md8324be[m fix: complete localization, admin access, and theme support
+[33maa48e5e[m feat: complete localization and admin media management
+[33mdd02f24[m fix: secure admin auth errors and improve Hebrew localization
+[33m3da3ab2[m feat: add shared content admin and Hebrew localization
+[33m46897ad[m feat: improve exercise discovery and workout flow
+[33m59c9ba0[m feat: prepare CalisTrack PWA for Vercel deployment

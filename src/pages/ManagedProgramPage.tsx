@@ -7,6 +7,7 @@ import { useI18n } from '../hooks/useI18n';
 import { getManagedProgram } from '../services/managedPrograms';
 import { useAppStore } from '../store/useAppStore';
 import { createId } from '../utils/id';
+import { getExerciseName } from '../utils/exerciseLocalization';
 
 export function ManagedProgramPage() {
   const { programKey } = useParams();
@@ -23,6 +24,7 @@ export function ManagedProgramPage() {
       </main>
     );
   const d = record.definition;
+  const exerciseByKey = new Map(store.exercises.map((exercise) => [exercise.stableKey, exercise]));
   const enrollment = store.managedProgramEnrollments.find(
     (x) => x.programKey === d.key && x.status === 'active',
   );
@@ -65,6 +67,23 @@ export function ManagedProgramPage() {
       language,
     );
     if (store.startWorkout(workout)) nav(`/workout/${useAppStore.getState().activeWorkout?.id}`);
+  };
+  const markSkipped = (weekKey: string, workoutKey: string) => {
+    if (!enrollment) return;
+    const completionKey = `${weekKey}:${workoutKey}`;
+    useAppStore.setState((state) => ({ managedProgramEnrollments: state.managedProgramEnrollments.map((item) =>
+      item.id === enrollment.id && !item.skippedWorkoutKeys.includes(completionKey)
+        ? { ...item, skippedWorkoutKeys: [...item.skippedWorkoutKeys, completionKey] }
+        : item) }));
+    useAppStore.getState().persist();
+  };
+  const advanceExplicitly = () => {
+    if (!enrollment) return;
+    const index = d.weeks.findIndex((week) => week.key === enrollment.currentWeekKey);
+    const next = d.weeks[index + 1];
+    useAppStore.setState((state) => ({ managedProgramEnrollments: state.managedProgramEnrollments.map((item) =>
+      item.id === enrollment.id ? { ...item, currentWeekKey: next?.key ?? item.currentWeekKey, status: next ? item.status : 'completed' as const } : item) }));
+    useAppStore.getState().persist();
   };
   return (
     <main className="pb-8">
@@ -133,20 +152,49 @@ export function ManagedProgramPage() {
                     </p>
                   </div>
                   {enrollment && week.key === enrollment.currentWeekKey ? (
-                    <button
+                    <div className="flex gap-2"><button
                       className="icon-button bg-brand text-ink"
                       aria-label={l('Start workout', 'התחלת אימון')}
                       onClick={() => start(week.key, day.key)}
                     >
                       <Play size={18} fill="currentColor" />
                     </button>
+                    <button className="btn-secondary" onClick={() => markSkipped(week.key, day.key)}>{l('Skip', 'דילוג')}</button></div>
                   ) : null}
                 </div>
+                <details className="mt-3">
+                  <summary className="cursor-pointer font-bold">{l('View prescription', 'הצגת מרשם האימון')}</summary>
+                  <div className="mt-3 grid gap-3">
+                    {day.sections.map((section) => (
+                      <section key={section.key} className="rounded-xl border border-slate-500/20 p-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <strong>{language === 'he' ? section.nameHe : section.nameEn}</strong>
+                          {!section.requiredForSuccess && <Badge>{l('Optional', 'אופציונלי')}</Badge>}
+                        </div>
+                        {(language === 'he' ? section.guidanceHe : section.guidanceEn) && <p className="mt-1 text-sm text-slate-500">{language === 'he' ? section.guidanceHe : section.guidanceEn}</p>}
+                        <ul className="mt-2 grid gap-2">
+                          {section.exercises.map((item) => {
+                            const exercise = exerciseByKey.get(item.exerciseKey);
+                            const target = item.targetMin === item.targetMax ? item.targetMin : `${item.targetMin}–${item.targetMax}`;
+                            return <li key={item.key} className="text-sm">
+                              <span className="font-bold">{exercise ? getExerciseName(exercise, language) : item.exerciseKey}</span>
+                              {' · '}{item.sets} × {target} {exercise?.measurementType === 'duration' ? l('sec', 'שניות') : l('reps', 'חזרות')}
+                              {item.perSide ? ` ${l('per side', 'לכל צד')}` : ''} · {item.restSeconds} {l('sec rest', 'שניות מנוחה')}
+                            </li>;
+                          })}
+                        </ul>
+                      </section>
+                    ))}
+                  </div>
+                </details>
               </div>
             ))}
           </article>
         ))}
       </section>
+      {enrollment && <button className="btn-secondary mt-6" onClick={advanceExplicitly}>
+        {l('Advance to next week', 'מעבר מפורש לשבוע הבא')}
+      </button>}
     </main>
   );
 }

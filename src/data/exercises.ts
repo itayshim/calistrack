@@ -55,6 +55,7 @@ const seeds: ExerciseSeed[] = [
     { name: 'Chest-to-Bar Pull-Up', difficulty: 'advanced' },
     { name: 'Archer Pull-Up', difficulty: 'advanced' },
     { name: 'Weighted Pull-Up', measurement: 'weighted_reps', difficulty: 'advanced' },
+    { name: 'Band-Assisted Pull-Up', aliases: ['band pull-up'], difficulty: 'beginner' },
   ]),
   ...family('Chin-Up', 'pull', [
     'Assisted Chin-Up',
@@ -113,6 +114,11 @@ const seeds: ExerciseSeed[] = [
     { name: 'Plank', measurement: 'duration' },
     { name: 'Side Plank', measurement: 'duration' },
     { name: 'Long-Lever Plank', measurement: 'duration', difficulty: 'intermediate' },
+    { name: 'Plank to Push-Up', aliases: ['up-down plank'] },
+    { name: 'Russian Twist', aliases: ['seated twist'] },
+    { name: 'Windshield Wiper', difficulty: 'advanced' },
+    { name: 'Bent-Knee Windshield Wiper', difficulty: 'intermediate' },
+    { name: 'Lying Windshield Wiper', difficulty: 'beginner' },
   ]),
   ...family('Hollow Body', 'core', [
     'Dead Bug',
@@ -260,6 +266,12 @@ const hebrewFamilies: Record<string, string> = {
   Balance: 'שיווי משקל',
 };
 const hebrewNames: Record<string, string> = {
+  'Band-Assisted Pull-Up': 'מתח בעזרת גומייה',
+  'Plank to Push-Up': 'מעבר מפלאנק לשכיבת סמיכה',
+  'Russian Twist': 'פיתול רוסי',
+  'Windshield Wiper': 'מגבי שמשה בתלייה',
+  'Bent-Knee Windshield Wiper': 'מגבי שמשה בברכיים כפופות',
+  'Lying Windshield Wiper': 'מגבי שמשה בשכיבה',
   'Jumping Jacks': 'קפיצות פיסוק',
   'Wrist Rolls': 'סיבובי שורש כף היד',
   'Elbow Circles': 'סיבובי מרפקים',
@@ -314,6 +326,12 @@ const hebrewNames: Record<string, string> = {
 };
 
 const handstandSkillContent: Record<string, Partial<Exercise>> = {
+  'Band-Assisted Pull-Up': { description: 'A pull-up assisted by a securely anchored resistance band.', descriptionHe: 'עליית מתח בעזרת גומיית התנגדות המעוגנת היטב.', instructions: ['Secure the band to a stable bar and check it before loading', 'Keep the body controlled while pulling the chest toward the bar', 'Lower smoothly without letting the band snap'], instructionsHe: ['עיגנו את הגומייה למוט יציב ובדקו אותה לפני העמסה', 'שמרו על שליטה בגוף ומשכו את החזה לכיוון המוט', 'רדו בצורה חלקה בלי לאפשר לגומייה להצליף'], commonMistakes: ['Using a damaged or insecure band', 'Bouncing from the bottom', 'Losing control on the descent'], commonMistakesHe: ['שימוש בגומייה פגומה או לא מעוגנת', 'קפיצה מהמצב התחתון', 'אובדן שליטה בירידה'] },
+  'Plank to Push-Up': { description: 'A controlled transition between forearm plank and straight-arm support.', descriptionHe: 'מעבר מבוקר בין פלאנק על האמות לתמיכה בידיים ישרות.', instructions: ['Brace the trunk and keep the hips steady', 'Press up one arm at a time', 'Alternate the leading side'], instructionsHe: ['אספו את מרכז הגוף ושמרו על אגן יציב', 'עלו בכל פעם בעזרת יד אחת', 'החליפו את הצד המוביל'], commonMistakes: ['Rocking the hips', 'Rushing the hand placement', 'Continuing through wrist or shoulder pain'], commonMistakesHe: ['נדנוד האגן', 'מיקום ידיים מהיר ולא נשלט', 'המשך למרות כאב בשורש כף היד או בכתף'] },
+  'Russian Twist': { description: 'A seated trunk-rotation exercise performed through a controlled range.', descriptionHe: 'תרגיל סיבוב גו בישיבה המבוצע בטווח נשלט.', instructions: ['Sit tall with the trunk lightly inclined', 'Rotate the ribs rather than swinging the arms', 'Keep breathing and use a pain-free range'], instructionsHe: ['שבו זקוף עם הטיה קלה של הגו', 'סובבו את בית החזה במקום להניף את הידיים', 'המשיכו לנשום ועבדו בטווח שאינו מכאיב'], commonMistakes: ['Rounding and collapsing the back', 'Using momentum', 'Forcing rotation'], commonMistakesHe: ['קריסה ועיגול של הגב', 'שימוש בתנופה', 'כפיית טווח הסיבוב'] },
+  'Windshield Wiper': { description: 'A hanging core rotation performed with controlled legs and shoulders.', descriptionHe: 'סיבוב ליבה בתלייה המבוצע עם שליטה ברגליים ובכתפיים.', instructions: ['Use a secure bar and establish an active hang', 'Move the legs side to side without swinging', 'Choose a range you can reverse under control'], instructionsHe: ['השתמשו במוט יציב והיכנסו לתלייה פעילה', 'העבירו את הרגליים מצד לצד בלי להתנדנד', 'בחרו טווח שממנו ניתן לחזור בשליטה'], commonMistakes: ['Using an insecure grip', 'Swinging rapidly', 'Forcing range through back or shoulder pain'], commonMistakesHe: ['אחיזה לא בטוחה', 'נדנוד מהיר', 'כפיית טווח למרות כאב בגב או בכתף'] },
+  'Bent-Knee Windshield Wiper': { description: 'A reduced-lever hanging wiper with bent knees for controlled rotational core work.', descriptionHe: 'מגב שמשה בתלייה עם ברכיים כפופות לקיצור המנוף ולעבודה סיבובית מבוקרת.', instructions: ['Set a secure active hang', 'Lift bent knees and rotate slowly', 'Keep each return controlled'], instructionsHe: ['היכנסו לתלייה פעילה ובטוחה', 'הרימו ברכיים כפופות וסובבו לאט', 'שלטו בכל חזרה למרכז'], commonMistakes: ['Swinging', 'Dropping suddenly through center', 'Losing the shoulder position'], commonMistakesHe: ['נדנוד', 'נפילה מהירה דרך המרכז', 'אובדן מנח הכתפיים'] },
+  'Lying Windshield Wiper': { description: 'A floor-based trunk rotation with bent or straight legs according to control.', descriptionHe: 'סיבוב גו בשכיבה עם ברכיים כפופות או רגליים ישרות בהתאם לשליטה.', instructions: ['Lie on a clear surface and brace the trunk', 'Lower the legs toward one side slowly', 'Return without lifting the shoulders'], instructionsHe: ['שכבו על משטח פנוי ואספו את מרכז הגוף', 'הורידו את הרגליים לאט לצד אחד', 'חזרו בלי להרים את הכתפיים'], commonMistakes: ['Moving too fast', 'Forcing the legs to the floor', 'Holding the breath'], commonMistakesHe: ['תנועה מהירה מדי', 'כפיית הרגליים לרצפה', 'עצירת הנשימה'] },
   'Pike Hold': { description: 'A straight-arm pike support that develops shoulder loading and trunk alignment.', descriptionHe: 'תמיכת פייק בידיים ישרות לפיתוח עומס כתפיים ויישור הגוף.', instructions: ['Lift the hips and press both hands firmly into the floor', 'Keep the elbows straight and close the shoulder angle only within control', 'Breathe steadily while maintaining a braced trunk'], instructionsHe: ['הרימו את האגן ולחצו את כפות הידיים אל הרצפה', 'שמרו על מרפקים ישרים וסגרו את זווית הכתף רק בטווח נשלט', 'נשמו ברציפות ושמרו על מרכז גוף יציב'], commonMistakes: ['Bending the elbows', 'Dropping the hips', 'Forcing shoulder range through pain'], commonMistakesHe: ['כיפוף המרפקים', 'נפילת האגן', 'כפיית טווח כתף כואב'] },
   'Elevated Pike Hold': { description: 'A pike support with the feet on a stable raised surface to shift more weight toward the shoulders.', descriptionHe: 'תמיכת פייק עם רגליים על משטח יציב ומוגבה להעברת משקל נוספת לכתפיים.', instructions: ['Use a stable non-slip platform', 'Place the feet securely and raise the hips above the shoulders', 'Press through straight arms and stop before control is lost'], instructionsHe: ['השתמשו במשטח יציב שאינו מחליק', 'הניחו את כפות הרגליים בבטחה והרימו את האגן', 'לחצו בידיים ישרות ועצרו לפני אובדן שליטה'], commonMistakes: ['Using unstable furniture', 'Allowing the elbows to soften', 'Moving beyond a controlled range'], commonMistakesHe: ['שימוש ברהיט לא יציב', 'כיפוף המרפקים', 'מעבר לטווח שאינו נשלט'] },
   'Wall Walk with Top Hold': { description: 'A controlled wall walk followed by a stable hold at the highest safe position.', descriptionHe: 'טיפוס מבוקר על הקיר ולאחריו החזקה יציבה בנקודה הגבוהה והבטוחה ביותר.', instructions: ['Begin in a clear area with the feet at a stable wall', 'Take small hand and foot steps while keeping the arms straight', 'Hold only at a controlled distance, then descend with the same small steps'], instructionsHe: ['התחילו באזור פנוי מול קיר יציב', 'התקדמו בצעדים קטנים של הידיים והרגליים עם מרפקים ישרים', 'החזיקו רק במרחק נשלט ורדו בצעדים קטנים'], commonMistakes: ['Rushing toward the wall', 'Walking closer than can be exited safely', 'Dropping quickly on the descent'], commonMistakesHe: ['התקרבות מהירה לקיר', 'טיפוס מעבר לטווח שממנו ניתן לצאת בבטחה', 'ירידה מהירה ולא נשלטת'] },

@@ -1,6 +1,6 @@
 import { ArrowDown, ArrowUp, Copy, Eye, Plus, Save } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Select } from '../../components/SelectMenu';
 import { useI18n } from '../../hooks/useI18n';
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard';
@@ -14,6 +14,8 @@ import {
   type ManagedProgramSectionKind,
 } from '../../features/programs/managedProgram';
 import {
+  getBuiltInManagedPrograms,
+  getManagedProgram,
   loadAdminManagedPrograms,
   publishManagedProgram,
   saveManagedProgramDraft,
@@ -79,8 +81,8 @@ export function AdminProgramBuilderListPage() {
   const [error, setError] = useState(false);
   useEffect(() => {
     void loadAdminManagedPrograms()
-      .then(setRows)
-      .catch(() => setError(true));
+      .then((backend) => setRows([...getBuiltInManagedPrograms(), ...backend.filter((row) => row.source !== 'built-in')]))
+      .catch(() => { setRows(getBuiltInManagedPrograms()); setError(true); });
   }, []);
   return (
     <main className="mx-auto max-w-5xl pb-12">
@@ -119,9 +121,13 @@ export function AdminProgramBuilderListPage() {
                 <code>{row.stableKey}</code> · {row.definition.weeks.length} {l('weeks', 'שבועות')}
               </div>
               <div className="flex flex-wrap gap-2">
-                <Link className="btn-secondary" to={`/admin/programs/${row.stableKey}/edit`}>
+                {row.source === 'built-in' ? (
+                  <Link className="btn-secondary" to={`/admin/programs/new?duplicate=${row.stableKey}`}>
+                    <Copy size={17} /> {l('Duplicate to draft', 'שכפול לטיוטה')}
+                  </Link>
+                ) : <Link className="btn-secondary" to={`/admin/programs/${row.stableKey}/edit`}>
                   {l('Edit', 'עריכה')}
-                </Link>
+                </Link>}
                 <Link className="btn-secondary" to={`/admin/programs/${row.stableKey}/preview`}>
                   <Eye size={17} />
                   {l('Preview', 'תצוגה')}
@@ -154,6 +160,7 @@ export function AdminProgramBuilderListPage() {
 
 export function AdminProgramEditorPage() {
   const { programKey } = useParams();
+  const [search] = useSearchParams();
   const { language } = useI18n();
   const l = (e: string, h: string) => (language === 'he' ? h : e);
   const exercises = useAppStore((s) => s.exercises);
@@ -163,6 +170,12 @@ export function AdminProgramEditorPage() {
   const [expanded, setExpanded] = useState('week-1');
   const nav = useNavigate();
   useEffect(() => {
+    const duplicateKey = search.get('duplicate');
+    if (!programKey && duplicateKey) {
+      const source = getManagedProgram(duplicateKey);
+      if (source) queueMicrotask(() => setDefinition({ ...structuredClone(source.definition), key: `${source.stableKey}-copy`, version: 1, featured: false }));
+      return;
+    }
     if (!programKey) return;
     void loadAdminManagedPrograms().then((rows) => {
       const found = rows.find((x) => x.stableKey === programKey);
@@ -171,7 +184,7 @@ export function AdminProgramEditorPage() {
         setDefinition(found.definition);
       }
     });
-  }, [programKey]);
+  }, [programKey, search]);
   const validation = useMemo(
     () => validateManagedProgram(definition, exercises),
     [definition, exercises],
@@ -592,6 +605,11 @@ export function AdminProgramPreviewPage() {
   const store = useAppStore();
   const nav = useNavigate();
   useEffect(() => {
+    const builtIn = getManagedProgram(programKey ?? '');
+    if (builtIn?.source === 'built-in') {
+      queueMicrotask(() => setRecord(builtIn));
+      return;
+    }
     void loadAdminManagedPrograms().then((rows) =>
       setRecord(rows.find((x) => x.stableKey === programKey)),
     );

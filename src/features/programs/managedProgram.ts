@@ -25,10 +25,14 @@ export interface ManagedProgramPrescription {
   rpe?: string;
   tempo?: string;
   notes?: string;
+  notesHe?: string;
   techniqueCue?: string;
   equipmentNote?: string;
   replacementKeys?: string[];
   replacementCountsForCompletion?: boolean;
+  perSide?: boolean;
+  perSideGuidanceEn?: string;
+  perSideGuidanceHe?: string;
 }
 export interface ManagedProgramSection {
   key: string;
@@ -38,6 +42,8 @@ export interface ManagedProgramSection {
   kind: ManagedProgramSectionKind;
   contributesToHistory: boolean;
   requiredForSuccess: boolean;
+  guidanceEn?: string;
+  guidanceHe?: string;
   exercises: ManagedProgramPrescription[];
 }
 export interface ManagedProgramWorkoutDay {
@@ -49,6 +55,7 @@ export interface ManagedProgramWorkoutDay {
   minimumRestHours?: number;
   flexible: boolean;
   repeatable: boolean;
+  required?: boolean;
   sections: ManagedProgramSection[];
 }
 export interface ManagedProgramWeek {
@@ -141,7 +148,7 @@ export function validateManagedProgram(
     add('error', 'no_weeks', 'program.weeks', 'At least one week is required.');
   if (definition.durationWeeks !== definition.weeks.length)
     add(
-      'warning',
+      'error',
       'duration_mismatch',
       'program.durationWeeks',
       'Duration metadata differs from the authored week count.',
@@ -169,7 +176,7 @@ export function validateManagedProgram(
       const required = workout.sections
         .flatMap((section) => section.exercises)
         .filter((item) => item.required);
-      if (!required.length)
+      if (workout.required !== false && !required.length)
         add(
           'error',
           'empty_required_workout',
@@ -207,6 +214,13 @@ export function validateManagedProgram(
           if (item.targetMin < 0 || item.targetMax < item.targetMin)
             add('error', 'invalid_target', path, 'Target range is invalid.');
           if (item.restSeconds < 0) add('error', 'invalid_rest', path, 'Rest cannot be negative.');
+          item.replacementKeys?.forEach((replacementKey) => {
+            const replacement = exercises.find((candidate) => candidate.stableKey === replacementKey);
+            if (!replacement)
+              add('error', 'missing_replacement', path, `Replacement ${replacementKey} is unavailable.`);
+            else if (exercise && replacement.measurementType !== exercise.measurementType)
+              add('error', 'replacement_measurement_mismatch', path, `Replacement ${replacementKey} has an incompatible measurement type.`);
+          });
           if (exerciseKeys.has(item.exerciseKey))
             add('warning', 'duplicate_exercise', path, 'Exercise is repeated in this section.');
           exerciseKeys.add(item.exerciseKey);
@@ -238,7 +252,7 @@ export function compileManagedWorkout(
     .filter((section) => section.kind === 'warm_up')
     .flatMap((section) => section.exercises.map((prescription) => ({ section, prescription })));
   const items = day.sections
-    .filter((section) => section.kind !== 'warm_up')
+    .filter((section) => section.kind !== 'warm_up' && section.kind !== 'cool_down')
     .flatMap((section) => section.exercises.map((prescription) => ({ section, prescription })));
   return {
     id: `managed-${definition.key}-v${definition.version}-${week.key}-${day.key}`,
@@ -263,6 +277,12 @@ export function compileManagedWorkout(
         notes: prescription.notes,
         managedSectionKey: section.key,
         managedSectionKind: section.kind,
+        allowedReplacementExerciseIds: prescription.replacementKeys?.map((stableKey) => {
+          const replacement = exercises.find((candidate) => candidate.stableKey === stableKey);
+          if (!replacement) throw new Error(`missing_exercise:${stableKey}`);
+          return replacement.id;
+        }),
+        replacementCountsForCompletion: prescription.replacementCountsForCompletion,
       };
     }),
     skillWarmup: warmupItems.map(({ prescription }) => {
@@ -280,7 +300,7 @@ export function compileManagedWorkout(
         stableKey: prescription.exerciseKey,
         guidanceEn: prescription.notes || `${target} ${unit}`,
         guidanceHe:
-          prescription.notes ||
+          prescription.notesHe ||
           `${target} ${exercise.measurementType === 'duration' ? 'שניות' : 'חזרות'}`,
         durationSeconds:
           exercise.measurementType === 'duration' ? prescription.targetMax : undefined,
