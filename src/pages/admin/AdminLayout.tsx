@@ -1,4 +1,4 @@
-import { ArrowLeft, LogOut, Plus, ShieldCheck, CalendarRange } from 'lucide-react';
+import { ArrowLeft, Home, LogOut } from 'lucide-react';
 import { Link, Outlet } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { BrandLogo } from '../../components/BrandLogo';
@@ -11,9 +11,10 @@ import {
 } from '../../services/supabase';
 import { AdminSessionExpiredDialog } from '../../components/AdminSessionExpiredDialog';
 import { AdminSafeAreaShell } from '../../components/AdminSafeAreaShell';
+import { AdminPageHeader } from '../../components/AdminPageHeader';
 
 export function AdminLayout() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [sessionInvalid, setSessionInvalid] = useState(() => !getAdminSession());
   useEffect(() => {
     const unsubscribe = onAdminAuthStateChange((event) => {
@@ -33,28 +34,20 @@ export function AdminLayout() {
       ) : (
         <>
           <header className="mx-auto mb-6 flex max-w-5xl flex-wrap items-start justify-between gap-4">
-            <Link to="/admin/exercises" className="flex min-w-0 max-w-full items-center gap-3">
+            <Link to="/admin" className="flex min-w-0 max-w-full items-center gap-3">
               <BrandLogo variant="wordmark" className="h-12 w-44 max-w-full shrink" />
               <strong className="hidden text-sm font-black sm:block">
                 {t('administratorSystem')}
               </strong>
             </Link>
             <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
+              <Link className="btn-secondary" to="/admin">
+                <Home size={18} />
+                {language === 'he' ? 'דף הבית של הניהול' : 'Admin home'}
+              </Link>
               <Link className="btn-secondary" to="/">
                 <ArrowLeft className="directional-icon" size={18} />
                 {t('backToApp')}
-              </Link>
-              <Link className="btn-primary" to="/admin/exercises/new">
-                <Plus size={18} />
-                {t('newExercise')}
-              </Link>
-              <Link className="btn-secondary" to="/admin/skills">
-                <ShieldCheck size={18} />
-                {t('skills')} Builder
-              </Link>
-              <Link className="btn-secondary" to="/admin/programs">
-                <CalendarRange size={18} />
-                {t('program')} Builder
               </Link>
               <button
                 className="btn-secondary"
@@ -68,6 +61,7 @@ export function AdminLayout() {
               </button>
             </div>
           </header>
+          <AdminPageHeader />
           <Outlet />
         </>
       )}

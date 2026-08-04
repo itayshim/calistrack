@@ -31,6 +31,7 @@ const SkillLevelPage = lazy(() => import('./pages/SkillLevelPage').then((module)
 const SkillHistoryPage = lazy(() => import('./pages/SkillHistoryPage').then((module) => ({ default: module.SkillHistoryPage })));
 const AdminLoginPage = lazy(() => import('./pages/admin/AdminLoginPage').then((module) => ({ default: module.AdminLoginPage })));
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout').then((module) => ({ default: module.AdminLayout })));
+const AdminDashboardPage = lazy(() => import('./pages/admin/AdminDashboardPage').then((module) => ({ default: module.AdminDashboardPage })));
 const AdminExercisesPage = lazy(() => import('./pages/admin/AdminExercisesPage').then((module) => ({ default: module.AdminExercisesPage })));
 const AdminExerciseEditorPage = lazy(() => import('./pages/admin/AdminExerciseEditorPage').then((module) => ({ default: module.AdminExerciseEditorPage })));
 const AdminSkillQaPage = lazy(() => import('./pages/admin/AdminSkillQaPage').then((module) => ({ default: module.AdminSkillQaPage })));
@@ -206,11 +207,11 @@ export default function App() {
         <Route path="admin/login" element={<AdminLoginPage />} />
         <Route element={<AdminGuard />}>
           <Route path="admin" element={<AdminLayout />}>
-            <Route index element={<Navigate to="exercises" replace />} />
+            <Route index element={<AdminDashboardPage />} />
             <Route path="exercises" element={<AdminExercisesPage />} />
             <Route path="exercises/new" element={<AdminExerciseEditorPage />} />
             <Route path="exercises/:exerciseId/edit" element={<AdminExerciseEditorPage />} />
-            <Route path="media" element={<Navigate to="../exercises" replace />} />
+            <Route path="media" element={<Navigate to="/admin/exercises" replace />} />
             <Route path="skills" element={<AdminSkillBuilderListPage />} />
             <Route path="skills/new" element={<AdminSkillEditorPage />} />
             <Route path="skills/:skillKey/edit" element={<AdminSkillEditorPage />} />
