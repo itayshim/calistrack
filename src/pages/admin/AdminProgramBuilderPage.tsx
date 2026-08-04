@@ -1,9 +1,12 @@
-import { ArrowDown, ArrowUp, Copy, Eye, Plus, Save } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronDown, Copy, Download, Eye, Plus, Save, Search } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Select } from '../../components/SelectMenu';
 import { useI18n } from '../../hooks/useI18n';
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard';
+import { AdminPreviewBadge, AdminValidationBanner } from '../../components/AdminPreview';
+import { getExerciseName } from '../../utils/exerciseLocalization';
+import type { Exercise } from '../../types';
 import { useAppStore } from '../../store/useAppStore';
 import {
   compileManagedWorkout,
@@ -596,7 +599,7 @@ export function AdminProgramEditorPage() {
   );
 }
 
-export function AdminProgramPreviewPage() {
+export function LegacyAdminProgramPreviewPage() {
   const { programKey } = useParams();
   const { weekKey, workoutKey } = useParams();
   const { language } = useI18n();
@@ -698,6 +701,80 @@ export function AdminProgramPreviewPage() {
     </main>
   );
 }
+
+export function AdminProgramPreviewPage() {
+  const { programKey } = useParams();
+  const { language } = useI18n();
+  const text = (en: string, he: string) => language === 'he' ? he : en;
+  const [record, setRecord] = useState<ManagedProgramRecord>();
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [scope, setScope] = useState<'all' | 'required' | 'optional'>('all');
+  const [search, setSearch] = useState('');
+  const [missingMedia, setMissingMedia] = useState(false);
+  const [warningsOnly, setWarningsOnly] = useState(false);
+  const store = useAppStore();
+  const navigate = useNavigate();
+  useEffect(() => {
+    const builtIn = getManagedProgram(programKey ?? '');
+    if (builtIn?.source === 'built-in') { queueMicrotask(() => setRecord(builtIn)); return; }
+    void loadAdminManagedPrograms().then((rows) => setRecord(rows.find((row) => row.stableKey === programKey)));
+  }, [programKey]);
+  if (!record) return <p>{text('Loading Program…', 'טוען תוכנית…')}</p>;
+  const definition = record.definition;
+  const validation = validateManagedProgram(definition, store.exercises);
+  const prescriptions = definition.weeks.flatMap((week) => week.workouts.flatMap((workout) => workout.sections.flatMap((section) => section.exercises)));
+  const requiredSessions = definition.weeks.reduce((sum, week) => sum + week.workouts.filter((workout) => workout.required !== false).length, 0);
+  const optionalSessions = definition.weeks.reduce((sum, week) => sum + week.workouts.filter((workout) => workout.required === false).length, 0);
+  const phaseGroups = definition.phases.slice().sort((a, b) => a.order - b.order).map((phase) => ({ phase, weeks: definition.weeks.filter((week) => week.phaseKey === phase.key).sort((a, b) => a.order - b.order) }));
+  const orphanWeeks = definition.weeks.filter((week) => !week.phaseKey || !definition.phases.some((phase) => phase.key === week.phaseKey));
+  if (orphanWeeks.length) phaseGroups.push({ phase: { key: 'program', nameEn: 'Program weeks', nameHe: 'שבועות התוכנית', order: -1 }, weeks: orphanWeeks });
+  const runQa = (week: ManagedProgramDefinition['weeks'][number], workout: ManagedProgramDefinition['weeks'][number]['workouts'][number]) => {
+    if (store.activeWorkout) { store.setToast(text('Finish or cancel the active workout before starting QA.', 'יש לסיים או לבטל את האימון הפעיל לפני הפעלת QA.')); return; }
+    const compiled = compileManagedWorkout(definition, week.key, workout.key, store.exercises, undefined, language);
+    compiled.managedProgramLink = { ...compiled.managedProgramLink!, preview: true };
+    if (store.startWorkout(compiled)) navigate(`/admin/programs/${definition.key}/test/${week.key}/${workout.key}`);
+  };
+  const exportJson = () => { const blob = new Blob([exportManagedProgram(definition)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = `${definition.key}.json`; anchor.click(); URL.revokeObjectURL(url); };
+  return <main className="mx-auto max-w-5xl pb-12">
+    <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="eyebrow">{text('Administrator · Preview', 'ניהול · תצוגה מקדימה')}</p><h1 className="mt-2 text-4xl font-black">{language === 'he' ? definition.nameHe : definition.nameEn}</h1><div className="mt-3 flex flex-wrap gap-2"><AdminPreviewBadge>v{definition.version}</AdminPreviewBadge><AdminPreviewBadge tone={record.source === 'built-in' ? 'success' : 'neutral'}>{record.source === 'built-in' ? text('Built-in', 'מובנה') : text('Managed', 'מנוהל')}</AdminPreviewBadge><AdminPreviewBadge>{record.status}</AdminPreviewBadge></div></div><div className="flex flex-wrap gap-2">{record.source !== 'built-in' && <Link className="btn-secondary" to={`/admin/programs/${definition.key}/edit`}>{text('Edit managed version', 'עריכת גרסה מנוהלת')}</Link>}<Link className="btn-secondary" to={`/admin/programs/new?duplicate=${definition.key}`}><Copy size={17}/>{text('Duplicate', 'שכפול')}</Link><Link className="btn-secondary" to={`/admin/programs/${definition.key}/versions`}>{text('Versions', 'גרסאות')}</Link><button className="btn-secondary" onClick={exportJson}><Download size={17} />{text('Export JSON', 'ייצוא JSON')}</button></div></div>
+    <p className="mt-4 max-w-3xl text-slate-600 dark:text-slate-300">{language === 'he' ? definition.descriptionHe : definition.descriptionEn}</p>
+    <AdminValidationBanner valid={validation.valid} errors={validation.blockingErrors} warnings={validation.warnings} language={language} />
+    <section className="card mt-6"><h2 className="section-title">{text('Program summary', 'סיכום התוכנית')}</h2><dl className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5"><Summary label={text('Duration','משך')} value={`${definition.durationWeeks} ${text('weeks','שבועות')}`} /><Summary label={text('Phases','שלבים')} value={definition.phases.length} /><Summary label={text('Required','חובה')} value={requiredSessions} /><Summary label={text('Optional','רשות')} value={optionalSessions} /><Summary label={text('Sessions / week','אימונים בשבוע')} value={definition.sessionsPerWeek} /><Summary label={text('Estimated workout','משך אימון משוער')} value={`${definition.estimatedMinutesMin}–${definition.estimatedMinutesMax} ${text('min','דק׳')}`} /><Summary label={text('Prescribed sets','סטים מתוכננים')} value={prescriptions.reduce((sum,item)=>sum+item.sets,0)} /><Summary label={text('Unique exercises','תרגילים ייחודיים')} value={new Set(prescriptions.map((item) => item.exerciseKey)).size} /><Summary label={text('Progression','התקדמות')} value={text('Week-specific','לפי שבוע')} /><Summary label={text('Active version','גרסה פעילה')} value={`v${definition.version}`} /></dl><p className="mt-4 text-sm text-slate-500">{text('Target audience','קהל יעד')}: {language === 'he' ? definition.targetAudienceHe : definition.targetAudienceEn}</p></section>
+    <section className="card mt-6"><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="section-title">{text('Preview tools','כלי תצוגה')}</h2><div className="flex flex-wrap gap-2"><button className="btn-secondary" onClick={() => setExpanded(new Set(definition.weeks.map((week) => week.key)))}>{text('Expand all weeks','פתיחת כל השבועות')}</button><button className="btn-secondary" onClick={() => setExpanded(new Set())}>{text('Collapse all weeks','סגירת כל השבועות')}</button></div></div><div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5"><label className="control-shell field flex items-center gap-2"><Search size={17}/><input aria-label={text('Exercise search','חיפוש תרגיל')} className="min-w-0 flex-1 bg-transparent outline-none" value={search} onChange={(event) => setSearch(event.target.value)} /></label><select className="field" aria-label={text('Workout scope','סוג אימון')} value={scope} onChange={(event) => setScope(event.target.value as typeof scope)}><option value="all">{text('All workouts','כל האימונים')}</option><option value="required">{text('Required only','חובה בלבד')}</option><option value="optional">{text('Optional only','רשות בלבד')}</option></select><label className="flex min-h-12 items-center gap-2"><input type="checkbox" checked={missingMedia} onChange={(event) => setMissingMedia(event.target.checked)} />{text('Missing media','מדיה חסרה')}</label><label className="flex min-h-12 items-center gap-2"><input type="checkbox" checked={warningsOnly} onChange={(event) => setWarningsOnly(event.target.checked)} />{text('Warnings','אזהרות')}</label><span className="self-center text-sm font-bold text-slate-500">{prescriptions.length} {text('prescriptions','מרשמים')}</span></div></section>
+    <div className="mt-8 grid gap-8">{phaseGroups.map(({ phase, weeks }) => <section key={phase.key}><div className="mb-4"><p className="eyebrow">{text('Phase','שלב')} {phase.order >= 0 ? phase.order + 1 : ''}</p><h2 className="text-3xl font-black">{language === 'he' ? phase.nameHe : phase.nameEn}</h2><p className="text-sm text-slate-500">{weeks.length ? `${text('Weeks','שבועות')} ${weeks[0].order + 1}–${weeks[weeks.length - 1].order + 1}` : text('No weeks','אין שבועות')}</p></div><div className="grid gap-4">{weeks.map((week) => <ProgramPreviewWeek key={week.key} week={week} exercises={store.exercises} language={language} expanded={expanded.has(week.key)} scope={scope} search={search} missingMedia={missingMedia} warningsOnly={warningsOnly} warnings={validation.warnings} onToggle={() => setExpanded((current) => { const next = new Set(current); if (next.has(week.key)) next.delete(week.key); else next.add(week.key); return next; })} onRun={runQa} />)}</div></section>)}</div>
+  </main>;
+}
+
+function Summary({ label, value }: { label: string; value: string | number }) { return <div><dt className="text-xs font-bold text-slate-500">{label}</dt><dd className="mt-1 text-xl font-black">{value}</dd></div>; }
+
+function ProgramPreviewWeek({ week, exercises, language, expanded, scope, search, missingMedia, warningsOnly, warnings, onToggle, onRun }: { week: ManagedProgramDefinition['weeks'][number]; exercises: Exercise[]; language: 'en'|'he'; expanded: boolean; scope: 'all'|'required'|'optional'; search: string; missingMedia: boolean; warningsOnly: boolean; warnings: Array<{path:string}>; onToggle:()=>void; onRun:(week:ManagedProgramDefinition['weeks'][number],workout:ManagedProgramDefinition['weeks'][number]['workouts'][number])=>void }) {
+  const t=(en:string,he:string)=>language==='he'?he:en;
+  const required=week.workouts.filter((workout)=>workout.required!==false).length, optional=week.workouts.length-required;
+  const workouts=week.workouts.filter((workout)=>scope==='all'||(scope==='required')===(workout.required!==false));
+  const weekName=language==='he'?week.nameHe:week.nameEn;
+  return <article className="card"><button className="flex min-h-12 w-full items-center justify-between gap-3 text-start" onClick={onToggle} aria-expanded={expanded} aria-label={`${weekName} · ${expanded?t('Collapse','סגירה'):t('Expand','פתיחה')}`}><span><span className="block text-2xl font-black">{weekName}</span><span className="mt-1 block text-sm text-slate-500">{required} {t('required','חובה')} · {optional} {t('optional','רשות')} · {formatAdvancement(week.advancementPolicy,language)}</span></span><ChevronDown className={`shrink-0 transition ${expanded?'rotate-180':''}`} /></button>{expanded&&<div className="mt-5 grid gap-4">{workouts.map((workout)=><ProgramWorkoutCard key={workout.key} week={week} workout={workout} exercises={exercises} language={language} search={search} missingMedia={missingMedia} warningsOnly={warningsOnly} warnings={warnings} onRun={onRun}/>)}</div>}</article>;
+}
+
+function ProgramWorkoutCard({ week, workout, exercises, language, search, missingMedia, warningsOnly, warnings, onRun }: { week:ManagedProgramDefinition['weeks'][number]; workout:ManagedProgramDefinition['weeks'][number]['workouts'][number]; exercises:Exercise[]; language:'en'|'he'; search:string; missingMedia:boolean; warningsOnly:boolean; warnings:Array<{path:string}>; onRun:(week:ManagedProgramDefinition['weeks'][number],workout:ManagedProgramDefinition['weeks'][number]['workouts'][number])=>void }) {
+  const t=(en:string,he:string)=>language==='he'?he:en;
+  const [detailsOpen,setDetailsOpen]=useState(true);
+  const workoutName=language==='he'?workout.nameHe:workout.nameEn;
+  return <section className="rounded-3xl border border-slate-200/80 bg-slate-50 p-4 dark:border-white/[.08] dark:bg-white/[.025]"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><h3 className="text-xl font-black">{workoutName}</h3><AdminPreviewBadge tone={workout.required===false?'warning':'success'}>{workout.required===false?t('Optional','רשות'):t('Required','חובה')}</AdminPreviewBadge></div><code className="mt-1 block text-xs text-slate-400">{workout.key}</code></div><div className="flex flex-wrap gap-2"><button className="btn-secondary" aria-expanded={detailsOpen} aria-label={`${workoutName} · ${detailsOpen?t('Collapse','סגירה'):t('Expand','פתיחה')}`} onClick={()=>setDetailsOpen((value)=>!value)}><ChevronDown className={detailsOpen?'rotate-180':''} size={17}/>{detailsOpen?t('Collapse','סגירה'):t('Expand','פתיחה')}</button><button className="btn-primary" onClick={()=>onRun(week,workout)}>{t('Run QA workout','הפעלת אימון QA')}</button></div></div>{detailsOpen?<div className="mt-5 grid gap-4">{workout.sections.map((section)=><ProgramSection key={section.key} section={section} exercises={exercises} language={language} search={search} missingMedia={missingMedia} warningsOnly={warningsOnly} warnings={warnings}/>)}</div>:null}</section>;
+}
+
+function ProgramSection({ section, exercises, language, search, missingMedia, warningsOnly, warnings }: { section:ManagedProgramDefinition['weeks'][number]['workouts'][number]['sections'][number]; exercises:Exercise[]; language:'en'|'he'; search:string; missingMedia:boolean; warningsOnly:boolean; warnings:Array<{path:string}> }) {
+  const t=(en:string,he:string)=>language==='he'?he:en;
+  const rows=section.exercises.map((prescription)=>({prescription,exercise:exercises.find((exercise)=>exercise.stableKey===prescription.exerciseKey)})).filter(({prescription,exercise})=>{const name=exercise?getExerciseName(exercise,language):prescription.exerciseKey; if(search&&!`${name} ${prescription.exerciseKey}`.toLowerCase().includes(search.toLowerCase()))return false; if(missingMedia&&exercise?.media?.some((media)=>media.isPublished))return false; if(warningsOnly&&!warnings.some((warning)=>warning.path.includes(prescription.key)))return false; return true;});
+  if(!rows.length)return null;
+  return <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/[.08] dark:bg-panel"><div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-3 dark:border-white/[.08]"><div><h4 className="font-black">{language==='he'?section.nameHe:section.nameEn}</h4><span className="text-xs text-slate-500">{formatSectionKind(section.kind,language)}</span></div><div className="flex gap-2"><AdminPreviewBadge>{rows.length} {t('exercises','תרגילים')}</AdminPreviewBadge><AdminPreviewBadge tone={section.requiredForSuccess?'success':'warning'}>{section.requiredForSuccess?t('Required','חובה'):t('Optional','רשות')}</AdminPreviewBadge></div></div><div className="hidden overflow-x-auto md:block"><table className="w-full text-sm"><thead className="bg-slate-50 text-xs text-slate-500 dark:bg-white/[.03]"><tr>{[t('#','#'),t('Exercise','תרגיל'),t('Measurement','מדידה'),t('Sets','סטים'),t('Target','יעד'),t('Rest','מנוחה'),t('Requirement','דרישה'),t('Replacements','תחליפים'),t('Media','מדיה')].map((heading)=><th className="px-3 py-2 text-start" key={heading}>{heading}</th>)}</tr></thead><tbody>{rows.map((row,index)=><PrescriptionCells key={row.prescription.key} index={index} {...row} language={language} warmup={section.kind==='warm_up'||section.kind==='cool_down'}/>)}</tbody></table></div><div className="grid gap-3 p-3 md:hidden">{rows.map((row,index)=><PrescriptionMobile key={row.prescription.key} index={index} {...row} language={language} warmup={section.kind==='warm_up'||section.kind==='cool_down'}/>)}</div></section>;
+}
+
+type RowProps={index:number;prescription:ManagedProgramDefinition['weeks'][number]['workouts'][number]['sections'][number]['exercises'][number];exercise?:Exercise;language:'en'|'he';warmup:boolean};
+function PrescriptionCells(props:RowProps){const v=rowValues(props);return <tr className="border-t border-slate-100 dark:border-white/[.05]"><td className="px-3 py-3">{props.index+1}</td><td className="px-3 py-3"><strong className="block">{v.name}</strong><code className="text-xs text-slate-400">{props.prescription.exerciseKey}</code></td>{v.values.map((value,index)=><td className="px-3 py-3 align-top" key={index}>{value}</td>)}</tr>}
+function PrescriptionMobile(props:RowProps){const v=rowValues(props);return <article className="rounded-2xl bg-slate-50 p-3 dark:bg-white/[.04]"><strong>{props.index+1}. {v.name}</strong><code className="mt-1 block text-xs text-slate-400">{props.prescription.exerciseKey}</code><dl className="mt-3 grid grid-cols-2 gap-2 text-sm">{v.labels.map((label,index)=><div key={label}><dt className="text-xs text-slate-500">{label}</dt><dd className="font-bold">{v.values[index]}</dd></div>)}</dl></article>}
+function rowValues({prescription,exercise,language,warmup}:RowProps){const t=(en:string,he:string)=>language==='he'?he:en;const measurement=warmup?t('Done / Skip','בוצע / דילוג'):exercise?.measurementType==='duration'?t('Duration','משך'):exercise?.measurementType==='weighted_reps'?t('Weighted repetitions','חזרות עם משקל'):t('Repetitions','חזרות');const range=prescription.targetMin===prescription.targetMax?`${prescription.targetMin}`:`${prescription.targetMin}–${prescription.targetMax}`;const unit=exercise?.measurementType==='duration'?t('sec','שנ׳'):t('reps','חזרות');const target=`${range} ${prescription.perSide?(prescription.perSideGuidanceEn?language==='he'?prescription.perSideGuidanceHe:prescription.perSideGuidanceEn:t('each side','לכל צד')):unit}${prescription.addedWeightKg?` · +${prescription.addedWeightKg} kg`:''}${warmup?` · ${t('lightweight completion','השלמה קלה')}`:''}`;const values=[measurement,prescription.sets,target,prescription.restSeconds>0?`${prescription.restSeconds} ${t('sec','שנ׳')}`:t('No rest','ללא מנוחה'),prescription.required?t('Required','חובה'):t('Optional','רשות'),prescription.replacementKeys?.length??0,exercise?.media?.some((media)=>media.isPublished)?t('Published','פורסם'):t('Missing','חסר')];return{name:exercise?getExerciseName(exercise,language):prescription.exerciseKey,values,labels:[t('Measurement','מדידה'),t('Sets','סטים'),t('Target','יעד'),t('Rest','מנוחה'),t('Requirement','דרישה'),t('Replacements','תחליפים'),t('Media','מדיה')]}}
+function formatAdvancement(value:string,language:'en'|'he'){const labels:Record<string,[string,string]>={manual:['Manual advance','מעבר ידני'],required_complete:['Required sessions complete','השלמת אימוני החובה'],calendar:['Calendar based','לפי לוח שנה'],hybrid:['Hybrid','משולב']};return labels[value]?.[language==='he'?1:0]??value}
+function formatSectionKind(value:string,language:'en'|'he'){const en=value.replaceAll('_',' ').replace(/\b\w/g,(letter)=>letter.toUpperCase());const he:Record<string,string>={warm_up:'חימום',main_work:'עבודה עיקרית',accessory:'תרגילי עזר',skill_practice:'תרגול מיומנות',conditioning:'כושר',cool_down:'שחרור',custom:'מותאם'};return language==='he'?he[value]??value:en}
 
 export function AdminProgramVersionsPage() {
   const { programKey } = useParams();
