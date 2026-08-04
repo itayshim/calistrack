@@ -126,7 +126,12 @@ export function AppLayout() {
 }
 
 function getRecoverableActiveWorkout(active: WorkoutSession | null) {
-  if (!active || active.status !== 'active' || active.skillLink?.preview) return null;
+  if (
+    !active ||
+    active.status !== 'active' ||
+    active.skillLink?.preview ||
+    active.managedProgramLink?.preview
+  ) return null;
   if (!active.id || active.exercises.length === 0) return null;
   if (active.currentExerciseIndex < 0 || active.currentExerciseIndex >= active.exercises.length) return null;
   return active;

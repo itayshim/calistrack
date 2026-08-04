@@ -12,6 +12,7 @@ import {
   X,
   Copy,
   RefreshCw,
+  LogOut,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -62,7 +63,7 @@ export function WorkoutPage() {
     [replaceOpen, setReplaceOpen] = useState(false),
     [finish, setFinish] = useState(false),
     [cancel, setCancel] = useState(false),
-    [notes, setNotes] = useState(''),
+    [notes, setNotes] = useState(active?.notes ?? ''),
     [difficulty, setDifficulty] = useState(3),
     [feeling, setFeeling] = useState(3),
     [skillTechnique, setSkillTechnique] = useState<'good' | 'partial' | 'breakdown'>('good');
@@ -144,6 +145,11 @@ export function WorkoutPage() {
         </button>
       </div>
     );
+  const isQaPreview = Boolean(active.skillLink?.preview || active.managedProgramLink?.preview);
+  const leaveWorkout = () => {
+    store.persist();
+    nav('/');
+  };
   if (
     active.skillWarmup &&
     (active.skillWarmup.status === 'pending' || active.skillWarmup.status === 'in-progress')
@@ -151,6 +157,7 @@ export function WorkoutPage() {
     return (
       <SkillWarmupPhase
         active={active}
+        onLeave={isQaPreview ? undefined : leaveWorkout}
         onCancel={() => {
           const skillKey = active.skillLink?.skillKey;
           store.cancelWorkout();
@@ -166,7 +173,10 @@ export function WorkoutPage() {
       <WorkoutFinish
         active={active}
         notes={notes}
-        setNotes={setNotes}
+        setNotes={(value) => {
+          setNotes(value);
+          store.setWorkoutNotes(value);
+        }}
         difficulty={difficulty}
         setDifficulty={setDifficulty}
         feeling={feeling}
@@ -192,6 +202,7 @@ export function WorkoutPage() {
                 : '/history',
           );
         }}
+        onLeave={isQaPreview ? undefined : leaveWorkout}
       />
     );
   const i = active.currentExerciseIndex,
@@ -332,6 +343,12 @@ export function WorkoutPage() {
   );
   return (
     <div className="mx-auto max-w-3xl pb-28 md:pb-0">
+      {!isQaPreview && (
+          <button type="button" className="btn-secondary sticky top-[max(0.5rem,env(safe-area-inset-top))] z-20 mb-4 min-h-11 shadow-sm" onClick={leaveWorkout}>
+            <LogOut size={18} aria-hidden="true" />
+            {t('leaveWorkout')}
+          </button>
+      )}
       <header className="mb-8">
         <div className="mb-5 flex items-center justify-between">
           <button
@@ -585,8 +602,8 @@ export function WorkoutPage() {
             autoFocus
             type="number"
             min="0"
-            step={measurementType === 'duration' ? 0.01 : 0.5}
-            inputMode="decimal"
+            step={measurementType === 'duration' ? 1 : 0.5}
+            inputMode={measurementType === 'duration' ? 'numeric' : 'decimal'}
             value={measurementType === 'duration' ? duration : reps}
             disabled={restLocked || !canEnterSet}
             onChange={(e) =>
@@ -898,9 +915,11 @@ export function WorkoutPage() {
 function SkillWarmupPhase({
   active,
   onCancel,
+  onLeave,
 }: {
   active: NonNullable<ReturnType<typeof useAppStore.getState>['activeWorkout']>;
   onCancel: () => void;
+  onLeave?: () => void;
 }) {
   const { language } = useI18n();
   const store = useAppStore();
@@ -914,8 +933,9 @@ function SkillWarmupPhase({
   if (warmup.status === 'pending')
     return (
       <div className="mx-auto max-w-xl py-8">
+        {onLeave && <button type="button" className="btn-secondary sticky top-[max(0.5rem,env(safe-area-inset-top))] z-20 min-h-11 shadow-sm" onClick={onLeave}><LogOut size={18} aria-hidden="true" />{label('Leave workout', 'יציאה מהאימון')}</button>}
         <button
-          className="icon-button"
+          className="icon-button mt-3"
           aria-label={label('Cancel workout', 'ביטול אימון')}
           onClick={onCancel}
         >
@@ -951,6 +971,7 @@ function SkillWarmupPhase({
     );
   return (
     <div className="mx-auto max-w-xl py-6">
+      {onLeave && <button type="button" className="btn-secondary sticky top-[max(0.5rem,env(safe-area-inset-top))] z-20 mb-4 min-h-11 shadow-sm" onClick={onLeave}><LogOut size={18} aria-hidden="true" />{label('Leave workout', 'יציאה מהאימון')}</button>}
       <div className="flex items-center justify-between">
         <button
           className="icon-button"
@@ -1001,6 +1022,7 @@ function WorkoutFinish({
   setSkillTechnique,
   onBack,
   onSave,
+  onLeave,
 }: {
   active: NonNullable<ReturnType<typeof useAppStore.getState>['activeWorkout']>;
   notes: string;
@@ -1013,12 +1035,14 @@ function WorkoutFinish({
   setSkillTechnique: (v: 'good' | 'partial' | 'breakdown') => void;
   onBack: () => void;
   onSave: () => void;
+  onLeave?: () => void;
 }) {
   const { t, language } = useI18n();
   const summary = workoutSummary(active);
   const skillDefinition = getSkillDefinition(active.skillLink?.skillKey ?? '');
   return (
     <div className="mx-auto max-w-xl animate-rise py-6 text-center">
+      {onLeave && <button type="button" className="btn-secondary sticky top-[max(0.5rem,env(safe-area-inset-top))] z-20 mb-5 min-h-11 shadow-sm" onClick={onLeave}><LogOut size={18} aria-hidden="true" />{t('leaveWorkout')}</button>}
       <div className="mx-auto grid h-24 w-24 place-items-center rounded-[2rem] bg-brand text-ink shadow-glow">
         <Check size={44} strokeWidth={3} />
       </div>

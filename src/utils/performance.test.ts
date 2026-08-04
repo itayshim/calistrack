@@ -3,6 +3,7 @@ import type { WorkoutSet } from '../types';
 import { builtInExercises } from '../data/exercises';
 import {
   calculateRecordedDuration,
+  calculateInterruptedTargetDuration,
   formatAddedWeight,
   formatDuration,
   formatSetPerformance,
@@ -30,6 +31,14 @@ describe('metric-specific set performance', () => {
       measuredSeconds: 30,
       recordedSeconds: 28,
     });
+  });
+  it.each([
+    [17_990, 17],
+    [17_420, 17],
+    [1_010, 1],
+    [990, 0],
+  ])('floors an interrupted target countdown of %i ms to %i seconds', (milliseconds, expected) => {
+    expect(calculateInterruptedTargetDuration(milliseconds)).toBe(expected);
   });
   it('normalizes the legacy time measurement without changing other types', () => {
     expect(normalizeMeasurementType('time')).toBe('duration');

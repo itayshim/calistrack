@@ -39,7 +39,7 @@ describe('workout flow', () => {
     useAppStore.getState().hydrate();
     expect(useAppStore.getState().activeWorkout).not.toBeNull();
   });
-  it('stopping a target countdown preserves precise elapsed time without completing the set', () => {
+  it('stopping a target countdown floors elapsed time without completing the set or starting rest', () => {
     const now = vi.spyOn(Date, 'now').mockReturnValue(10_000);
     useAppStore
       .getState()
@@ -48,14 +48,16 @@ describe('workout flow', () => {
       .getState()
       .startExerciseCountdown(useAppStore.getState().activeWorkout!.exercises[0].id, 30);
     now.mockReturnValue(30_420);
-    expect(useAppStore.getState().stopExerciseCountdown()).toEqual({ measuredSeconds: 17.42 });
+    expect(useAppStore.getState().stopExerciseCountdown()).toEqual({ measuredSeconds: 17 });
     expect(useAppStore.getState().exerciseStopwatch).toMatchObject({
       running: false,
-      measuredSeconds: 17.42,
-      adjustedSeconds: 17.42,
+      measuredSeconds: 17,
+      adjustedSeconds: 17,
       targetReached: false,
     });
     expect(useAppStore.getState().activeWorkout?.exercises[0].sets).toHaveLength(0);
+    expect(useAppStore.getState().activeWorkout?.status).toBe('active');
+    expect(useAppStore.getState().restTimer.id).toBeNull();
     now.mockRestore();
   });
   it('skipping the final exercise enters completion but Back restores an editable exercise', () => {

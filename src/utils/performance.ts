@@ -29,6 +29,10 @@ export const calculateRecordedDuration = (
   };
 };
 
+/** Interrupted target countdowns record only fully elapsed seconds. */
+export const calculateInterruptedTargetDuration = (elapsedMilliseconds: number) =>
+  Math.max(0, Math.floor(Math.max(0, elapsedMilliseconds) / 1000));
+
 export const formatRepValue = (count: number) =>
   new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 0,

@@ -324,6 +324,7 @@ const en = {
   chooseWorkoutDescription: 'Choose a session from your program when you are ready.',
   chooseWorkout: 'Choose workout',
   cancelWorkout: 'Cancel workout',
+  leaveWorkout: 'Leave workout',
   finish: 'Finish',
   workoutProgress: 'Workout progress',
   plannedSets: 'planned sets',
@@ -1297,6 +1298,7 @@ const he: Record<keyof typeof en, string> = {
   replayTutorial: 'הפעלת הסיור מחדש',
   resetOnboarding: 'איפוס ההדרכה',
   tutorialHelpDescription: 'אפשר לעבור שוב על הסיור המודרך או לאפס את מסך הפתיחה הראשוני.',
+  leaveWorkout: 'יציאה מהאימון',
 };
 
 export const translations = { en, he };

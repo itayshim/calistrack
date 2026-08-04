@@ -19,6 +19,7 @@ import { createId } from '../utils/id';
 import { translations, type TranslationKey } from '../locales/translations';
 import {
   calculateRecordedDuration,
+  calculateInterruptedTargetDuration,
   isValidSetInput,
   normalizeMeasurementType,
   normalizeSetInput,
@@ -50,6 +51,7 @@ interface Store extends AppData {
   skipExercise: (exerciseIndex: number) => void;
   setCurrentExercise: (i: number) => void;
   setExerciseNotes: (i: number, notes: string) => void;
+  setWorkoutNotes: (notes: string) => void;
   replaceActiveExercise: (
     i: number,
     exerciseId: string,
@@ -408,6 +410,13 @@ export const useAppStore = create<Store>((set, get) => ({
       get().persist();
     }
   },
+  setWorkoutNotes: (notes) => {
+    const active = structuredClone(get().activeWorkout);
+    if (!active) return;
+    active.notes = notes;
+    set({ activeWorkout: active });
+    get().persist();
+  },
   replaceActiveExercise: (i, exerciseId, options = {}) => {
     const active = structuredClone(get().activeWorkout);
     const replacement = get().exercises.find((exercise) => exercise.id === exerciseId);
@@ -695,7 +704,7 @@ export const useAppStore = create<Store>((set, get) => ({
     const targetSeconds = stopwatch.targetSeconds ?? 0;
     const elapsedSeconds = Math.min(
       targetSeconds,
-      Math.max(0, Math.round(Math.max(0, Date.now() - stopwatch.startedAt) / 10) / 100),
+      calculateInterruptedTargetDuration(Date.now() - stopwatch.startedAt),
     );
     set({
       exerciseStopwatch: {

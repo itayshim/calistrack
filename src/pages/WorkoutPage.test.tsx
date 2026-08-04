@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '../app/I18nProvider';
 import { createInitialData } from '../data/seed';
@@ -10,6 +10,7 @@ import { WorkoutPage } from './WorkoutPage';
 import { restAlertService } from '../services/restAlert';
 import { timerCueService } from '../services/timerCue';
 import { createFrontLeverWorkout } from '../features/skills/frontLever';
+import { AppLayout } from '../layouts/AppLayout';
 
 const active = (exerciseId: string, measurementType: MeasurementType): WorkoutSession => ({
   id: 'active',
@@ -89,6 +90,32 @@ function renderWorkout(
   );
 }
 
+function renderWorkoutShell(
+  exerciseId = 'builtin-pull-up',
+  measurementType: MeasurementType = 'reps',
+  language: 'en' | 'he' = 'en',
+) {
+  const initial = createInitialData();
+  useAppStore.setState({
+    ...initial,
+    settings: { ...initial.settings, language },
+    activeWorkout: active(exerciseId, measurementType),
+    hydrated: true,
+  });
+  return render(
+    <MemoryRouter initialEntries={['/workout/active']}>
+      <I18nProvider>
+        <Routes>
+          <Route element={<AppLayout />}>
+            <Route path="/" element={<div>Home content</div>} />
+            <Route path="workout/:id" element={<WorkoutPage />} />
+          </Route>
+        </Routes>
+      </I18nProvider>
+    </MemoryRouter>,
+  );
+}
+
 describe('active workout previous performance and replacement UX', () => {
   afterEach(() => {
     cleanup();
@@ -132,6 +159,66 @@ describe('active workout previous performance and replacement UX', () => {
     expect(useAppStore.getState().activeWorkout?.exercises[0].sets[0].reps).toBe(8);
   });
 
+  it('leaves a normal set without cancelling and resumes the same session and reps draft', async () => {
+    const user = userEvent.setup();
+    renderWorkoutShell();
+    expect(screen.queryByRole('navigation', { name: 'Main navigation' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Leave workout' })).toHaveClass('sticky', 'min-h-11');
+    await user.type(screen.getByLabelText(/Set 1/i), '8');
+    await user.click(screen.getByRole('button', { name: 'Leave workout' }));
+    expect(screen.getByText('Home content')).toBeInTheDocument();
+    expect(screen.getByTestId('active-workout-return')).toBeInTheDocument();
+    expect(useAppStore.getState().activeWorkout).toMatchObject({ id: 'active', status: 'active', currentExerciseIndex: 0 });
+    expect(useAppStore.getState().workoutSessions).toHaveLength(0);
+    await user.click(screen.getByTestId('active-workout-return'));
+    expect(screen.getByLabelText(/Set 1/i)).toHaveValue(8);
+    expect(useAppStore.getState().activeWorkout?.id).toBe('active');
+  });
+
+  it('preserves a duration draft, target countdown, and rest deadline when leaving', async () => {
+    const user = userEvent.setup();
+    renderWorkoutShell('builtin-l-sit', 'duration');
+    fireEvent.change(screen.getByLabelText(/Hold time/), { target: { value: '12' } });
+    act(() => {
+      useAppStore.getState().startExerciseCountdown('active-exercise', 30);
+      useAppStore.setState({ restTimer: { id: 'rest-1', endsAt: Date.now() + 45_000, duration: 45, pausedRemaining: null } });
+    });
+    const stopwatchId = useAppStore.getState().exerciseStopwatch.id;
+    const restDeadline = useAppStore.getState().restTimer.endsAt;
+    await user.click(screen.getByRole('button', { name: 'Leave workout' }));
+    expect(useAppStore.getState().exerciseStopwatch.id).toBe(stopwatchId);
+    expect(useAppStore.getState().exerciseStopwatch.running).toBe(true);
+    expect(useAppStore.getState().restTimer.endsAt).toBe(restDeadline);
+    await user.click(screen.getByTestId('active-workout-return'));
+    expect(screen.getByLabelText(/Hold time/)).toHaveValue(12);
+  });
+
+  it('offers Leave workout during warm-up and completion-ready without cancelling', async () => {
+    const user = userEvent.setup();
+    renderWorkoutShell();
+    act(() => useAppStore.setState((state) => ({ activeWorkout: state.activeWorkout ? {
+      ...state.activeWorkout,
+      skillWarmup: { status: 'pending', currentIndex: 0, items: [{ exerciseId: 'builtin-jumping-jacks', stableKey: 'jumping-jacks', guidanceEn: '20 reps', guidanceHe: '20 חזרות' }] },
+    } : null })));
+    expect(screen.getByRole('button', { name: 'Leave workout' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Leave workout' }));
+    expect(useAppStore.getState().activeWorkout?.status).toBe('active');
+    await user.click(screen.getByTestId('active-workout-return'));
+    act(() => useAppStore.setState((state) => ({ activeWorkout: state.activeWorkout ? { ...state.activeWorkout, skillWarmup: undefined, completionReady: true } : null })));
+    expect(screen.getByRole('button', { name: 'Leave workout' })).toBeInTheDocument();
+    await user.type(screen.getByPlaceholderText('A quick note for future you…'), 'Keep shoulders steady');
+    await user.click(screen.getByRole('button', { name: 'Leave workout' }));
+    await user.click(screen.getByTestId('active-workout-return'));
+    expect(screen.getByPlaceholderText('A quick note for future you…')).toHaveValue('Keep shoulders steady');
+  });
+
+  it('localizes the leave action in Hebrew and omits it from Admin QA preview', () => {
+    renderWorkoutShell('builtin-pull-up', 'reps', 'he');
+    expect(screen.getByRole('button', { name: 'יציאה מהאימון' })).toBeInTheDocument();
+    act(() => useAppStore.setState((state) => ({ activeWorkout: state.activeWorkout ? { ...state.activeWorkout, skillLink: { skillKey: 'front-lever', levelKey: 'tuck', templateVersion: 1, kind: 'workout', linkState: 'linked', preview: true } } : null })));
+    expect(screen.queryByRole('button', { name: 'יציאה מהאימון' })).not.toBeInTheDocument();
+  });
+
   it('does not play or initialize audio when a set is completed', async () => {
     const user = userEvent.setup();
     const play = vi.spyOn(restAlertService, 'play').mockResolvedValue();
@@ -153,7 +240,7 @@ describe('active workout previous performance and replacement UX', () => {
     await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Stop' })).toBeEnabled());
     await user.click(screen.getByRole('button', { name: 'Stop' }));
     expect(screen.getByLabelText(/Recorded duration/)).toHaveValue(12);
-    expect(screen.getByLabelText(/Recorded duration/)).toHaveAttribute('inputmode', 'decimal');
+    expect(screen.getByLabelText(/Recorded duration/)).toHaveAttribute('inputmode', 'numeric');
     expect(screen.getByText(/Measured/)).toBeInTheDocument();
     expect(useAppStore.getState().activeWorkout?.exercises[0].sets).toHaveLength(0);
     await user.clear(screen.getByLabelText(/Recorded duration/));
@@ -196,7 +283,7 @@ describe('active workout previous performance and replacement UX', () => {
     now.mockReturnValue(18_000);
     await vi.waitFor(() => expect(screen.getByRole('button', { name: 'עצירה' })).toBeEnabled());
     fireEvent.click(screen.getByRole('button', { name: 'עצירה' }));
-    expect(screen.getByLabelText(/משך שנרשם/)).toHaveAttribute('inputmode', 'decimal');
+    expect(screen.getByLabelText(/משך שנרשם/)).toHaveAttribute('inputmode', 'numeric');
   });
 
   it('plays exactly once only when an explicit duration countdown reaches zero', async () => {
@@ -244,7 +331,7 @@ describe('active workout previous performance and replacement UX', () => {
     vi.useRealTimers();
   });
 
-  it('stops a target countdown early and drafts the precise achieved duration', async () => {
+  it('stops a target countdown early and drafts only fully elapsed seconds', async () => {
     vi.useFakeTimers();
     const now = vi.spyOn(Date, 'now').mockReturnValue(10_000);
     vi.spyOn(timerCueService, 'unlock').mockResolvedValue(true);
@@ -253,8 +340,11 @@ describe('active workout previous performance and replacement UX', () => {
     now.mockReturnValue(30_420);
     await act(async () => vi.advanceTimersByTimeAsync(500));
     fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
-    expect(screen.getByLabelText(/Hold time/)).toHaveValue(17.42);
-    expect(screen.getByLabelText(/Hold time/)).toHaveAttribute('inputmode', 'decimal');
+    expect(screen.getByLabelText(/Hold time/)).toHaveValue(17);
+    expect(screen.getByLabelText(/Hold time/)).toHaveAttribute('inputmode', 'numeric');
+    fireEvent.change(screen.getByLabelText(/Hold time/), { target: { value: '19' } });
+    expect(screen.getByLabelText(/Hold time/)).toHaveValue(19);
+    expect(useAppStore.getState().restTimer.id).toBeNull();
     expect(useAppStore.getState().activeWorkout?.exercises[0].sets).toHaveLength(0);
     expect(useAppStore.getState().exerciseStopwatch.targetReached).toBe(false);
   });
