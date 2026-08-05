@@ -59,6 +59,7 @@ export interface WorkoutExercise {
   requiredForSkillSuccess?: boolean;
   managedSectionKey?: string;
   managedSectionKind?: string;
+  managedRequiredForSuccess?: boolean;
   allowedReplacementExerciseIds?: string[];
   replacementCountsForCompletion?: boolean;
 }
@@ -92,6 +93,7 @@ export interface SkillWarmupState {
   status: 'pending' | 'in-progress' | 'completed' | 'skipped';
   currentIndex: number;
   items: SkillWarmupItem[];
+  phase?: 'warm_up' | 'cool_down';
 }
 export interface WorkoutTemplate {
   id: string;
@@ -103,6 +105,7 @@ export interface WorkoutTemplate {
   updatedAt: string;
   skillLink?: SkillWorkoutLink;
   skillWarmup?: SkillWarmupItem[];
+  skillCooldown?: SkillWarmupItem[];
   managedProgramLink?: ManagedProgramLink;
 }
 export interface Program {
@@ -157,6 +160,7 @@ export interface WorkoutSession {
   skillTechniqueRating?: 'good' | 'partial' | 'breakdown' | 'needs-work';
   skillSuccessful?: boolean;
   skillWarmup?: SkillWarmupState;
+  pendingCooldown?: SkillWarmupItem[];
   managedProgramLink?: ManagedProgramLink;
 }
 export interface ManagedProgramEnrollment {
@@ -166,6 +170,7 @@ export interface ManagedProgramEnrollment {
   startDate: string;
   currentWeekKey: string;
   completedWorkoutKeys: string[];
+  successfulWorkoutKeys?: string[];
   skippedWorkoutKeys: string[];
   preferredWeekdays: number[];
   status: 'active' | 'completed' | 'cancelled';

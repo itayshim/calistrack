@@ -27,6 +27,7 @@ const seeds: ExerciseSeed[] = [
     'Incline Push-Up',
     'Knee Push-Up',
     'Push-Up',
+    { name: 'Scapular Push-Up', aliases: ['push-up plus', 'scap push-up'], difficulty: 'beginner' },
     'Pause Push-Up',
     'Diamond Push-Up',
     'Decline Push-Up',
@@ -241,6 +242,7 @@ const slug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').re
 const levels: Difficulty[] = ['beginner', 'intermediate', 'advanced'];
 const hebrewFamilies: Record<string, string> = {
   'Push-Up': 'שכיבות סמיכה',
+  'Scapular Push-Up': 'שכיבת סמיכה שכמתית',
   Dip: 'מקבילים',
   'Pull-Up': 'מתח',
   'Chin-Up': 'מתח באחיזה הפוכה',
@@ -326,6 +328,7 @@ const hebrewNames: Record<string, string> = {
 };
 
 const handstandSkillContent: Record<string, Partial<Exercise>> = {
+  'Scapular Push-Up': { description: 'A straight-arm shoulder-blade drill that builds controlled protraction for stable support and Planche preparation.', descriptionHe: 'תרגיל שכמות בידיים ישרות הבונה שליטה בדחיפת השכמות לתמיכה יציבה ולהכנה לפלנץ׳.', instructions: ['Begin in a stable plank with straight elbows', 'Let the shoulder blades move together slightly without collapsing the trunk', 'Push the floor away and spread the shoulder blades under control'], instructionsHe: ['התחילו בפלאנק יציב עם מרפקים ישרים', 'אפשרו לשכמות להתקרב מעט בלי לקרוס בגו', 'דחפו את הרצפה והרחיקו את השכמות בשליטה'], commonMistakes: ['Bending the elbows', 'Dropping the hips', 'Forcing a painful shoulder range'], commonMistakesHe: ['כיפוף המרפקים', 'שקיעת האגן', 'כפיית טווח כתף כואב'] },
   'Band-Assisted Pull-Up': { description: 'A pull-up assisted by a securely anchored resistance band.', descriptionHe: 'עליית מתח בעזרת גומיית התנגדות המעוגנת היטב.', instructions: ['Secure the band to a stable bar and check it before loading', 'Keep the body controlled while pulling the chest toward the bar', 'Lower smoothly without letting the band snap'], instructionsHe: ['עיגנו את הגומייה למוט יציב ובדקו אותה לפני העמסה', 'שמרו על שליטה בגוף ומשכו את החזה לכיוון המוט', 'רדו בצורה חלקה בלי לאפשר לגומייה להצליף'], commonMistakes: ['Using a damaged or insecure band', 'Bouncing from the bottom', 'Losing control on the descent'], commonMistakesHe: ['שימוש בגומייה פגומה או לא מעוגנת', 'קפיצה מהמצב התחתון', 'אובדן שליטה בירידה'] },
   'Plank to Push-Up': { description: 'A controlled transition between forearm plank and straight-arm support.', descriptionHe: 'מעבר מבוקר בין פלאנק על האמות לתמיכה בידיים ישרות.', instructions: ['Brace the trunk and keep the hips steady', 'Press up one arm at a time', 'Alternate the leading side'], instructionsHe: ['אספו את מרכז הגוף ושמרו על אגן יציב', 'עלו בכל פעם בעזרת יד אחת', 'החליפו את הצד המוביל'], commonMistakes: ['Rocking the hips', 'Rushing the hand placement', 'Continuing through wrist or shoulder pain'], commonMistakesHe: ['נדנוד האגן', 'מיקום ידיים מהיר ולא נשלט', 'המשך למרות כאב בשורש כף היד או בכתף'] },
   'Russian Twist': { description: 'A seated trunk-rotation exercise performed through a controlled range.', descriptionHe: 'תרגיל סיבוב גו בישיבה המבוצע בטווח נשלט.', instructions: ['Sit tall with the trunk lightly inclined', 'Rotate the ribs rather than swinging the arms', 'Keep breathing and use a pain-free range'], instructionsHe: ['שבו זקוף עם הטיה קלה של הגו', 'סובבו את בית החזה במקום להניף את הידיים', 'המשיכו לנשום ועבדו בטווח שאינו מכאיב'], commonMistakes: ['Rounding and collapsing the back', 'Using momentum', 'Forcing rotation'], commonMistakesHe: ['קריסה ועיגול של הגב', 'שימוש בתנופה', 'כפיית טווח הסיבוב'] },

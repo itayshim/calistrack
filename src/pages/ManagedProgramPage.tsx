@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Badge } from '../components/ui';
 import { compileManagedWorkout } from '../features/programs/managedProgram';
+import { isManagedMilestoneComplete } from '../features/programs/managedProgression';
 import { useI18n } from '../hooks/useI18n';
 import { getManagedProgram } from '../services/managedPrograms';
 import { useAppStore } from '../store/useAppStore';
@@ -25,6 +26,14 @@ export function ManagedProgramPage() {
     );
   const d = record.definition;
   const exerciseByKey = new Map(store.exercises.map((exercise) => [exercise.stableKey, exercise]));
+  const completedProgramSessions = store.workoutSessions.filter(
+    (session) => session.status === 'completed' && session.managedProgramLink?.programKey === d.key && !session.managedProgramLink.preview,
+  );
+  const milestoneProgress = (d.milestones ?? []).map((milestone) => {
+    const ids = new Set(milestone.exerciseKeys.map((key) => exerciseByKey.get(key)?.id).filter(Boolean));
+    const sets = completedProgramSessions.flatMap((session) => session.exercises.filter((item) => ids.has(item.exerciseId)).flatMap((item) => item.skipped ? [] : item.sets));
+    return { milestone, complete: isManagedMilestoneComplete(milestone, sets) };
+  });
   const enrollment = store.managedProgramEnrollments.find(
     (x) => x.programKey === d.key && x.status === 'active',
   );
@@ -104,6 +113,25 @@ export function ManagedProgramPage() {
           {d.equipment.join(', ') || l('No special equipment', 'ללא ציוד מיוחד')}
         </span>
       </div>
+      <section className="mt-6 grid gap-4 md:grid-cols-3">
+        {d.phases.map((phase) => <article className="card" key={phase.key}>
+          <p className="label">{l('Phase', 'שלב')} {phase.order + 1}</p>
+          <h2 className="mt-1 text-xl font-black">{language === 'he' ? phase.nameHe : phase.nameEn}</h2>
+          <p className="mt-2 text-sm text-slate-500">{language === 'he' ? phase.descriptionHe : phase.descriptionEn}</p>
+        </article>)}
+      </section>
+      {d.progressionPhilosophyEn && <section className="card mt-5">
+        <h2 className="text-xl font-black">{l('Performance-based progression', 'התקדמות לפי ביצועים')}</h2>
+        <p className="mt-2 text-slate-500">{language === 'he' ? d.progressionPhilosophyHe : d.progressionPhilosophyEn}</p>
+      </section>}
+      {milestoneProgress.length > 0 && <section className="card mt-5">
+        <div className="flex items-center justify-between gap-3"><h2 className="text-xl font-black">{l('Program milestones', 'אבני דרך בתוכנית')}</h2><Badge tone="brand">{milestoneProgress.filter((item) => item.complete).length}/{milestoneProgress.length}</Badge></div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">{milestoneProgress.map(({ milestone, complete }) => <div className="surface-subtle rounded-2xl p-3" key={milestone.key}>
+          <strong>{language === 'he' ? milestone.nameHe : milestone.nameEn}</strong>
+          <p className="mt-1 text-sm text-slate-500">{language === 'he' ? milestone.descriptionHe : milestone.descriptionEn}</p>
+          <span className={`mt-2 inline-flex text-xs font-black ${complete ? 'text-emerald-500' : 'text-slate-500'}`}>{complete ? l('Completed', 'הושלם') : l('In progress', 'בתהליך')}</span>
+        </div>)}</div>
+      </section>}
       {!enrollment && (
         <section className="card mt-6">
           <h2 className="text-xl font-black">{l('Start Program', 'התחלת תוכנית')}</h2>
@@ -136,6 +164,7 @@ export function ManagedProgramPage() {
                 <h2 className="text-2xl font-black">
                   {language === 'he' ? week.nameHe : week.nameEn}
                 </h2>
+                {(language === 'he' ? week.goalHe : week.goalEn) && <p className="mt-1 max-w-2xl text-sm text-slate-500">{language === 'he' ? week.goalHe : week.goalEn}</p>}
               </div>
               {enrollment && week.key !== enrollment.currentWeekKey && (
                 <Badge>{l('Preview', 'תצוגה')}</Badge>

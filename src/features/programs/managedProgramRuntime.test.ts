@@ -44,6 +44,11 @@ const program: ManagedProgramDefinition = {
           repeatable: false,
           sections: [
             {
+              key: 'warm-up', nameEn: 'Warm-up', nameHe: 'חימום', order: 0, kind: 'warm_up',
+              contributesToHistory: false, requiredForSuccess: false,
+              exercises: [{ key: 'warm-jacks', exerciseKey: 'jumping-jacks', order: 0, required: false, sets: 1, targetMin: 10, targetMax: 10, restSeconds: 0 }],
+            },
+            {
               key: 'main',
               nameEn: 'Main',
               nameHe: 'עיקרי',
@@ -63,6 +68,11 @@ const program: ManagedProgramDefinition = {
                   restSeconds: 0,
                 },
               ],
+            },
+            {
+              key: 'cool-down', nameEn: 'Recovery', nameHe: 'שחרור', order: 2, kind: 'cool_down',
+              contributesToHistory: false, requiredForSuccess: false,
+              exercises: [{ key: 'cool-cat', exerciseKey: 'cat-cow', order: 0, required: false, sets: 1, targetMin: 6, targetMax: 6, restSeconds: 0 }],
             },
           ],
         },
@@ -127,12 +137,37 @@ describe('managed Program runtime', () => {
       compileManagedWorkout(program, 'week-1', 'day-a', store.exercises, 'enrollment'),
     );
     useAppStore.getState().completeSet(0, { reps: 5 });
+    expect(useAppStore.getState().activeWorkout?.skillWarmup).toMatchObject({ phase: 'cool_down', status: 'pending' });
+    useAppStore.getState().skipSkillWarmup();
     useAppStore.getState().finishWorkout();
     expect(useAppStore.getState().workoutSessions[0].managedProgramLink?.version).toBe(3);
     expect(useAppStore.getState().managedProgramEnrollments[0]).toMatchObject({
       status: 'completed',
       completedWorkoutKeys: ['week-1:day-a'],
+      successfulWorkoutKeys: ['week-1:day-a'],
     });
+  });
+  it('preserves a completed session but does not auto-advance after missing the authored minimum', () => {
+    useAppStore.setState({ managedProgramEnrollments: [{ id:'enrollment', programKey:program.key, programVersion:3, startDate:'2026-08-04', currentWeekKey:'week-1', completedWorkoutKeys:[], skippedWorkoutKeys:[], preferredWeekdays:[], status:'active', detached:false }] });
+    const store=useAppStore.getState();
+    store.startWorkout(compileManagedWorkout(program,'week-1','day-a',store.exercises,'enrollment'));
+    useAppStore.getState().skipSkillWarmup();
+    useAppStore.getState().completeSet(0,{reps:4});
+    useAppStore.getState().skipSkillWarmup();
+    useAppStore.getState().finishWorkout();
+    expect(useAppStore.getState().workoutSessions).toHaveLength(1);
+    expect(useAppStore.getState().managedProgramEnrollments[0]).toMatchObject({status:'active',currentWeekKey:'week-1',completedWorkoutKeys:['week-1:day-a'],successfulWorkoutKeys:[]});
+  });
+  it('keeps warm-up and cooldown lightweight and out of normal exercise history', () => {
+    const template = compileManagedWorkout(program, 'week-1', 'day-a', useAppStore.getState().exercises);
+    expect(template.exercises).toHaveLength(1);
+    expect(template.skillWarmup?.[0].stableKey).toBe('jumping-jacks');
+    expect(template.skillCooldown?.[0].stableKey).toBe('cat-cow');
+    useAppStore.getState().startWorkout(template);
+    useAppStore.getState().skipSkillWarmup();
+    useAppStore.getState().completeSet(0, { reps: 5 });
+    expect(useAppStore.getState().activeWorkout?.pendingCooldown).toBeUndefined();
+    expect(useAppStore.getState().activeWorkout?.skillWarmup).toMatchObject({ phase: 'cool_down', status: 'pending' });
   });
   it('discards QA sessions from history and enrollment', () => {
     useAppStore.setState({

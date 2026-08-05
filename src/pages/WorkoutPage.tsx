@@ -924,6 +924,7 @@ function SkillWarmupPhase({
   const { language } = useI18n();
   const store = useAppStore();
   const warmup = active.skillWarmup!;
+  const isCooldown = warmup.phase === 'cool_down';
   const item = warmup.items[warmup.currentIndex];
   const exercise = item
     ? store.exercises.find((candidate) => candidate.id === item.exerciseId)
@@ -942,28 +943,28 @@ function SkillWarmupPhase({
           <X />
         </button>
         <div className="card mt-6 text-center">
-          <p className="eyebrow">{label('Optional warm-up', 'חימום אופציונלי')}</p>
+          <p className="eyebrow">{isCooldown ? label('Optional recovery', 'שחרור אופציונלי') : label('Optional warm-up', 'חימום אופציונלי')}</p>
           <h1 className="mt-3 text-4xl font-black">
             {label(
-              `Prepare for ${skill?.nameEn ?? 'skill training'}`,
-              `הכנה ל${skill?.nameHe ?? 'אימון מיומנות'}`,
+              isCooldown ? 'Finish with easy recovery' : `Prepare for ${skill?.nameEn ?? active.workoutName}`,
+              isCooldown ? 'סיימו בשחרור קל' : `הכנה ל${skill?.nameHe ?? active.workoutName}`,
             )}
           </h1>
           <p className="mt-3 text-slate-500">
             {label(
-              `${warmup.items.length} simple preparation movements. No values are logged and warm-up does not affect skill success.`,
-              `${warmup.items.length} תרגילי הכנה פשוטים. לא נשמרים ערכים והחימום אינו משפיע על הצלחת המיומנות.`,
+              `${warmup.items.length} lightweight movements. No values or records are logged, and this section does not affect workout success.`,
+              `${warmup.items.length} תנועות קלות. לא נשמרים ערכים או שיאים והחלק אינו משפיע על הצלחת האימון.`,
             )}
           </p>
           <div className="mt-6 grid gap-3">
             <button className="btn-primary" onClick={store.startSkillWarmup}>
-              {label('Start warm-up', 'התחלת חימום')}
+              {isCooldown ? label('Start recovery', 'התחלת שחרור') : label('Start warm-up', 'התחלת חימום')}
             </button>
             <button className="btn-secondary" onClick={store.skipSkillWarmup}>
-              {label('Skip warm-up', 'דילוג על החימום')}
+              {isCooldown ? label('Skip recovery', 'דילוג על השחרור') : label('Skip warm-up', 'דילוג על החימום')}
             </button>
             <button className="text-sm font-bold text-slate-500" onClick={store.skipSkillWarmup}>
-              {label('Already warmed up', 'כבר התחממתי')}
+              {isCooldown ? label('Finish without recovery', 'סיום ללא שחרור') : label('Already warmed up', 'כבר התחממתי')}
             </button>
           </div>
         </div>
@@ -981,14 +982,14 @@ function SkillWarmupPhase({
           <X />
         </button>
         <span className="rounded-full bg-brand/15 px-3 py-2 text-xs font-black text-brand">
-          {label('Warm-up', 'חימום')} ·{' '}
+          {isCooldown ? label('Recovery', 'שחרור') : label('Warm-up', 'חימום')} ·{' '}
           <bdi>
             {warmup.currentIndex + 1}/{warmup.items.length}
           </bdi>
         </span>
       </div>
       <section className="card mt-6 text-center">
-        <p className="eyebrow">{label('Preparation', 'הכנה')}</p>
+        <p className="eyebrow">{isCooldown ? label('Recovery', 'שחרור') : label('Preparation', 'הכנה')}</p>
         <h1 className="mt-3 text-4xl font-black">
           {exercise ? getExerciseName(exercise, language) : item.stableKey}
         </h1>

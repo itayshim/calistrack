@@ -280,9 +280,11 @@ export const useAppStore = create<Store>((set, get) => ({
         ? {
             status: 'pending',
             currentIndex: 0,
+            phase: 'warm_up',
             items: t.skillWarmup.map((item) => ({ ...item, status: 'pending' })),
           }
         : undefined,
+      pendingCooldown: t.skillCooldown?.map((item) => ({ ...item, status: 'pending' })),
     };
     set({ activeWorkout: s, restTimer: emptyTimer(), exerciseStopwatch: emptyStopwatch() });
     get().persist();
@@ -323,7 +325,13 @@ export const useAppStore = create<Store>((set, get) => ({
     const completedAllowedSets = completed >= allowed;
     const isLastExercise = i === a.exercises.length - 1;
     if (completedPlannedSets && completedAllowedSets) {
-      if (isLastExercise) a.completionReady = true;
+      if (isLastExercise) {
+        a.completionReady = true;
+        if (a.pendingCooldown?.length) {
+          a.skillWarmup = { status: 'pending', currentIndex: 0, phase: 'cool_down', items: a.pendingCooldown };
+          a.pendingCooldown = undefined;
+        }
+      }
       else a.currentExerciseIndex = i + 1;
     }
     const duration = ex.target?.restSeconds ?? get().settings.defaultRestSeconds;
@@ -385,6 +393,10 @@ export const useAppStore = create<Store>((set, get) => ({
     a.exercises[i].skipped = true;
     a.currentExerciseIndex = Math.min(i + 1, a.exercises.length - 1);
     a.completionReady = i === a.exercises.length - 1;
+    if (a.completionReady && a.pendingCooldown?.length) {
+      a.skillWarmup = { status: 'pending', currentIndex: 0, phase: 'cool_down', items: a.pendingCooldown };
+      a.pendingCooldown = undefined;
+    }
     set({ activeWorkout: a, restTimer: emptyTimer(), exerciseStopwatch: emptyStopwatch() });
     get().persist();
   },
@@ -530,13 +542,25 @@ export const useAppStore = create<Store>((set, get) => ({
             const completedWorkoutKeys = enrollment.completedWorkoutKeys.includes(completionKey)
               ? enrollment.completedWorkoutKeys
               : [...enrollment.completedWorkoutKeys, completionKey];
+            const meetsMinimum = a.exercises.every((exercise) => {
+              if (!exercise.target?.managedRequiredForSuccess) return true;
+              const sets = exercise.sets.filter((set) => set.completed);
+              if (exercise.skipped || sets.length < exercise.target.targetSets) return false;
+              return sets.every((set) => {
+                const value = exercise.measurementType === 'duration' ? set.durationSeconds : set.reps;
+                return value !== undefined && value >= exercise.target!.targetMin;
+              });
+            });
+            const successfulWorkoutKeys = meetsMinimum && !enrollment.successfulWorkoutKeys?.includes(completionKey)
+              ? [...(enrollment.successfulWorkoutKeys ?? []), completionKey]
+              : (enrollment.successfulWorkoutKeys ?? []);
             const definition = getManagedProgram(a.managedProgramLink.programKey)?.definition;
             const week = definition?.weeks.find((item) => item.key === enrollment.currentWeekKey);
             const requiredComplete = week?.workouts
               .filter((item) => item.required !== false)
-              .every((item) => completedWorkoutKeys.includes(`${week.key}:${item.key}`));
+              .every((item) => successfulWorkoutKeys.includes(`${week.key}:${item.key}`));
             const nextWeek = requiredComplete ? definition?.weeks[definition.weeks.findIndex((item) => item.key === week?.key) + 1] : undefined;
-            return { ...enrollment, completedWorkoutKeys, currentWeekKey: nextWeek?.key ?? enrollment.currentWeekKey, status: requiredComplete && !nextWeek ? 'completed' as const : enrollment.status };
+            return { ...enrollment, completedWorkoutKeys, successfulWorkoutKeys, currentWeekKey: nextWeek?.key ?? enrollment.currentWeekKey, status: requiredComplete && !nextWeek ? 'completed' as const : enrollment.status };
           })
         : s.managedProgramEnrollments,
     }));

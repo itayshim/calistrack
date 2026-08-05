@@ -5,6 +5,7 @@ import type {
 } from '../features/programs/managedProgram';
 import { MANAGED_PROGRAM_SCHEMA_VERSION } from '../features/programs/managedProgram';
 import { beginnerCalisthenics12Week } from '../features/programs/beginnerCalisthenics12Week';
+import { beginnerFoundation12Week } from '../features/programs/beginnerFoundation12Week';
 import { getAdminSession, supabaseConfigured, supabaseRequest } from './supabase';
 
 export interface ManagedProgramRecord {
@@ -127,15 +128,16 @@ export async function setManagedProgramLifecycle(id: string, status: 'unpublishe
   );
 }
 
-const builtInRecords: ManagedProgramRecord[] = [{
-  id: `builtin:${beginnerCalisthenics12Week.key}`,
-  stableKey: beginnerCalisthenics12Week.key,
+const builtInDefinitions = [beginnerFoundation12Week, beginnerCalisthenics12Week];
+const builtInRecords: ManagedProgramRecord[] = builtInDefinitions.map((definition) => ({
+  id: `builtin:${definition.key}`,
+  stableKey: definition.key,
   source: 'built-in', status: 'published',
-  draftVersion: beginnerCalisthenics12Week.version,
-  publishedVersion: beginnerCalisthenics12Week.version,
-  definition: beginnerCalisthenics12Week, validation: null,
+  draftVersion: definition.version,
+  publishedVersion: definition.version,
+  definition, validation: null,
   updatedAt: '2026-08-04T00:00:00.000Z',
-}];
+}));
 const published = new Map<string, ManagedProgramRecord>();
 const resetBuiltIns = () => {
   published.clear();
