@@ -11,6 +11,10 @@ import {
   type ManagedProgramLifecycleAction,
 } from '../features/programs/managedProgramLifecycle';
 import { getAdminSession, supabaseConfigured, supabaseRequest } from './supabase';
+import type {
+  BuiltInContentAvailability,
+  BuiltInContentState,
+} from './builtinContentAvailability';
 
 export interface ManagedProgramRecord {
   id: string;
@@ -146,26 +150,53 @@ const builtInRecords: ManagedProgramRecord[] = builtInDefinitions.map((definitio
   definition, validation: null,
   updatedAt: '2026-08-04T00:00:00.000Z',
 }));
+const resolved = new Map<string, ManagedProgramRecord>();
 const published = new Map<string, ManagedProgramRecord>();
+const availability = new Map<string, BuiltInContentAvailability>();
+const registryListeners = new Set<() => void>();
+let registryRevision = 0;
+let registryReady = !import.meta.env.PROD;
+const notifyRegistry = () => {
+  registryRevision += 1;
+  registryListeners.forEach((listener) => listener());
+};
 const resetBuiltIns = () => {
+  resolved.clear();
   published.clear();
-  builtInRecords.forEach((record) => published.set(record.stableKey, record));
+  availability.clear();
+  builtInRecords.forEach((record) => resolved.set(record.stableKey, record));
 };
 resetBuiltIns();
-export const installManagedPrograms = (records: ManagedProgramRecord[]) => {
+resolved.forEach((record, key) => published.set(key, record));
+export const installManagedPrograms = (
+  records: ManagedProgramRecord[],
+  states: BuiltInContentState[] = [],
+) => {
   resetBuiltIns();
   records.forEach((record) => {
     if (record.status !== 'published' || record.definition.key !== record.stableKey) return;
     const builtIn = builtInRecords.some((candidate) => candidate.stableKey === record.stableKey);
     if (builtIn) {
-      if (record.source === 'builtin_override' && record.builtinKey === record.stableKey) published.set(record.stableKey, record);
+      if (record.source === 'builtin_override' && record.builtinKey === record.stableKey) resolved.set(record.stableKey, record);
       return;
     }
-    if (record.source === 'admin-created' && !published.has(record.stableKey)) published.set(record.stableKey, record);
+    if (record.source === 'admin-created' && !resolved.has(record.stableKey)) resolved.set(record.stableKey, record);
+  });
+  states.forEach((state) => {
+    if (state.contentType === 'managed_program' && builtInRecords.some((record) => record.stableKey === state.builtinKey)) {
+      availability.set(state.builtinKey, state.availability);
+    }
+  });
+  resolved.forEach((record, key) => {
+    if (availability.get(key) !== 'unpublished' && availability.get(key) !== 'archived') {
+      published.set(key, record);
+    }
   });
   if (import.meta.env.DEV && !import.meta.env.TEST) {
     published.forEach((record) => console.info('[content_resolution]', { kind: 'managed_program', key: record.stableKey, state: record.source === 'builtin_override' ? 'managed_override' : record.source === 'built-in' ? 'builtin' : 'backend_custom' }));
   }
+  registryReady = true;
+  notifyRegistry();
 };
 export const getBuiltInManagedPrograms = () => [...builtInRecords];
 export function mergeAdminManagedProgramRows(
@@ -182,6 +213,17 @@ export function mergeAdminManagedProgramRows(
     ...backend.filter((item) => item.source === 'admin-created'),
   ];
 }
-export const getManagedProgram = (key: string) => published.get(key);
+export const getManagedProgram = (key: string) => registryReady ? published.get(key) : undefined;
+export const getResolvedManagedProgram = (key: string) => resolved.get(key);
+export const getManagedProgramAvailability = (key: string): BuiltInContentAvailability =>
+  availability.get(key) ?? 'published';
 export const getManagedPrograms = () =>
-  [...published.values()].sort((a, b) => a.definition.sortOrder - b.definition.sortOrder);
+  registryReady
+    ? [...published.values()].sort((a, b) => a.definition.sortOrder - b.definition.sortOrder)
+    : [];
+export const subscribeManagedProgramRegistry = (listener: () => void) => {
+  registryListeners.add(listener);
+  return () => registryListeners.delete(listener);
+};
+export const getManagedProgramRegistryRevision = () => registryRevision;
+export const isManagedProgramRegistryReady = () => registryReady;

@@ -660,6 +660,10 @@ const en = {
   managedProgramUnpublished: 'Managed Program unpublished.',
   managedProgramArchived: 'Managed Program archived.',
   managedProgramLifecycleFailed: 'The Program lifecycle could not be updated. Try again.',
+  builtInProgramUnpublished: 'Built-in Program unpublished.',
+  builtInProgramRepublished: 'Built-in Program republished.',
+  builtInProgramArchived: 'Built-in Program archived.',
+  builtInProgramAvailabilityFailed: 'The built-in Program availability could not be updated. Try again.',
 } as const;
 
 const he: Record<keyof typeof en, string> = {
@@ -1305,6 +1309,10 @@ const he: Record<keyof typeof en, string> = {
   managedProgramUnpublished: 'פרסום התוכנית המנוהלת בוטל.',
   managedProgramArchived: 'התוכנית המנוהלת הועברה לארכיון.',
   managedProgramLifecycleFailed: 'לא ניתן לעדכן את מצב התוכנית. נסו שוב.',
+  builtInProgramUnpublished: 'פרסום התוכנית המובנית בוטל.',
+  builtInProgramRepublished: 'התוכנית המובנית פורסמה מחדש.',
+  builtInProgramArchived: 'התוכנית המובנית הועברה לארכיון.',
+  builtInProgramAvailabilityFailed: 'לא ניתן לעדכן את זמינות התוכנית המובנית. נסו שוב.',
 };
 
 export const translations = { en, he };

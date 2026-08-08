@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { frontLeverSkill } from './skills/frontLever';
 import { builtInSkillRegistry, getSkillDefinition, installManagedSkillRecords } from './skills/registry';
 import { beginnerCalisthenics12Week } from './programs/beginnerCalisthenics12Week';
-import { getManagedProgram, installManagedPrograms } from '../services/managedPrograms';
+import { getManagedProgram, getResolvedManagedProgram, installManagedPrograms } from '../services/managedPrograms';
 import type { ManagedSkillRecord } from '../services/skillDefinitions';
 import type { ManagedProgramRecord } from '../services/managedPrograms';
 
@@ -47,6 +47,28 @@ describe('built-in managed override resolution', () => {
   });
   it('does not permit custom backend content to shadow a built-in Program key', () => {
     installManagedPrograms([{ ...programOverride(), source: 'admin-created', builtinKey: undefined }]);
+    expect(getManagedProgram(beginnerCalisthenics12Week.key)?.definition).toBe(beginnerCalisthenics12Week);
+  });
+  it('publishes built-ins by default when no availability row exists', () => {
+    installManagedPrograms([]);
+    expect(getManagedProgram(beginnerCalisthenics12Week.key)?.definition).toBe(beginnerCalisthenics12Week);
+  });
+  it('hides the whole built-in identity even when a published override exists', () => {
+    installManagedPrograms([programOverride()], [{
+      contentType: 'managed_program', builtinKey: beginnerCalisthenics12Week.key,
+      availability: 'unpublished', updatedAt: now,
+    }]);
+    expect(getManagedProgram(beginnerCalisthenics12Week.key)).toBeUndefined();
+    expect(getResolvedManagedProgram(beginnerCalisthenics12Week.key)?.definition.nameEn).toBe('Managed Beginner Program');
+  });
+  it('republishing restores the published override, or the original when no override is published', () => {
+    const publishedState = [{
+      contentType: 'managed_program' as const, builtinKey: beginnerCalisthenics12Week.key,
+      availability: 'published' as const, updatedAt: now,
+    }];
+    installManagedPrograms([programOverride()], publishedState);
+    expect(getManagedProgram(beginnerCalisthenics12Week.key)?.definition.nameEn).toBe('Managed Beginner Program');
+    installManagedPrograms([programOverride('unpublished')], publishedState);
     expect(getManagedProgram(beginnerCalisthenics12Week.key)?.definition).toBe(beginnerCalisthenics12Week);
   });
 });

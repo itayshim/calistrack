@@ -19,8 +19,10 @@ import { useAppStore } from '../store/useAppStore';
 import type { Program } from '../types';
 import { ActionMenu } from '../components/SelectMenu';
 import { getManagedPrograms } from '../services/managedPrograms';
+import { useManagedProgramRegistry } from '../hooks/useManagedProgramRegistry';
 
 export function ProgramsPage() {
+  useManagedProgramRegistry();
   const { t, language } = useI18n();
   const programs = useAppStore((s) => s.programs);
   const activeProgramId = useAppStore((s) => s.activeProgramId);

@@ -3,11 +3,14 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '../../app/I18nProvider';
 import type { ManagedProgramRecord } from '../../services/managedPrograms';
+import { useAppStore } from '../../store/useAppStore';
 
 const mocks = vi.hoisted(() => ({
   load: vi.fn(),
   install: vi.fn(),
   setLifecycle: vi.fn(),
+  loadAvailability: vi.fn(),
+  setAvailability: vi.fn(),
 }));
 
 const definition = {
@@ -55,6 +58,10 @@ vi.mock('../../services/managedPrograms', () => ({
   saveManagedProgramDraft: vi.fn(),
   setManagedProgramLifecycle: mocks.setLifecycle,
 }));
+vi.mock('../../services/builtinContentAvailability', () => ({
+  loadAdminBuiltInContentStates: mocks.loadAvailability,
+  setBuiltInProgramAvailability: mocks.setAvailability,
+}));
 
 import { AdminProgramBuilderListPage } from './AdminProgramBuilderPage';
 
@@ -67,17 +74,39 @@ const renderPage = () => render(
 describe('Admin Managed Program lifecycle UI', () => {
   afterEach(cleanup);
   beforeEach(() => {
+    useAppStore.setState((state) => ({ settings: { ...state.settings, language: 'en' } }));
     mocks.load.mockReset().mockResolvedValue([]);
     mocks.install.mockReset();
     mocks.setLifecycle.mockReset().mockResolvedValue(undefined);
+    mocks.loadAvailability.mockReset().mockResolvedValue([]);
+    mocks.setAvailability.mockReset().mockResolvedValue(undefined);
   });
 
-  it('does not expose impossible lifecycle actions for an untouched built-in', async () => {
+  it('uses stable-key availability actions instead of UUID lifecycle actions for an untouched built-in', async () => {
     renderPage();
     expect(await screen.findByText('12-Week Beginner Calisthenics')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Unpublish' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Archive' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Unpublish Program' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Archive Program identity' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Create editable version/ })).toBeInTheDocument();
+  });
+
+  it('unpublishes and republishes a built-in through the stable-key availability API', async () => {
+    mocks.loadAvailability
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ contentType: 'managed_program', builtinKey: definition.key, availability: 'unpublished', updatedAt: '2026-08-08' }])
+      .mockResolvedValueOnce([]);
+    renderPage();
+    const unpublish = await screen.findByRole('button', { name: 'Unpublish Program' });
+    fireEvent.click(unpublish);
+    fireEvent.click(unpublish);
+    await waitFor(() => expect(mocks.setAvailability).toHaveBeenCalledTimes(1));
+    expect(mocks.setAvailability).toHaveBeenCalledWith(definition.key, 'unpublished');
+    expect(mocks.setLifecycle).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole('button', { name: 'Republish Program' }));
+    await waitFor(() => expect(mocks.setAvailability).toHaveBeenCalledTimes(2));
+    expect(mocks.setAvailability).toHaveBeenLastCalledWith(definition.key, 'published');
+    expect(await screen.findByRole('button', { name: 'Unpublish Program' })).toBeInTheDocument();
   });
 
   it('unpublishes the database override once, reloads canonical state, and shows built-in fallback', async () => {
@@ -85,24 +114,40 @@ describe('Admin Managed Program lifecycle UI', () => {
       .mockResolvedValueOnce([override])
       .mockResolvedValueOnce([{ ...override, status: 'unpublished' }]);
     renderPage();
-    const button = await screen.findByRole('button', { name: 'Unpublish' });
+    const button = await screen.findByRole('button', { name: 'Unpublish override' });
     fireEvent.click(button);
     fireEvent.click(button);
     await waitFor(() => expect(mocks.setLifecycle).toHaveBeenCalledTimes(1));
     expect(mocks.setLifecycle).toHaveBeenCalledWith(override, 'unpublished');
     expect(await screen.findByText('The original built-in definition is currently effective.')).toBeInTheDocument();
     expect(mocks.load).toHaveBeenCalledTimes(2);
-    expect(screen.queryByRole('button', { name: 'Unpublish' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Unpublish override' })).not.toBeInTheDocument();
   });
 
   it('renders a localized safe error instead of leaving a rejected mutation uncaught', async () => {
     mocks.load.mockResolvedValue([override]);
     mocks.setLifecycle.mockRejectedValue(new Error('database failure'));
     renderPage();
-    fireEvent.click(await screen.findByRole('button', { name: 'Unpublish' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Unpublish override' }));
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'The Program lifecycle could not be updated. Try again.',
     );
     expect(mocks.load).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows a localized built-in availability failure and remains recoverable', async () => {
+    mocks.setAvailability.mockRejectedValue(new Error('database failure'));
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: 'Unpublish Program' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'The built-in Program availability could not be updated. Try again.',
+    );
+    expect(screen.getByRole('button', { name: 'Unpublish Program' })).toBeEnabled();
+  });
+
+  it('renders the built-in availability action in Hebrew', async () => {
+    useAppStore.setState((state) => ({ settings: { ...state.settings, language: 'he' } }));
+    renderPage();
+    expect(await screen.findByRole('button', { name: 'ביטול פרסום התוכנית' })).toBeInTheDocument();
   });
 });

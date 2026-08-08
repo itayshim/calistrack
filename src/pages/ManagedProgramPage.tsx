@@ -5,19 +5,29 @@ import { Badge } from '../components/ui';
 import { compileManagedWorkout } from '../features/programs/managedProgram';
 import { isManagedMilestoneComplete } from '../features/programs/managedProgression';
 import { useI18n } from '../hooks/useI18n';
-import { getManagedProgram } from '../services/managedPrograms';
+import { useManagedProgramRegistry } from '../hooks/useManagedProgramRegistry';
+import { getManagedProgram, getResolvedManagedProgram, isManagedProgramRegistryReady } from '../services/managedPrograms';
 import { useAppStore } from '../store/useAppStore';
 import { createId } from '../utils/id';
 import { getExerciseName } from '../utils/exerciseLocalization';
 
 export function ManagedProgramPage() {
+  useManagedProgramRegistry();
   const { programKey } = useParams();
   const { language } = useI18n();
   const l = (e: string, h: string) => (language === 'he' ? h : e);
-  const record = getManagedProgram(programKey ?? '');
   const store = useAppStore();
   const nav = useNavigate();
   const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
+  const enrollment = store.managedProgramEnrollments.find(
+    (item) => item.programKey === programKey && item.status === 'active',
+  );
+  const publishedRecord = getManagedProgram(programKey ?? '');
+  const record = publishedRecord ?? (enrollment ? getResolvedManagedProgram(programKey ?? '') : undefined);
+  const publiclyAvailable = Boolean(publishedRecord);
+  if (!isManagedProgramRegistryReady()) {
+    return <main className="card">{l('Loading Program…', 'טוען תוכנית…')}</main>;
+  }
   if (!record)
     return (
       <main className="card">
@@ -34,11 +44,8 @@ export function ManagedProgramPage() {
     const sets = completedProgramSessions.flatMap((session) => session.exercises.filter((item) => ids.has(item.exerciseId)).flatMap((item) => item.skipped ? [] : item.sets));
     return { milestone, complete: isManagedMilestoneComplete(milestone, sets) };
   });
-  const enrollment = store.managedProgramEnrollments.find(
-    (x) => x.programKey === d.key && x.status === 'active',
-  );
   const enroll = () => {
-    if (enrollment) return;
+    if (enrollment || !publiclyAvailable) return;
     const item = {
       id: createId(),
       programKey: d.key,
@@ -57,6 +64,7 @@ export function ManagedProgramPage() {
     useAppStore.getState().persist();
   };
   const start = (weekKey: string, workoutKey: string) => {
+    if (!publiclyAvailable) return;
     if (store.activeWorkout) {
       nav(`/workout/${store.activeWorkout.id}`);
       return;
@@ -78,7 +86,7 @@ export function ManagedProgramPage() {
     if (store.startWorkout(workout)) nav(`/workout/${useAppStore.getState().activeWorkout?.id}`);
   };
   const markSkipped = (weekKey: string, workoutKey: string) => {
-    if (!enrollment) return;
+    if (!enrollment || !publiclyAvailable) return;
     const completionKey = `${weekKey}:${workoutKey}`;
     useAppStore.setState((state) => ({ managedProgramEnrollments: state.managedProgramEnrollments.map((item) =>
       item.id === enrollment.id && !item.skippedWorkoutKeys.includes(completionKey)
@@ -87,7 +95,7 @@ export function ManagedProgramPage() {
     useAppStore.getState().persist();
   };
   const advanceExplicitly = () => {
-    if (!enrollment) return;
+    if (!enrollment || !publiclyAvailable) return;
     const index = d.weeks.findIndex((week) => week.key === enrollment.currentWeekKey);
     const next = d.weeks[index + 1];
     useAppStore.setState((state) => ({ managedProgramEnrollments: state.managedProgramEnrollments.map((item) =>
@@ -103,6 +111,17 @@ export function ManagedProgramPage() {
       <p className="mt-3 max-w-3xl text-slate-500">
         {language === 'he' ? d.descriptionHe : d.descriptionEn}
       </p>
+      {!publiclyAvailable && enrollment && (
+        <section className="mt-5 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4" role="status">
+          <strong>{l('This Program is no longer publicly available.', 'התוכנית אינה זמינה עוד לציבור.')}</strong>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+            {l(
+              'Your existing enrollment and history remain readable. New workouts and progression are paused unless an already active workout is being resumed.',
+              'ההרשמה וההיסטוריה הקיימות נשארות זמינות לצפייה. אימונים חדשים והתקדמות מושהים, למעט חזרה לאימון שכבר פעיל.',
+            )}
+          </p>
+        </section>
+      )}
       <div className="mt-5 flex flex-wrap gap-3 text-sm">
         <span className="badge">
           <CalendarDays size={16} />
@@ -132,7 +151,7 @@ export function ManagedProgramPage() {
           <span className={`mt-2 inline-flex text-xs font-black ${complete ? 'text-emerald-500' : 'text-slate-500'}`}>{complete ? l('Completed', 'הושלם') : l('In progress', 'בתהליך')}</span>
         </div>)}</div>
       </section>}
-      {!enrollment && (
+      {!enrollment && publiclyAvailable && (
         <section className="card mt-6">
           <h2 className="text-xl font-black">{l('Start Program', 'התחלת תוכנית')}</h2>
           <label className="field-label mt-3 block">
@@ -180,7 +199,7 @@ export function ManagedProgramPage() {
                       {l('exercises', 'תרגילים')}
                     </p>
                   </div>
-                  {enrollment && week.key === enrollment.currentWeekKey ? (
+                  {enrollment && publiclyAvailable && week.key === enrollment.currentWeekKey ? (
                     <div className="flex gap-2"><button
                       className="icon-button bg-brand text-ink"
                       aria-label={l('Start workout', 'התחלת אימון')}
@@ -221,7 +240,7 @@ export function ManagedProgramPage() {
           </article>
         ))}
       </section>
-      {enrollment && <button className="btn-secondary mt-6" onClick={advanceExplicitly}>
+      {enrollment && publiclyAvailable && <button className="btn-secondary mt-6" onClick={advanceExplicitly}>
         {l('Advance to next week', 'מעבר מפורש לשבוע הבא')}
       </button>}
     </main>

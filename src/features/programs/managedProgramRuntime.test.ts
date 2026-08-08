@@ -3,6 +3,7 @@ import { createInitialData } from '../../data/seed';
 import { useAppStore } from '../../store/useAppStore';
 import { compileManagedWorkout, type ManagedProgramDefinition } from './managedProgram';
 import { installManagedPrograms } from '../../services/managedPrograms';
+import { beginnerCalisthenics12Week } from './beginnerCalisthenics12Week';
 
 const program: ManagedProgramDefinition = {
   schemaVersion: 1,
@@ -200,5 +201,24 @@ describe('managed Program runtime', () => {
     expect(useAppStore.getState().managedProgramEnrollments[0].completedWorkoutKeys).toHaveLength(
       0,
     );
+  });
+  it('finishes an already active workout without losing enrollment provenance after unpublish', () => {
+    const builtIn = beginnerCalisthenics12Week;
+    const week = builtIn.weeks[0];
+    const workout = week.workouts[0];
+    useAppStore.setState({ managedProgramEnrollments: [{
+      id: 'enrollment', programKey: builtIn.key, programVersion: builtIn.version,
+      startDate: '2026-08-04', currentWeekKey: week.key, completedWorkoutKeys: [],
+      skippedWorkoutKeys: [], preferredWeekdays: [], status: 'active', detached: false,
+    }] });
+    const store = useAppStore.getState();
+    store.startWorkout(compileManagedWorkout(builtIn, week.key, workout.key, store.exercises, 'enrollment'));
+    installManagedPrograms([], [{
+      contentType: 'managed_program', builtinKey: builtIn.key,
+      availability: 'unpublished', updatedAt: '2026-08-08',
+    }]);
+    useAppStore.getState().finishWorkout();
+    expect(useAppStore.getState().workoutSessions).toHaveLength(1);
+    expect(useAppStore.getState().managedProgramEnrollments[0].completedWorkoutKeys).toEqual([`${week.key}:${workout.key}`]);
   });
 });

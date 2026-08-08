@@ -26,7 +26,7 @@ import {
 } from '../utils/performance';
 import { evaluateSkillSession } from '../features/skills/skillEngine';
 import { getDefaultSkillProgress, getNextSkillLevel } from '../features/skills/registry';
-import { getManagedProgram } from '../services/managedPrograms';
+import { getResolvedManagedProgram } from '../services/managedPrograms';
 interface Store extends AppData {
   hydrated: boolean;
   toast: string | null;
@@ -554,7 +554,7 @@ export const useAppStore = create<Store>((set, get) => ({
             const successfulWorkoutKeys = meetsMinimum && !enrollment.successfulWorkoutKeys?.includes(completionKey)
               ? [...(enrollment.successfulWorkoutKeys ?? []), completionKey]
               : (enrollment.successfulWorkoutKeys ?? []);
-            const definition = getManagedProgram(a.managedProgramLink.programKey)?.definition;
+            const definition = getResolvedManagedProgram(a.managedProgramLink.programKey)?.definition;
             const week = definition?.weeks.find((item) => item.key === enrollment.currentWeekKey);
             const requiredComplete = week?.workouts
               .filter((item) => item.required !== false)

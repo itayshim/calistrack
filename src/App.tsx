@@ -13,6 +13,7 @@ import { canHandleForegroundCompletion } from './services/foregroundCompletion';
 import { installManagedSkillRecords, skillRegistry, validateRegisteredSkill } from './features/skills/registry';
 import { loadPublishedSkillDefinitions } from './services/skillDefinitions';
 import { installManagedPrograms, loadPublishedManagedPrograms } from './services/managedPrograms';
+import { loadBuiltInContentStates } from './services/builtinContentAvailability';
 const notificationClientId = crypto.randomUUID();
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((module) => ({ default: module.DashboardPage })));
 const ExerciseDetailPage = lazy(() => import('./pages/ExerciseDetailPage').then((module) => ({ default: module.ExerciseDetailPage })));
@@ -186,7 +187,10 @@ export default function App() {
   useEffect(() => {
     if (!hydrated) return;
     void loadPublishedSkillDefinitions().then(installManagedSkillRecords);
-    void loadPublishedManagedPrograms().then(installManagedPrograms);
+    void Promise.all([
+      loadPublishedManagedPrograms(),
+      loadBuiltInContentStates('managed_program').catch(() => []),
+    ]).then(([records, states]) => installManagedPrograms(records, states));
     loadGlobalContent(useAppStore.getState().exercises).then(({ exercises, stale }) => {
       if (import.meta.env.DEV) {
         skillRegistry.forEach((skill) => {

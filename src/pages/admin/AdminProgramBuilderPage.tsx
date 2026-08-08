@@ -32,6 +32,12 @@ import {
   setManagedProgramLifecycle,
   type ManagedProgramRecord,
 } from '../../services/managedPrograms';
+import {
+  loadAdminBuiltInContentStates,
+  setBuiltInProgramAvailability,
+  type BuiltInContentAvailability,
+  type BuiltInContentState,
+} from '../../services/builtinContentAvailability';
 
 const keyify = (v: string) =>
   v
@@ -89,14 +95,29 @@ export function AdminProgramBuilderListPage() {
   const l = (e: string, h: string) => (language === 'he' ? h : e);
   const [rows, setRows] = useState<ManagedProgramRecord[]>([]);
   const [error, setError] = useState(false);
-  const [actionError, setActionError] = useState(false);
+  const [actionError, setActionError] = useState<'managed' | 'builtin' | null>(null);
   const [busyProgramId, setBusyProgramId] = useState<string>();
   const busyProgramIdRef = useRef<string | undefined>(undefined);
+  const [builtInStates, setBuiltInStates] = useState<BuiltInContentState[]>([]);
+  const refreshAuthoritativeState = async () => {
+    const [backend, states] = await Promise.all([
+      loadAdminManagedPrograms(),
+      loadAdminBuiltInContentStates('managed_program'),
+    ]);
+    installManagedPrograms(backend, states);
+    setRows(mergeAdminManagedProgramRows(getBuiltInManagedPrograms(), backend));
+    setBuiltInStates(states);
+    setError(false);
+  };
   useEffect(() => {
-    void loadAdminManagedPrograms()
-      .then((backend) => {
-        installManagedPrograms(backend);
+    void Promise.all([
+      loadAdminManagedPrograms(),
+      loadAdminBuiltInContentStates('managed_program'),
+    ])
+      .then(([backend, states]) => {
+        installManagedPrograms(backend, states);
         setRows(mergeAdminManagedProgramRows(getBuiltInManagedPrograms(), backend));
+        setBuiltInStates(states);
         setError(false);
       })
       .catch(() => { setRows(getBuiltInManagedPrograms()); setError(true); });
@@ -108,19 +129,43 @@ export function AdminProgramBuilderListPage() {
     if (busyProgramIdRef.current) return;
     busyProgramIdRef.current = row.id;
     setBusyProgramId(row.id);
-    setActionError(false);
+    setActionError(null);
     try {
       await setManagedProgramLifecycle(row, status);
-      const backend = await loadAdminManagedPrograms();
-      installManagedPrograms(backend);
-      setRows(mergeAdminManagedProgramRows(getBuiltInManagedPrograms(), backend));
-      setError(false);
+      await refreshAuthoritativeState();
       useAppStore.getState().setToast(
         status === 'unpublished' ? t('managedProgramUnpublished') : t('managedProgramArchived'),
       );
     } catch {
-      setActionError(true);
+      setActionError('managed');
       useAppStore.getState().setToast(t('managedProgramLifecycleFailed'));
+    } finally {
+      busyProgramIdRef.current = undefined;
+      setBusyProgramId(undefined);
+    }
+  };
+  const changeBuiltInAvailability = async (
+    row: ManagedProgramRecord,
+    nextAvailability: BuiltInContentAvailability,
+  ) => {
+    const operationId = `builtin:${row.stableKey}`;
+    if (busyProgramIdRef.current) return;
+    busyProgramIdRef.current = operationId;
+    setBusyProgramId(operationId);
+    setActionError(null);
+    try {
+      await setBuiltInProgramAvailability(row.stableKey, nextAvailability);
+      await refreshAuthoritativeState();
+      useAppStore.getState().setToast(
+        nextAvailability === 'published'
+          ? t('builtInProgramRepublished')
+          : nextAvailability === 'unpublished'
+            ? t('builtInProgramUnpublished')
+            : t('builtInProgramArchived'),
+      );
+    } catch {
+      setActionError('builtin');
+      useAppStore.getState().setToast(t('builtInProgramAvailabilityFailed'));
     } finally {
       busyProgramIdRef.current = undefined;
       setBusyProgramId(undefined);
@@ -151,21 +196,33 @@ export function AdminProgramBuilderListPage() {
       )}
       {actionError && (
         <p className="mt-5 rounded-2xl border border-red-500/30 bg-red-500/10 p-4" role="alert">
-          {t('managedProgramLifecycleFailed')}
+          {t(actionError === 'builtin' ? 'builtInProgramAvailabilityFailed' : 'managedProgramLifecycleFailed')}
         </p>
       )}
       <div className="mt-6 grid gap-4">
         {rows.map((row) => {
           const actions = getManagedProgramLifecycleActions(row);
           const isBusy = busyProgramId === row.id;
-          const usingOriginal = row.source === 'built-in' ||
-            (row.source === 'builtin_override' && row.status !== 'published');
+          const isBuiltInIdentity = row.source === 'built-in' || row.source === 'builtin_override';
+          const builtInAvailability = isBuiltInIdentity
+            ? builtInStates.find((state) => state.builtinKey === row.stableKey)?.availability ?? 'published'
+            : undefined;
+          const isAvailabilityBusy = busyProgramId === `builtin:${row.stableKey}`;
+          const effectiveSource = builtInAvailability !== 'published'
+            ? l('Hidden', 'מוסתרת')
+            : row.source === 'builtin_override' && row.status === 'published'
+              ? l('Override', 'גרסה מנוהלת')
+              : l('Original', 'מקור');
+          const usingOriginal = isBuiltInIdentity && builtInAvailability === 'published' &&
+            (row.source === 'built-in' || row.status !== 'published');
           return (
           <article className="card" key={row.id}>
             <div className="flex flex-wrap justify-between gap-3">
               <div>
                 <span className="label">
-                  {row.source === 'builtin_override' ? l('Built-in · Managed override', 'מובנה · גרסה מנוהלת') : row.source === 'built-in' ? l('Built-in', 'מובנה') : l('Managed', 'מנוהל')} · {row.status} · v{row.publishedVersion ?? row.draftVersion}
+                  {row.source === 'builtin_override' ? l('Built-in · Managed override', 'מובנה · גרסה מנוהלת') : row.source === 'built-in' ? l('Built-in', 'מובנה') : l('Managed', 'מנוהל')}
+                  {isBuiltInIdentity ? ` · ${l('Effective', 'מקור פעיל')}: ${effectiveSource} · ${l('Availability', 'זמינות')}: ${builtInAvailability}` : ` · ${row.status}`}
+                  {' · '}v{row.publishedVersion ?? row.draftVersion}
                 </span>
                 <h2 className="text-xl font-black">
                   {language === 'he' ? row.definition.nameHe : row.definition.nameEn}
@@ -199,7 +256,7 @@ export function AdminProgramBuilderListPage() {
                     disabled={isBusy}
                     onClick={() => void changeLifecycle(row, 'unpublished')}
                   >
-                    {isBusy ? l('Updating…', 'מעדכן…') : l('Unpublish', 'ביטול פרסום')}
+                    {isBusy ? l('Updating…', 'מעדכן…') : row.source === 'builtin_override' ? l('Unpublish override', 'ביטול פרסום הגרסה המנוהלת') : l('Unpublish', 'ביטול פרסום')}
                   </button>
                 )}
                 {actions.includes('archived') && (
@@ -209,6 +266,33 @@ export function AdminProgramBuilderListPage() {
                     onClick={() => void changeLifecycle(row, 'archived')}
                   >
                     {row.source === 'builtin_override' ? l('Archive override and restore original', 'העברת הגרסה המנוהלת לארכיון ושחזור המקור') : l('Archive', 'העברה לארכיון')}
+                  </button>
+                )}
+                {isBuiltInIdentity && builtInAvailability === 'published' && (
+                  <button
+                    className="btn-secondary"
+                    disabled={isAvailabilityBusy}
+                    onClick={() => void changeBuiltInAvailability(row, 'unpublished')}
+                  >
+                    {isAvailabilityBusy ? l('Updating…', 'מעדכן…') : l('Unpublish Program', 'ביטול פרסום התוכנית')}
+                  </button>
+                )}
+                {isBuiltInIdentity && builtInAvailability !== 'published' && (
+                  <button
+                    className="btn-primary"
+                    disabled={isAvailabilityBusy}
+                    onClick={() => void changeBuiltInAvailability(row, 'published')}
+                  >
+                    {isAvailabilityBusy ? l('Updating…', 'מעדכן…') : l('Republish Program', 'פרסום התוכנית מחדש')}
+                  </button>
+                )}
+                {isBuiltInIdentity && builtInAvailability !== 'archived' && (
+                  <button
+                    className="btn-secondary text-red-500"
+                    disabled={isAvailabilityBusy}
+                    onClick={() => void changeBuiltInAvailability(row, 'archived')}
+                  >
+                    {l('Archive Program identity', 'העברת זהות התוכנית לארכיון')}
                   </button>
                 )}
               </div>
