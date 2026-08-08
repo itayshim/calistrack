@@ -6,6 +6,10 @@ import type {
 import { MANAGED_PROGRAM_SCHEMA_VERSION } from '../features/programs/managedProgram';
 import { beginnerCalisthenics12Week } from '../features/programs/beginnerCalisthenics12Week';
 import { beginnerFoundation12Week } from '../features/programs/beginnerFoundation12Week';
+import {
+  assertManagedProgramLifecycleMutation,
+  type ManagedProgramLifecycleAction,
+} from '../features/programs/managedProgramLifecycle';
 import { getAdminSession, supabaseConfigured, supabaseRequest } from './supabase';
 
 export interface ManagedProgramRecord {
@@ -118,12 +122,16 @@ export async function publishManagedProgram(id: string) {
     session.accessToken,
   );
 }
-export async function setManagedProgramLifecycle(id: string, status: 'unpublished' | 'archived') {
+export async function setManagedProgramLifecycle(
+  program: Pick<ManagedProgramRecord, 'id' | 'source' | 'status'>,
+  status: ManagedProgramLifecycleAction,
+) {
+  assertManagedProgramLifecycleMutation(program, status);
   const session = getAdminSession();
   if (!session) throw new Error('admin_session_required');
   return supabaseRequest(
     '/rest/v1/rpc/set_managed_program_lifecycle',
-    { method: 'POST', body: JSON.stringify({ p_program_id: id, p_status: status }) },
+    { method: 'POST', body: JSON.stringify({ p_program_id: program.id, p_status: status }) },
     session.accessToken,
   );
 }
@@ -160,6 +168,20 @@ export const installManagedPrograms = (records: ManagedProgramRecord[]) => {
   }
 };
 export const getBuiltInManagedPrograms = () => [...builtInRecords];
+export function mergeAdminManagedProgramRows(
+  builtIns: ManagedProgramRecord[],
+  backend: ManagedProgramRecord[],
+) {
+  const overrides = new Map(
+    backend
+      .filter((item) => item.source === 'builtin_override')
+      .map((item) => [item.builtinKey, item]),
+  );
+  return [
+    ...builtIns.map((item) => overrides.get(item.stableKey) ?? item),
+    ...backend.filter((item) => item.source === 'admin-created'),
+  ];
+}
 export const getManagedProgram = (key: string) => published.get(key);
 export const getManagedPrograms = () =>
   [...published.values()].sort((a, b) => a.definition.sortOrder - b.definition.sortOrder);

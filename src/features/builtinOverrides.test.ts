@@ -41,6 +41,10 @@ describe('built-in managed override resolution', () => {
     installManagedPrograms([programOverride('archived')]);
     expect(getManagedProgram(beginnerCalisthenics12Week.key)?.definition).toBe(beginnerCalisthenics12Week);
   });
+  it('falls back to the built-in Program while an override is unpublished', () => {
+    installManagedPrograms([programOverride('unpublished')]);
+    expect(getManagedProgram(beginnerCalisthenics12Week.key)?.definition).toBe(beginnerCalisthenics12Week);
+  });
   it('does not permit custom backend content to shadow a built-in Program key', () => {
     installManagedPrograms([{ ...programOverride(), source: 'admin-created', builtinKey: undefined }]);
     expect(getManagedProgram(beginnerCalisthenics12Week.key)?.definition).toBe(beginnerCalisthenics12Week);

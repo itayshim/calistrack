@@ -657,6 +657,9 @@ const en = {
   replayTutorial: 'Replay tutorial',
   resetOnboarding: 'Reset onboarding',
   tutorialHelpDescription: 'Take the guided tour again or reset the first-launch welcome.',
+  managedProgramUnpublished: 'Managed Program unpublished.',
+  managedProgramArchived: 'Managed Program archived.',
+  managedProgramLifecycleFailed: 'The Program lifecycle could not be updated. Try again.',
 } as const;
 
 const he: Record<keyof typeof en, string> = {
@@ -1299,6 +1302,9 @@ const he: Record<keyof typeof en, string> = {
   resetOnboarding: 'איפוס ההדרכה',
   tutorialHelpDescription: 'אפשר לעבור שוב על הסיור המודרך או לאפס את מסך הפתיחה הראשוני.',
   leaveWorkout: 'יציאה מהאימון',
+  managedProgramUnpublished: 'פרסום התוכנית המנוהלת בוטל.',
+  managedProgramArchived: 'התוכנית המנוהלת הועברה לארכיון.',
+  managedProgramLifecycleFailed: 'לא ניתן לעדכן את מצב התוכנית. נסו שוב.',
 };
 
 export const translations = { en, he };

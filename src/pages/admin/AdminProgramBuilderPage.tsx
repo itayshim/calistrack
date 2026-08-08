@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowUp, ChevronDown, Copy, Download, Eye, Plus, Save, Search } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Select } from '../../components/SelectMenu';
 import { useI18n } from '../../hooks/useI18n';
@@ -18,10 +18,15 @@ import {
   type ManagedProgramSectionKind,
 } from '../../features/programs/managedProgram';
 import {
+  getManagedProgramLifecycleActions,
+  type ManagedProgramLifecycleAction,
+} from '../../features/programs/managedProgramLifecycle';
+import {
   getBuiltInManagedPrograms,
   getManagedProgram,
   installManagedPrograms,
   loadAdminManagedPrograms,
+  mergeAdminManagedProgramRows,
   publishManagedProgram,
   saveManagedProgramDraft,
   setManagedProgramLifecycle,
@@ -79,29 +84,48 @@ const sectionKinds: ManagedProgramSectionKind[] = [
   'custom',
 ];
 
-function mergeAdminProgramRows(builtIns: ManagedProgramRecord[], backend: ManagedProgramRecord[]) {
-  const overrides = new Map(backend.filter((item) => item.source === 'builtin_override' && item.status !== 'archived' && item.status !== 'unpublished').map((item) => [item.builtinKey, item]));
-  return [
-    ...builtIns.map((item) => overrides.get(item.stableKey) ?? item),
-    ...backend.filter((item) => item.source === 'admin-created'),
-  ];
-}
-
 export function AdminProgramBuilderListPage() {
-  const { language } = useI18n();
+  const { language, t } = useI18n();
   const l = (e: string, h: string) => (language === 'he' ? h : e);
   const [rows, setRows] = useState<ManagedProgramRecord[]>([]);
   const [error, setError] = useState(false);
+  const [actionError, setActionError] = useState(false);
+  const [busyProgramId, setBusyProgramId] = useState<string>();
+  const busyProgramIdRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     void loadAdminManagedPrograms()
-      .then((backend) => setRows(mergeAdminProgramRows(getBuiltInManagedPrograms(), backend)))
+      .then((backend) => {
+        installManagedPrograms(backend);
+        setRows(mergeAdminManagedProgramRows(getBuiltInManagedPrograms(), backend));
+        setError(false);
+      })
       .catch(() => { setRows(getBuiltInManagedPrograms()); setError(true); });
   }, []);
-  const changeLifecycle = (id: string, status: 'unpublished' | 'archived') => void setManagedProgramLifecycle(id, status).then(() => setRows((items) => {
-    const next = items.map((item) => item.id === id ? { ...item, status } : item);
-    installManagedPrograms(next);
-    return mergeAdminProgramRows(getBuiltInManagedPrograms(), next);
-  }));
+  const changeLifecycle = async (
+    row: ManagedProgramRecord,
+    status: ManagedProgramLifecycleAction,
+  ) => {
+    if (busyProgramIdRef.current) return;
+    busyProgramIdRef.current = row.id;
+    setBusyProgramId(row.id);
+    setActionError(false);
+    try {
+      await setManagedProgramLifecycle(row, status);
+      const backend = await loadAdminManagedPrograms();
+      installManagedPrograms(backend);
+      setRows(mergeAdminManagedProgramRows(getBuiltInManagedPrograms(), backend));
+      setError(false);
+      useAppStore.getState().setToast(
+        status === 'unpublished' ? t('managedProgramUnpublished') : t('managedProgramArchived'),
+      );
+    } catch {
+      setActionError(true);
+      useAppStore.getState().setToast(t('managedProgramLifecycleFailed'));
+    } finally {
+      busyProgramIdRef.current = undefined;
+      setBusyProgramId(undefined);
+    }
+  };
   return (
     <main className="mx-auto max-w-5xl pb-12">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -125,18 +149,33 @@ export function AdminProgramBuilderListPage() {
           {l('Managed Programs could not be loaded.', 'לא ניתן לטעון תוכניות מנוהלות.')}
         </p>
       )}
+      {actionError && (
+        <p className="mt-5 rounded-2xl border border-red-500/30 bg-red-500/10 p-4" role="alert">
+          {t('managedProgramLifecycleFailed')}
+        </p>
+      )}
       <div className="mt-6 grid gap-4">
-        {rows.map((row) => (
+        {rows.map((row) => {
+          const actions = getManagedProgramLifecycleActions(row);
+          const isBusy = busyProgramId === row.id;
+          const usingOriginal = row.source === 'built-in' ||
+            (row.source === 'builtin_override' && row.status !== 'published');
+          return (
           <article className="card" key={row.id}>
             <div className="flex flex-wrap justify-between gap-3">
               <div>
                 <span className="label">
-                  {row.source === 'builtin_override' ? l('Managed override', 'גרסה מנוהלת') : row.source === 'built-in' ? l('Built-in · Using original', 'מובנה · בשימוש במקור') : l('Managed', 'מנוהל')} · {row.status} · v{row.publishedVersion ?? row.draftVersion}
+                  {row.source === 'builtin_override' ? l('Built-in · Managed override', 'מובנה · גרסה מנוהלת') : row.source === 'built-in' ? l('Built-in', 'מובנה') : l('Managed', 'מנוהל')} · {row.status} · v{row.publishedVersion ?? row.draftVersion}
                 </span>
                 <h2 className="text-xl font-black">
                   {language === 'he' ? row.definition.nameHe : row.definition.nameEn}
                 </h2>
                 <code>{row.stableKey}</code> · {row.definition.weeks.length} {l('weeks', 'שבועות')}
+                {usingOriginal && (
+                  <p className="mt-2 text-sm text-slate-500">
+                    {l('The original built-in definition is currently effective.', 'ההגדרה המובנית המקורית פעילה כעת.')}
+                  </p>
+                )}
               </div>
               <div className="flex flex-wrap gap-2">
                 {row.source === 'built-in' ? (
@@ -154,24 +193,28 @@ export function AdminProgramBuilderListPage() {
                 <Link className="btn-secondary" to={`/admin/programs/${row.stableKey}/versions`}>
                   {l('Versions', 'גרסאות')}
                 </Link>
-                {row.status === 'published' && (
+                {actions.includes('unpublished') && (
                   <button
                     className="btn-secondary"
-                    onClick={() => changeLifecycle(row.id, 'unpublished')}
+                    disabled={isBusy}
+                    onClick={() => void changeLifecycle(row, 'unpublished')}
                   >
-                    {l('Unpublish', 'ביטול פרסום')}
+                    {isBusy ? l('Updating…', 'מעדכן…') : l('Unpublish', 'ביטול פרסום')}
                   </button>
                 )}
-                <button
-                  className="btn-secondary text-red-500"
-                  onClick={() => changeLifecycle(row.id, 'archived')}
-                >
-                  {row.source === 'builtin_override' ? l('Restore built-in version', 'שחזור הגרסה המובנית') : l('Archive', 'העברה לארכיון')}
-                </button>
+                {actions.includes('archived') && (
+                  <button
+                    className="btn-secondary text-red-500"
+                    disabled={isBusy}
+                    onClick={() => void changeLifecycle(row, 'archived')}
+                  >
+                    {row.source === 'builtin_override' ? l('Archive override and restore original', 'העברת הגרסה המנוהלת לארכיון ושחזור המקור') : l('Archive', 'העברה לארכיון')}
+                  </button>
+                )}
               </div>
             </div>
           </article>
-        ))}
+        )})}
       </div>
     </main>
   );
