@@ -6,9 +6,25 @@ Exercise Visuals are identity assets, not instructional media. The canonical exe
 
 - Canvas: square SVG with `viewBox="0 0 256 256"`.
 - Safe area: keep meaningful geometry inside 16–240; aim for 20–24 units of optical padding.
-- Style: one filled silhouette language built from simple paths, circles, and rounded rectangles. No anatomical, facial, clothing, shading, gradient, text, logo, or scenery detail.
-- Body proportions: 32–34-unit head diameter, 18–24-unit limb thickness, simplified capsule-like joints, and a torso with comparable visual mass across poses.
-- Equipment: include only identity-critical apparatus. Use the same rounded, filled geometry and visual weight as the athlete.
+- Style: human silhouette first. Build reference-driven athletes primarily with smooth Bezier paths, continuous body masses, natural bends, and tapered forms. No anatomical, facial, clothing, shading, gradient, text, logo, or scenery detail.
+- Body proportions: maintain one consistent athlete model across the catalogue, with a head near one seventh to one eighth of standing height, naturally broad shoulders, a tapered waist, integrated hips, fuller thighs, and narrower wrists and ankles.
+- Equipment: identity-critical apparatus may remain clean and geometric. Keep it visually secondary to the organic athlete and consistent in weight across the pack.
+
+### Human form rules
+
+- Head height is approximately one seventh to one eighth of standing body height. Shoulders are visibly wider than the head; the torso tapers gently toward a waist, with hips slightly narrower than the shoulders.
+- Upper arms taper from shoulder to elbow, forearms taper toward wrists, thighs are fuller than calves, and calves taper toward ankles. Hands and feet are simplified organic shapes, never rectangular blocks.
+- Create elbows and knees with continuous curved transitions. Do not use circular joint balls, mechanical hinges, sharp internal seams, or visibly assembled limb segments.
+- Shoulders, torso, hips, and legs must visually merge into one athlete. Multiple paths are permitted internally, but their overlaps must not read as disconnected mannequin pieces.
+- Do not construct people from rectangular arms or legs, box-shaped torsos, stacked trapezoids, vertical leg columns, or polygon pieces meeting at obvious corners.
+- Do not use capsule-body construction or circles to represent shoulders, elbows, wrists, hips, or knees. Overlapping paths must not create false joint outlines.
+- Do not sacrifice natural body flow merely to reduce path complexity or file size. The compact first read must be a minimal athletic human silhouette, never an articulated block figure.
+
+### Reference-driven review
+
+- Approved reference artwork is the primary pose and proportion source when supplied. Reconstruct its negative space, body taper, posture, and equipment weight rather than adapting rejected geometry.
+- Use a flat single-color athlete. Keep apparatus simple, clean, geometric, and visually secondary.
+- Review the full family together so head scale, shoulder width, torso mass, hips, hands, feet, and visual weight remain coherent.
 
 ## Optical normalization
 
@@ -20,7 +36,7 @@ Exercise Visuals are identity assets, not instructional media. The canonical exe
 
 ## Color and surfaces
 
-- Pilot foreground: neutral slate `#475569` with a narrow `#f8fafc` edge halo using `paint-order="stroke fill"`.
+- Pilot foreground: neutral slate `#475569` with a subtle, partially transparent `#f8fafc` edge halo using `paint-order="stroke fill"`.
 - The halo preserves separation on dark surfaces while the slate body remains distinct on light surfaces.
 - Artwork has no background. The shared `ExerciseVisual` component owns the theme-aware containing surface.
 - Never mirror artwork automatically in RTL.

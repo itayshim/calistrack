@@ -17,6 +17,17 @@ describe('Exercise Visual administrator lifecycle', () => {
     expect(api.request).toHaveBeenCalledWith('/rest/v1/rpc/admin_set_exercise_visual', expect.objectContaining({ body: expect.stringContaining('"p_stable_key":"push-up"') }), 'admin-token');
     expect(getExerciseVisual({ id: 'other-id', stableKey: 'push-up' }).source).toBe('uploaded');
   });
+  it('validates and uploads a converter-produced SVG through storage, metadata, and resolver publication', async () => {
+    const source = '<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1095 1095"><path d="M0 0h1095v1095z" fill="#495163" fill-rule="evenodd" stroke="#495163" stroke-width="0.25"/></svg>';
+    const storage = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('', { status: 200 }));
+    api.request.mockResolvedValue([{ stable_key: 'pull-up', storage_path: 'visuals/pull-up/visual.svg', mime_type: 'image/svg+xml', file_size_bytes: source.length, view_box: '0 0 1095 1095' }]);
+
+    await saveExerciseVisual('pull-up', new File([source], 'pullup.svg', { type: 'image/svg+xml' }), { viewBox: '0 0 1095 1095' });
+
+    expect(storage).toHaveBeenCalledWith(expect.stringContaining('/storage/v1/object/exercise-visuals/visuals/pull-up/visual.svg'), expect.objectContaining({ method: 'POST', headers: expect.objectContaining({ 'Content-Type': 'image/svg+xml', 'x-upsert': 'true' }) }));
+    expect(api.request).toHaveBeenCalledWith('/rest/v1/rpc/admin_set_exercise_visual', expect.objectContaining({ body: expect.stringContaining('"p_stable_key":"pull-up"') }), 'admin-token');
+    expect(getExerciseVisual({ id: 'builtin-pull-up', stableKey: 'pull-up' })).toMatchObject({ source: 'uploaded', type: 'svg', isFallback: false });
+  });
   it('removes metadata and its dedicated object without touching demo media', async () => {
     installExerciseVisuals([{ stableKey: 'pull-up', storagePath: 'visuals/pull-up/visual.png', mimeType: 'image/png', format: 'png', fileSizeBytes: 10 }]);
     api.request.mockResolvedValue(undefined);

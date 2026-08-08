@@ -80,9 +80,87 @@ export function validateExerciseVisualFile(file: Pick<File, 'type' | 'size'>) {
   if (!limit) throw new Error('invalid_visual_mime');
   if (file.size > limit) throw new Error('visual_too_large');
 }
+
+const SAFE_SVG_ELEMENTS = new Set([
+  'svg', 'g', 'defs', 'path', 'rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon',
+  'clipPath', 'mask', 'symbol', 'use', 'title', 'desc', 'metadata',
+  'linearGradient', 'radialGradient', 'stop', 'pattern',
+]);
+const BLOCKED_SVG_ELEMENTS = new Set([
+  'script', 'foreignObject', 'iframe', 'object', 'embed', 'image', 'audio', 'video', 'a',
+  'animate', 'animateMotion', 'animateTransform', 'set', 'cursor',
+]);
+const SAFE_SVG_ATTRIBUTES = new Set([
+  'id', 'class', 'version', 'baseProfile', 'viewBox', 'preserveAspectRatio',
+  'x', 'y', 'x1', 'y1', 'x2', 'y2', 'cx', 'cy', 'r', 'rx', 'ry', 'width', 'height',
+  'd', 'points', 'pathLength', 'transform',
+  'fill', 'fill-opacity', 'fill-rule', 'stroke', 'stroke-width', 'stroke-opacity',
+  'stroke-linecap', 'stroke-linejoin', 'stroke-miterlimit', 'stroke-dasharray',
+  'stroke-dashoffset', 'opacity', 'color', 'display', 'visibility',
+  'paint-order',
+  'clip-path', 'clip-rule', 'mask', 'mask-type',
+  'offset', 'stop-color', 'stop-opacity', 'gradientUnits', 'gradientTransform',
+  'spreadMethod', 'patternUnits', 'patternContentUnits', 'patternTransform',
+  'href', 'style', 'role', 'aria-label', 'aria-hidden', 'focusable', 'tabindex',
+]);
+const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
+const XLINK_NAMESPACE = 'http://www.w3.org/1999/xlink';
+const XML_NAMESPACE = 'http://www.w3.org/XML/1998/namespace';
+
+function isSafeLocalReference(value: string) {
+  return /^#[A-Za-z_][\w:.-]*$/.test(value.trim());
+}
+
+function hasUnsafeCss(value: string) {
+  if (/@import|expression\s*\(|javascript\s*:|vbscript\s*:|behavior\s*:|-moz-binding/i.test(value)) return true;
+  const urls = value.match(/url\s*\(\s*(['"]?)(.*?)\1\s*\)/gi) ?? [];
+  return urls.some((entry) => {
+    const match = /url\s*\(\s*(['"]?)(.*?)\1\s*\)/i.exec(entry);
+    return !match || !isSafeLocalReference(match[2]);
+  });
+}
+
+function isMetadataDescendant(element: Element) {
+  for (let current = element.parentElement; current; current = current.parentElement) {
+    if (current.namespaceURI === SVG_NAMESPACE && current.localName === 'metadata') return true;
+  }
+  return false;
+}
+
 export function validateExerciseVisualSvg(source: string) {
-  const unsafe = /<\s*(script|foreignObject|iframe|object|embed|use)\b|\bon\w+\s*=|(?:href|src)\s*=\s*["']?\s*(?:https?:|data:|javascript:)/i;
-  if (!/^\s*<svg\b/i.test(source) || unsafe.test(source)) throw new Error('unsafe_visual_svg');
+  if (/<!DOCTYPE/i.test(source)) throw new Error('unsafe_visual_svg');
+  const document = new DOMParser().parseFromString(source, 'image/svg+xml');
+  if (document.querySelector('parsererror')) throw new Error('unsafe_visual_svg');
+  const root = document.documentElement;
+  if ((root.namespaceURI && root.namespaceURI !== SVG_NAMESPACE) || root.localName !== 'svg') throw new Error('unsafe_visual_svg');
+
+  for (const element of Array.from(document.getElementsByTagName('*'))) {
+    const inMetadata = isMetadataDescendant(element);
+    if (BLOCKED_SVG_ELEMENTS.has(element.localName)) throw new Error('unsafe_visual_svg');
+    if ((!element.namespaceURI || element.namespaceURI === SVG_NAMESPACE) && !SAFE_SVG_ELEMENTS.has(element.localName)) throw new Error('unsafe_visual_svg');
+    if (element.namespaceURI && element.namespaceURI !== SVG_NAMESPACE && !inMetadata) throw new Error('unsafe_visual_svg');
+
+    for (const attribute of Array.from(element.attributes)) {
+      const name = attribute.localName;
+      const qualifiedName = attribute.name;
+      const value = attribute.value.trim();
+      if (/^on/i.test(name)) throw new Error('unsafe_visual_svg');
+      if (attribute.namespaceURI === 'http://www.w3.org/2000/xmlns/') {
+        if (![SVG_NAMESPACE, XLINK_NAMESPACE].includes(value) && !inMetadata) throw new Error('unsafe_visual_svg');
+        continue;
+      }
+      if (inMetadata) continue;
+      if (attribute.namespaceURI && ![XLINK_NAMESPACE, XML_NAMESPACE].includes(attribute.namespaceURI)) throw new Error('unsafe_visual_svg');
+      if (!SAFE_SVG_ATTRIBUTES.has(name) && !qualifiedName.startsWith('aria-') && !qualifiedName.startsWith('data-')) throw new Error('unsafe_visual_svg');
+      if (name === 'href') {
+        if (element.localName !== 'use' || !isSafeLocalReference(value)) throw new Error('unsafe_visual_svg');
+      }
+      if ((name === 'style' || name === 'fill' || name === 'stroke' || name === 'clip-path' || name === 'mask') && hasUnsafeCss(value)) {
+        throw new Error('unsafe_visual_svg');
+      }
+      if (/^(?:https?:|data:|javascript:|vbscript:|file:|blob:|\/\/)/i.test(value)) throw new Error('unsafe_visual_svg');
+    }
+  }
 }
 
 export async function saveExerciseVisual(stableKey: string, file: File, metadata: { width?: number; height?: number; viewBox?: string } = {}) {

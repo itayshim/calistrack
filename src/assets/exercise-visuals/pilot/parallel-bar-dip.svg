@@ -1,16 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img">
-  <g fill="#475569" stroke="#f8fafc" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" paint-order="stroke fill">
-    <circle cx="128" cy="53" r="17"/>
-    <path d="M103 74c16-9 34-9 50 0l12 72c-23 12-51 12-74 0z"/>
-    <path d="M104 83L75 101l-3 36-18-2 4-48 38-26z"/>
-    <path d="M152 83l29 18 3 36 18-2-4-48-38-26z"/>
-    <circle cx="63" cy="137" r="10"/>
-    <circle cx="193" cy="137" r="10"/>
-    <path d="M102 142l22 3-5 83-19-1z"/>
-    <path d="M132 145l22-3 2 85-19 1z"/>
-    <rect x="24" y="128" width="75" height="10" rx="5" stroke="none"/>
-    <rect x="157" y="128" width="75" height="10" rx="5" stroke="none"/>
-    <rect x="29" y="133" width="10" height="101" rx="5" stroke="none"/>
-    <rect x="217" y="133" width="10" height="101" rx="5" stroke="none"/>
+  <g fill="#475569" stroke="#f8fafc" stroke-opacity=".5" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round" paint-order="stroke fill">
+    <path d="M98 42c1-10 8-17 17-16 10 1 16 10 14 20-1 7-5 13-10 17-5 3-12 1-16-3-4-5-6-12-5-18z"/>
+    <path d="M112 60c10-3 21-1 30 4 9 5 17 12 26 16 8 4 17 5 23 11 6 7 6 17 3 26-3 8-7 15-9 23-2 9-1 18-2 27-1 10-6 19-14 25-8 5-18 6-27 4-11-2-22-7-31-14-9-7-14-17-14-28 0-10 5-19 8-28 3-8 2-17-1-25-3-8-9-14-10-22-1-8 1-16 8-19z"/>
+    <path d="M161 78c8-2 16 2 20 8 5 8 7 18 7 27 0 8-2 15-4 22l-7 26c-2 7-8 11-14 9-7-2-10-8-8-15l8-28c2-7 3-13 1-20-2-6-6-11-8-17-2-5 0-10 5-12z"/>
+    <path d="M104 78c-6 0-11 4-13 10-2 7-1 14 1 21 2 6 5 12 6 19l3 25c1 7 6 12 12 11 7-1 11-7 10-14l-3-28c-1-8-1-15 2-22 2-6 1-13-4-17-4-3-9-5-14-5z"/>
+    <path d="M173 157c6-2 13 1 15 7 3 8 1 17-1 25l-8 35c-1 7-6 11-12 10-6-1-10-7-8-13l8-37c1-5 0-10-2-14-2-5 2-11 8-13z"/>
+    <path d="M143 184c8-2 15 2 18 9l10 29c2 6-1 12-7 14-6 2-12-2-14-8l-12-28c-3-7-2-14 5-16z"/>
+    <path d="M159 224c5-1 10 1 13 5 2 4 0 9-4 11-5 2-12 0-16-3-4-4 1-12 7-13z"/>
+    <path d="M176 224c5-1 10 1 13 5 2 4 0 9-4 11-5 2-12 0-16-3-4-4 1-12 7-13z"/>
+    <path d="M103 150c6-2 13 1 15 6 2 5 0 11-5 14-5 2-13 1-17-3-4-5 0-14 7-17z"/>
+    <path d="M173 156c6-2 13 1 15 6 2 5 0 11-5 14-5 2-13 1-17-3-4-5 0-14 7-17z"/>
+    <rect x="27" y="157" width="84" height="8" rx="4" stroke="none"/>
+    <rect x="177" y="157" width="52" height="8" rx="4" stroke="none"/>
+    <rect x="31" y="161" width="8" height="77" rx="4" stroke="none"/>
+    <rect x="217" y="161" width="8" height="77" rx="4" stroke="none"/>
   </g>
 </svg>
