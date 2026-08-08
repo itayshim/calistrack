@@ -1,4 +1,4 @@
-import { ArrowLeft, CheckCircle2, Dumbbell, Lightbulb, TriangleAlert } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Lightbulb, TriangleAlert } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { Badge, IconTile } from '../components/ui';
 import {
@@ -13,6 +13,7 @@ import {
   getExerciseName,
   hasExerciseDemonstration,
 } from '../utils/exerciseLocalization';
+import { ExerciseVisual } from '../components/ExerciseVisual';
 export function ExerciseDetailPage() {
   const { id } = useParams(),
     exercise = useAppStore((s) => s.exercises.find((e) => e.id === id)),
@@ -32,9 +33,7 @@ export function ExerciseDetailPage() {
         <Badge>
           {exercise.category.toUpperCase()} · {exercise.difficulty.toUpperCase()}
         </Badge>
-        <div className="mt-12 grid h-20 w-20 place-items-center rounded-3xl bg-ink text-brand">
-          <Dumbbell size={36} />
-        </div>
+        <ExerciseVisual exercise={exercise} variant="detail" className="relative mt-12 border-ink/15 bg-ink/90 text-brand dark:bg-ink/90" />
         <h1 className="relative mt-6 text-5xl font-black leading-none tracking-[-.06em] sm:text-6xl">
           {getExerciseName(exercise, language)}
         </h1>

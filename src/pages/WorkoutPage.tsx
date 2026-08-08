@@ -41,6 +41,7 @@ import {
 import { ExerciseReplacementSheet } from '../components/ExerciseReplacementSheet';
 import { timerCueService } from '../services/timerCue';
 import { getSkillDefinition } from '../features/skills/registry';
+import { ExerciseVisual } from '../components/ExerciseVisual';
 
 type WorkoutDrafts = Record<string, { reps: string; duration: string; addedWeight: string }>;
 const draftStorageKey = (sessionId: string) => `calistrack.active-workout-drafts.${sessionId}`;
@@ -424,9 +425,12 @@ export function WorkoutPage() {
           </span>
         </div>
         <div className="flex flex-wrap items-end justify-between gap-4">
-          <h1 className="max-w-2xl text-[3rem] font-black leading-[.92] tracking-[-.06em] sm:text-6xl">
-            {exercise ? getExerciseName(exercise, language) : t('exerciseUnavailable')}
-          </h1>
+          <div className="flex items-center gap-4">
+            <ExerciseVisual exercise={exercise} variant="workout" />
+            <h1 className="max-w-2xl text-[3rem] font-black leading-[.92] tracking-[-.06em] sm:text-6xl">
+              {exercise ? getExerciseName(exercise, language) : t('exerciseUnavailable')}
+            </h1>
+          </div>
           <div className="flex flex-wrap gap-2">
             {exercise && <ExerciseDemonstrationButton exercise={exercise} className="shrink-0" />}
             {exercise && (

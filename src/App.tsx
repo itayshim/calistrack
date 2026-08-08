@@ -5,6 +5,7 @@ import { PwaUpdatePrompt } from './components/PwaUpdatePrompt';
 import { AppLayout } from './layouts/AppLayout';
 import { useAppStore } from './store/useAppStore';
 import { loadGlobalContent } from './services/globalContent';
+import { installExerciseVisuals, loadPublishedExerciseVisuals } from './services/exerciseVisuals';
 import { AdminGuard } from './features/admin/AdminGuard';
 import { translations } from './locales/translations';
 import { restAlertService } from './services/restAlert';
@@ -201,6 +202,7 @@ export default function App() {
       setSharedExercises(exercises);
       if (stale) useAppStore.getState().setToast(translations[settings.language].offlineContent);
     });
+    loadPublishedExerciseVisuals().then(installExerciseVisuals).catch(() => installExerciseVisuals([]));
   }, [hydrated, setSharedExercises, settings.language]);
   if (!hydrated)
     return <div className="grid min-h-screen place-items-center">{translations[settings.language].loadingWorkouts}</div>;

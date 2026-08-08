@@ -13,6 +13,7 @@ import { useI18n } from '../hooks/useI18n';
 import { useAppStore } from '../store/useAppStore';
 import type { Program } from '../types';
 import { getExerciseName } from '../utils/exerciseLocalization';
+import { ExerciseVisual } from '../components/ExerciseVisual';
 import { createId } from '../utils/id';
 import { formatDuration, formatReps } from '../utils/performance';
 
@@ -185,7 +186,9 @@ export function SkillLevelPage() {
             return (
               <article className="card" key={item.exerciseKey}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
+                  <div className="flex min-w-0 gap-3">
+                    {exercise && <ExerciseVisual exercise={exercise} variant="compact" />}
+                    <div>
                     <h3 className="font-black">
                       {exercise ? getExerciseName(exercise, language) : item.exerciseKey}
                     </h3>
@@ -203,6 +206,7 @@ export function SkillLevelPage() {
                         {language === 'he' ? item.noteHe : item.noteEn}
                       </p>
                     )}
+                    </div>
                   </div>
                   {exercise && <ExerciseDemonstrationButton exercise={exercise} />}
                 </div>

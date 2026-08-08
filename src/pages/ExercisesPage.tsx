@@ -9,6 +9,7 @@ import { createId } from '../utils/id';
 import { searchExercises } from '../utils/exerciseSearch';
 import { useI18n } from '../hooks/useI18n';
 import { getExerciseName } from '../utils/exerciseLocalization';
+import { ExerciseVisual } from '../components/ExerciseVisual';
 const categories: Record<string, string> = {
   all: 'All',
   push: 'Push',
@@ -130,9 +131,7 @@ export function ExercisesPage() {
               )}
             </div>
             <Link to={`/exercises/${e.id}`}>
-              <div className="mb-5 mt-4 grid h-16 w-16 place-items-center rounded-3xl bg-brand/10 text-2xl font-black text-brand">
-                {getExerciseName(e, language).slice(0, 1)}
-              </div>
+              <ExerciseVisual exercise={e} variant="compact" className="mb-5 mt-4" />
               <h2 className="mt-3 text-xl font-black tracking-tight group-hover:text-brand">
                 {getExerciseName(e, language)}
               </h2>

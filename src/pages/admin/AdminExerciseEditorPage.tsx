@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { deleteExerciseMediaFile, getAdminSession, supabaseRequest, uploadExerciseMedia } from '../../services/supabase';
-import type { ExerciseMedia } from '../../types';
+import type { Exercise, ExerciseMedia } from '../../types';
 import { parseYouTubeVideoId, youtubeEmbedUrl } from '../../utils/youtube';
 import { useI18n } from '../../hooks/useI18n';
 import { builtInExercises } from '../../data/exercises';
@@ -31,6 +31,8 @@ import {
   type TaxonomyKind,
 } from '../../utils/taxonomy';
 import { ensureBuiltInExerciseIdentity } from '../../services/adminExerciseIdentity';
+import { ExerciseVisual } from '../../components/ExerciseVisual';
+import { getExerciseVisual, removeExerciseVisual, saveExerciseVisual, useExerciseVisualRegistry } from '../../services/exerciseVisuals';
 
 const empty = {
   id: '',
@@ -72,6 +74,8 @@ export function AdminExerciseEditorPage() {
   const [media, setMedia] = useState<ExerciseMedia[]>([]);
   const [pendingPrimary, setPendingPrimary] = useState<ExerciseMedia | null>(null);
   const [highlightedMediaId, setHighlightedMediaId] = useState('');
+  const [visualSaving, setVisualSaving] = useState(false);
+  useExerciseVisualRegistry();
   const token = getAdminSession()?.accessToken;
   const dirty = JSON.stringify(form) !== baseline || Boolean(youtube || externalUrl);
   const unsaved = useUnsavedChangesGuard(dirty);
@@ -382,6 +386,42 @@ export function AdminExerciseEditorPage() {
         return identity.id;
       }
     : undefined;
+  const visualExercise: Exercise = builtInExercise ?? {
+    id: form.id || `builtin-${form.stable_key}`,
+    stableKey: form.stable_key,
+    nameEn: form.nameEn,
+    nameHe: form.nameHe,
+    movementFamily: form.movement_family,
+    category: form.category,
+    difficulty: form.difficulty as Exercise['difficulty'],
+    measurementType: form.measurement_type as Exercise['measurementType'],
+    muscles: list(form.muscles),
+    description: form.descriptionEn,
+    instructions: list(form.instructionsEn),
+    commonMistakes: list(form.mistakesEn),
+    isCustom: false,
+  };
+  const visual = getExerciseVisual(visualExercise);
+  const uploadVisual = async (file?: File) => {
+    if (!file || !form.stable_key || exerciseId === 'new') return setError(t('saveBeforeVisualUpload'));
+    setVisualSaving(true);
+    try {
+      await saveExerciseVisual(form.stable_key, file);
+      useAppStore.getState().setToast(t('exerciseVisualSaved'));
+    } catch (reason) {
+      const code = reason instanceof Error ? reason.message : '';
+      setError(code === 'invalid_visual_mime' ? t('exerciseVisualInvalidType') : code === 'visual_too_large' ? t('exerciseVisualTooLarge') : code === 'unsafe_visual_svg' ? t('exerciseVisualUnsafeSvg') : t('exerciseVisualUploadFailed'));
+    } finally { setVisualSaving(false); }
+  };
+  const removeVisual = async () => {
+    if (!form.stable_key) return;
+    setVisualSaving(true);
+    try {
+      await removeExerciseVisual(form.stable_key);
+      useAppStore.getState().setToast(t('exerciseVisualRemoved'));
+    } catch { setError(t('exerciseVisualRemoveFailed')); }
+    finally { setVisualSaving(false); }
+  };
   return (
     <main className="mx-auto max-w-4xl">
       <div onClick={(event) => {
@@ -489,8 +529,31 @@ export function AdminExerciseEditorPage() {
           <TranslationCard title={t('englishContent')} name={form.nameEn} description={form.descriptionEn} instructions={form.instructionsEn} mistakes={form.mistakesEn} set={(key, value) => set(`${key}En` as keyof typeof empty, value)} labels={{ name: t('name'), description: t('description'), instructions: t('instructionsPerLine'), mistakes: t('mistakesPerLine') }} />
           <TranslationCard title={t('hebrewContent')} name={form.nameHe} description={form.descriptionHe} instructions={form.instructionsHe} mistakes={form.mistakesHe} set={(key, value) => set(`${key}He` as keyof typeof empty, value)} labels={{ name: t('name'), description: t('description'), instructions: t('instructionsPerLine'), mistakes: t('mistakesPerLine') }} rtl />
         </div>
+        <section className="card space-y-4" data-testid="exercise-visual-admin">
+          <div>
+            <h2 className="text-xl font-black">{t('exerciseVisual')}</h2>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t('exerciseVisualDescription')}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-5">
+            <ExerciseVisual exercise={visualExercise} variant="admin" decorative={false} />
+            <dl className="grid gap-1 text-sm">
+              <div><dt className="inline font-bold">{t('effectiveSource')}: </dt><dd className="inline">{visual.isFallback ? t('fallbackVisual') : t('uploadedVisual')}</dd></div>
+              <div><dt className="inline font-bold">{t('format')}: </dt><dd className="inline">{visual.asset?.format.toUpperCase() ?? '—'}</dd></div>
+              <div><dt className="inline font-bold">{t('fileSize')}: </dt><dd className="inline"><bdi>{visual.asset ? `${Math.ceil(visual.asset.fileSizeBytes / 1024)} KB` : '—'}</bdi></dd></div>
+              <div><dt className="inline font-bold">{t('dimensions')}: </dt><dd className="inline"><bdi>{visual.asset?.viewBox ?? (visual.asset?.width && visual.asset.height ? `${visual.asset.width} × ${visual.asset.height}` : '—')}</bdi></dd></div>
+            </dl>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <label className={`btn-secondary cursor-pointer ${visualSaving ? 'pointer-events-none opacity-50' : ''}`}>
+              {visual.isFallback ? t('uploadExerciseVisual') : t('replaceExerciseVisual')}
+              <input className="sr-only" type="file" accept="image/svg+xml,image/webp,image/png" disabled={visualSaving || exerciseId === 'new'} onChange={(event) => void uploadVisual(event.target.files?.[0])} />
+            </label>
+            {!visual.isFallback && <button type="button" className="btn-danger" disabled={visualSaving} onClick={() => void removeVisual()}>{t('removeExerciseVisual')}</button>}
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400">{t('exerciseVisualLimits')}</p>
+        </section>
         <section className="card space-y-3">
-          <h2 className="text-xl font-black">{t('media')}</h2>
+          <h2 className="text-xl font-black">{t('demonstrationMedia')}</h2>
           <SuggestedVideosPanel
             exerciseId={form.id}
             exerciseName={form.nameEn || form.stable_key}

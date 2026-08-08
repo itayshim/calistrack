@@ -281,3 +281,15 @@ export interface ExerciseMedia {
   isPrimary: boolean;
   isPublished: boolean;
 }
+export type ExerciseVisualFormat = 'svg' | 'webp' | 'png';
+export interface ExerciseVisualAsset {
+  stableKey: string;
+  storagePath: string;
+  mimeType: 'image/svg+xml' | 'image/webp' | 'image/png';
+  format: ExerciseVisualFormat;
+  fileSizeBytes: number;
+  width?: number;
+  height?: number;
+  viewBox?: string;
+  updatedAt?: string;
+}
