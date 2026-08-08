@@ -284,7 +284,8 @@ export interface ExerciseMedia {
 export type ExerciseVisualFormat = 'svg' | 'webp' | 'png';
 export interface ExerciseVisualAsset {
   stableKey: string;
-  storagePath: string;
+  storagePath?: string;
+  src?: string;
   mimeType: 'image/svg+xml' | 'image/webp' | 'image/png';
   format: ExerciseVisualFormat;
   fileSizeBytes: number;

@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import type { Exercise, ExerciseVisualAsset } from '../types';
 import { getAdminSession, supabaseConfigured, supabaseRequest } from './supabase';
+import { pilotExerciseVisuals } from '../assets/exercise-visuals/pilot';
 
 export const EXERCISE_VISUAL_LIMITS = {
   'image/svg+xml': 200 * 1024,
@@ -22,6 +23,7 @@ interface VisualRow {
 
 const listeners = new Set<() => void>();
 let visuals = new Map<string, ExerciseVisualAsset>();
+const builtInVisuals = new Map(pilotExerciseVisuals.map((item) => [item.stableKey, item]));
 let revision = 0;
 const storageBase = () => {
   const base = String(import.meta.env.VITE_SUPABASE_URL ?? '').replace(/\/$/, '');
@@ -58,17 +60,18 @@ export async function loadPublishedExerciseVisuals(): Promise<ExerciseVisualAsse
 
 export interface ResolvedExerciseVisual {
   src?: string;
-  source: 'explicit' | 'fallback';
+  source: 'uploaded' | 'built-in' | 'fallback';
   type: ExerciseVisualAsset['format'] | 'fallback';
   isFallback: boolean;
   asset?: ExerciseVisualAsset;
 }
 export function getExerciseVisual(exercise?: Pick<Exercise, 'stableKey' | 'id'>): ResolvedExerciseVisual {
   const stableKey = exercise?.stableKey ?? exercise?.id.replace(/^builtin-/, '');
-  const asset = stableKey ? visuals.get(stableKey) : undefined;
+  const uploaded = stableKey ? visuals.get(stableKey) : undefined;
+  const asset = uploaded ?? (stableKey ? builtInVisuals.get(stableKey) : undefined);
   const base = storageBase();
   return asset
-    ? { src: `${base}${asset.storagePath.split('/').map(encodeURIComponent).join('/')}`, source: 'explicit', type: asset.format, isFallback: false, asset }
+    ? { src: asset.src ?? `${base}${asset.storagePath?.split('/').map(encodeURIComponent).join('/')}`, source: uploaded ? 'uploaded' : 'built-in', type: asset.format, isFallback: false, asset }
     : { source: 'fallback', type: 'fallback', isFallback: true };
 }
 

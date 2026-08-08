@@ -13,11 +13,12 @@ vi.mock('./supabase', () => ({
 
 const exercise: Exercise = { id: 'builtin-push-up', stableKey: 'push-up', nameEn: 'Push-Up', nameHe: 'שכיבת סמיכה', category: 'push', difficulty: 'beginner', muscles: [], measurementType: 'reps', description: '', instructions: [], commonMistakes: [], isCustom: false };
 const asset: ExerciseVisualAsset = { stableKey: 'push-up', storagePath: 'visuals/push-up/visual.svg', mimeType: 'image/svg+xml', format: 'svg', fileSizeBytes: 1200, viewBox: '0 0 100 100' };
+const unillustrated = { ...exercise, id: 'builtin-jumping-jacks', stableKey: 'jumping-jacks', nameEn: 'Jumping Jacks' };
 
 describe('Exercise Visual resolver and component', () => {
   beforeEach(() => clearExerciseVisualsForTests());
   it('uses a neutral fallback without rendering a broken image', () => {
-    render(<ExerciseVisual exercise={exercise} />);
+    render(<ExerciseVisual exercise={unillustrated} />);
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
     expect(document.querySelector('[data-visual-source="fallback"]')).toBeInTheDocument();
   });
@@ -27,7 +28,7 @@ describe('Exercise Visual resolver and component', () => {
   });
   it('resolves one explicit visual by canonical stable key across runtime identities', () => {
     installExerciseVisuals([asset]);
-    expect(getExerciseVisual(exercise).source).toBe('explicit');
+    expect(getExerciseVisual(exercise).source).toBe('uploaded');
     expect(getExerciseVisual({ id: 'global-uuid', stableKey: exercise.stableKey }).src).toContain('visuals/push-up/visual.svg');
   });
   it('falls back safely when a remote asset fails and never mirrors in RTL', () => {

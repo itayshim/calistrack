@@ -537,7 +537,7 @@ export function AdminExerciseEditorPage() {
           <div className="flex flex-wrap items-center gap-5">
             <ExerciseVisual exercise={visualExercise} variant="admin" decorative={false} />
             <dl className="grid gap-1 text-sm">
-              <div><dt className="inline font-bold">{t('effectiveSource')}: </dt><dd className="inline">{visual.isFallback ? t('fallbackVisual') : t('uploadedVisual')}</dd></div>
+              <div><dt className="inline font-bold">{t('effectiveSource')}: </dt><dd className="inline">{visual.source === 'built-in' ? t('builtInVisual') : visual.source === 'uploaded' ? t('uploadedVisual') : t('fallbackVisual')}</dd></div>
               <div><dt className="inline font-bold">{t('format')}: </dt><dd className="inline">{visual.asset?.format.toUpperCase() ?? '—'}</dd></div>
               <div><dt className="inline font-bold">{t('fileSize')}: </dt><dd className="inline"><bdi>{visual.asset ? `${Math.ceil(visual.asset.fileSizeBytes / 1024)} KB` : '—'}</bdi></dd></div>
               <div><dt className="inline font-bold">{t('dimensions')}: </dt><dd className="inline"><bdi>{visual.asset?.viewBox ?? (visual.asset?.width && visual.asset.height ? `${visual.asset.width} × ${visual.asset.height}` : '—')}</bdi></dd></div>
@@ -548,7 +548,7 @@ export function AdminExerciseEditorPage() {
               {visual.isFallback ? t('uploadExerciseVisual') : t('replaceExerciseVisual')}
               <input className="sr-only" type="file" accept="image/svg+xml,image/webp,image/png" disabled={visualSaving || exerciseId === 'new'} onChange={(event) => void uploadVisual(event.target.files?.[0])} />
             </label>
-            {!visual.isFallback && <button type="button" className="btn-danger" disabled={visualSaving} onClick={() => void removeVisual()}>{t('removeExerciseVisual')}</button>}
+            {visual.source === 'uploaded' && <button type="button" className="btn-danger" disabled={visualSaving} onClick={() => void removeVisual()}>{t('removeExerciseVisual')}</button>}
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">{t('exerciseVisualLimits')}</p>
         </section>
