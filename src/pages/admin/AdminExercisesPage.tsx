@@ -4,6 +4,12 @@ import { useI18n } from '../../hooks/useI18n';
 import { getAdminSession, supabaseRequest } from '../../services/supabase';
 import { builtInExercises } from '../../data/exercises';
 import { Select } from '../../components/SelectMenu';
+import { isExerciseVisualRegistryReady, useExerciseVisualRegistry } from '../../services/exerciseVisuals';
+import {
+  matchesExerciseVisualStatus,
+  resolveAdminExerciseVisualSource,
+  type ExerciseVisualStatusFilter,
+} from '../../features/exercises/adminExerciseVisualStatus';
 
 interface AdminExercise {
   id: string;
@@ -26,7 +32,10 @@ export function AdminExercisesPage() {
   const [missing, setMissing] = useState('all');
   const [category, setCategory] = useState('all');
   const [difficulty, setDifficulty] = useState('all');
+  const [visualStatus, setVisualStatus] = useState<ExerciseVisualStatusFilter>('all');
   const [error, setError] = useState('');
+  const visualRevision = useExerciseVisualRegistry();
+  const visualMetadataReady = isExerciseVisualRegistryReady();
   useEffect(() => {
     const token = getAdminSession()?.accessToken;
     if (!token) return;
@@ -56,7 +65,17 @@ export function AdminExercisesPage() {
       })
       .catch(() => setError(t('unableToLoadExercises')));
   }, [t]);
-  const visible = useMemo(() => items.filter((item) => {
+  const classifiedItems = useMemo(() => items.map((item) => ({
+    item,
+    visualSource: resolveAdminExerciseVisualSource({ id: item.id, stableKey: item.stable_key }),
+  // The external-store revision deliberately invalidates effective resolver results.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  })), [items, visualRevision]);
+  const visualCounts = useMemo(() => classifiedItems.reduce((counts, { visualSource }) => {
+    counts[visualSource] += 1;
+    return counts;
+  }, { uploaded: 0, 'built-in': 0, fallback: 0 }), [classifiedItems]);
+  const visible = useMemo(() => classifiedItems.filter(({ item, visualSource }) => {
     const names = item.exercise_translations.map((translation) => translation.name).join(' ');
     const hasHe = item.exercise_translations.some((translation) => translation.locale === 'he' && translation.description && translation.instructions.length);
     const hasVideo = item.exercise_media.length > 0;
@@ -64,29 +83,48 @@ export function AdminExercisesPage() {
       && (status === 'all' || (status === 'published') === item.is_published)
       && (category === 'all' || item.category === category)
       && (difficulty === 'all' || item.difficulty === difficulty)
-      && (missing === 'all' || (missing === 'video' ? !hasVideo : !hasHe));
-  }), [category, difficulty, items, missing, query, status]);
+      && (missing === 'all' || (missing === 'video' ? !hasVideo : !hasHe))
+      && (!visualMetadataReady || matchesExerciseVisualStatus(visualSource, visualStatus));
+  }), [category, classifiedItems, difficulty, missing, query, status, visualMetadataReady, visualStatus]);
   return (
     <main className="mx-auto max-w-5xl">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div><p className="eyebrow">{t('exerciseManagement')}</p><h1 className="text-4xl font-black">{t('exercises')}</h1></div>
         <Link className="btn-primary" to="/admin/exercises/new">{t('newExercise')}</Link>
       </div>
-      <div className="my-5 grid gap-2 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="my-5 grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
         <input aria-label={t('searchSharedExercises')} className="field" placeholder={t('search')} value={query} onChange={(event) => setQuery(event.target.value)} />
         <Select label={t('published')} value={status} onChange={setStatus} options={[{ value: 'all', label: t('allPublicationStates') }, { value: 'published', label: t('publishedOnly') }, { value: 'draft', label: t('draftsOnly') }]} />
         <Select label={t('missingHebrew')} value={missing} onChange={setMissing} options={[{ value: 'all', label: t('allContent') }, { value: 'video', label: t('missingVideo') }, { value: 'hebrew', label: t('missingHebrew') }]} />
         <Select searchable searchLabel={t('search')} label={t('category')} value={category} onChange={setCategory} options={[{ value: 'all', label: t('allCategories') }, ...['push','pull','legs','core','mobility','skill'].map((value) => ({ value, label: value }))]} />
         <Select label={t('difficulty')} value={difficulty} onChange={setDifficulty} options={[{ value: 'all', label: t('allDifficulties') }, ...['beginner','intermediate','advanced'].map((value) => ({ value, label: value }))]} />
+        <Select
+          label={t('visualStatus')}
+          value={visualStatus}
+          disabled={!visualMetadataReady}
+          onChange={(value) => setVisualStatus(value as ExerciseVisualStatusFilter)}
+          options={[
+            { value: 'all', label: t('allVisuals') },
+            { value: 'has-visual', label: t('hasVisual') },
+            { value: 'missing-visual', label: t('missingVisual') },
+            { value: 'using-fallback', label: t('usingFallback') },
+          ]}
+        />
+      </div>
+      <div className="mb-5 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4" aria-label={t('visualCompletenessSummary')}>
+        <div className="card p-3"><span className="block text-slate-500">{t('totalExercises')}</span><strong>{items.length}</strong></div>
+        <div className="card p-3"><span className="block text-slate-500">{t('uploadedVisuals')}</span><strong>{visualMetadataReady ? visualCounts.uploaded : t('loading')}</strong></div>
+        <div className="card p-3"><span className="block text-slate-500">{t('builtInVisuals')}</span><strong>{visualMetadataReady ? visualCounts['built-in'] : t('loading')}</strong></div>
+        <div className="card p-3"><span className="block text-slate-500">{t('missingOrFallback')}</span><strong>{visualMetadataReady ? visualCounts.fallback : t('loading')}</strong></div>
       </div>
       {error && <p role="alert" className="text-red-400">{error}</p>}
       <div className="grid gap-3 sm:grid-cols-2">
-        {visible.map((item) => {
+        {visible.map(({ item, visualSource }) => {
           const en = item.exercise_translations.find((translation) => translation.locale === 'en');
           const he = item.exercise_translations.find((translation) => translation.locale === 'he');
           return <Link key={item.id} to={`/admin/exercises/${item.id}/edit`} className="card touch-manipulation">
             <div className="flex items-start justify-between"><div><h2 className="text-xl font-black" dir="auto">{en?.name ?? item.stable_key}</h2><p dir="auto" className="text-slate-400">{he?.name ?? t('missingHebrewName')}</p></div><span className="chip">{item.is_published ? t('published') : t('draft')}</span></div>
-            <div className="mt-4 flex flex-wrap gap-2 text-xs"><span className="chip">{item.source === 'built-in' ? t('builtIn') : t('global')}</span><span className="chip" dir="auto">{item.movement_family}</span><span className="chip">{item.difficulty}</span><span className="chip">{item.exercise_media.length ? t('hasMedia') : t('missingVideo')}</span><span className="chip">{he?.description ? t('hebrewComplete') : t('missingHebrew')}</span></div>
+            <div className="mt-4 flex flex-wrap gap-2 text-xs"><span className="chip">{item.source === 'built-in' ? t('builtIn') : t('global')}</span><span className="chip" dir="auto">{item.movement_family}</span><span className="chip">{item.difficulty}</span>{visualMetadataReady && <span className="chip" data-visual-source={visualSource}>{visualSource === 'uploaded' ? t('uploadedVisual') : visualSource === 'built-in' ? t('builtInVisual') : t('fallbackVisual')}</span>}<span className="chip">{item.exercise_media.length ? t('hasMedia') : t('missingVideo')}</span><span className="chip">{he?.description ? t('hebrewComplete') : t('missingHebrew')}</span></div>
             <div className="mt-4 flex items-center justify-between text-sm"><span className="text-slate-500">{item.updated_at ? new Date(item.updated_at).toLocaleDateString() : t('notEnrichedYet')}</span><strong className="text-brand">{t('edit')}</strong></div>
           </Link>;
         })}

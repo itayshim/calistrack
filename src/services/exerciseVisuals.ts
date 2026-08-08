@@ -25,6 +25,7 @@ const listeners = new Set<() => void>();
 let visuals = new Map<string, ExerciseVisualAsset>();
 const builtInVisuals = new Map(pilotExerciseVisuals.map((item) => [item.stableKey, item]));
 let revision = 0;
+let registryReady = false;
 const storageBase = () => {
   const base = String(import.meta.env.VITE_SUPABASE_URL ?? '').replace(/\/$/, '');
   return base ? `${base}/storage/v1/object/public/exercise-visuals/` : '/storage/v1/object/public/exercise-visuals/';
@@ -44,6 +45,7 @@ const toAsset = (row: VisualRow): ExerciseVisualAsset => ({
 
 export function installExerciseVisuals(items: ExerciseVisualAsset[]) {
   visuals = new Map(items.map((item) => [item.stableKey, item]));
+  registryReady = true;
   notify();
 }
 export function subscribeExerciseVisuals(listener: () => void) {
@@ -51,6 +53,7 @@ export function subscribeExerciseVisuals(listener: () => void) {
 }
 export const getExerciseVisualRevision = () => revision;
 export const useExerciseVisualRegistry = () => useSyncExternalStore(subscribeExerciseVisuals, getExerciseVisualRevision);
+export const isExerciseVisualRegistryReady = () => registryReady;
 
 export async function loadPublishedExerciseVisuals(): Promise<ExerciseVisualAsset[]> {
   if (!supabaseConfigured) return [];
@@ -205,4 +208,5 @@ async function deleteVisualObject(storagePath: string, accessToken: string) {
   });
 }
 
-export function clearExerciseVisualsForTests() { visuals.clear(); revision = 0; }
+export function clearExerciseVisualsForTests() { visuals.clear(); revision = 0; registryReady = true; }
+export function markExerciseVisualRegistryLoadingForTests() { visuals.clear(); registryReady = false; notify(); }
