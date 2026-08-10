@@ -42,6 +42,7 @@ import { ExerciseReplacementSheet } from '../components/ExerciseReplacementSheet
 import { timerCueService } from '../services/timerCue';
 import { getSkillDefinition } from '../features/skills/registry';
 import { ExerciseVisual } from '../components/ExerciseVisual';
+import { resolveLightweightExercise, usesInstructionalExerciseVisual } from '../features/workout/workoutItemSemantics';
 
 type WorkoutDrafts = Record<string, { reps: string; duration: string; addedWeight: string }>;
 const draftStorageKey = (sessionId: string) => `calistrack.active-workout-drafts.${sessionId}`;
@@ -209,6 +210,7 @@ export function WorkoutPage() {
   const i = active.currentExerciseIndex,
     sessionExercise = active.exercises[i],
     exercise = store.exercises.find((e) => e.id === sessionExercise.exerciseId),
+    instructionalExercise = usesInstructionalExerciseVisual({ workoutExercise: sessionExercise.target, exercise }),
     target = sessionExercise.target,
     done = sessionExercise.sets.filter((s) => s.completed).length,
     totalTarget = active.exercises.reduce((n, e) => n + (e.target?.targetSets ?? 0), 0),
@@ -426,7 +428,7 @@ export function WorkoutPage() {
         </div>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="flex items-center gap-4">
-            <ExerciseVisual exercise={exercise} variant="workout" />
+            {!instructionalExercise && <ExerciseVisual exercise={exercise} variant="workout" />}
             <h1 className="max-w-2xl text-[3rem] font-black leading-[.92] tracking-[-.06em] sm:text-6xl">
               {exercise ? getExerciseName(exercise, language) : t('exerciseUnavailable')}
             </h1>
@@ -461,6 +463,7 @@ export function WorkoutPage() {
             </>
           )}
         </p>
+        {instructionalExercise && exercise && <ExerciseVisual exercise={exercise} variant="instructional" hideFallback expandable className="mt-5" />}
         <div className="surface-subtle mt-6 rounded-2xl px-4 py-3">
           <div
             className="mb-3 grid grid-cols-2 rounded-xl bg-slate-200/70 p-1 dark:bg-black/20"
@@ -930,9 +933,7 @@ function SkillWarmupPhase({
   const warmup = active.skillWarmup!;
   const isCooldown = warmup.phase === 'cool_down';
   const item = warmup.items[warmup.currentIndex];
-  const exercise = item
-    ? store.exercises.find((candidate) => candidate.id === item.exerciseId)
-    : undefined;
+  const exercise = resolveLightweightExercise(store.exercises, item);
   const label = (en: string, he: string) => (language === 'he' ? he : en);
   const skill = getSkillDefinition(active.skillLink?.skillKey ?? '');
   if (warmup.status === 'pending')
@@ -1000,6 +1001,9 @@ function SkillWarmupPhase({
         <p className="mt-3 text-xl font-black text-brand">
           <bdi>{language === 'he' ? item.guidanceHe : item.guidanceEn}</bdi>
         </p>
+        {exercise && usesInstructionalExerciseVisual({ phase: warmup.phase ?? 'warm_up', exercise }) && (
+          <ExerciseVisual exercise={exercise} variant="instructional" hideFallback expandable className="mt-5" />
+        )}
         {exercise && <ExerciseDemonstrationButton exercise={exercise} className="mt-5" />}
         <div className="mt-7 grid gap-3">
           <button className="btn-primary min-h-16 text-lg" onClick={store.completeSkillWarmupItem}>

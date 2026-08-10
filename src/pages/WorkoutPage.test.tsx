@@ -11,6 +11,7 @@ import { restAlertService } from '../services/restAlert';
 import { timerCueService } from '../services/timerCue';
 import { createFrontLeverWorkout } from '../features/skills/frontLever';
 import { AppLayout } from '../layouts/AppLayout';
+import { clearExerciseVisualsForTests, installExerciseVisuals } from '../services/exerciseVisuals';
 
 const active = (exerciseId: string, measurementType: MeasurementType): WorkoutSession => ({
   id: 'active',
@@ -116,6 +117,22 @@ function renderWorkoutShell(
   );
 }
 
+function renderPreparation(stableKey: string, language: 'en' | 'he' = 'en') {
+  const initial = createInitialData();
+  const exercise = initial.exercises.find((item) => item.stableKey === stableKey);
+  if (!exercise) throw new Error(`Missing test exercise: ${stableKey}`);
+  const session = active('builtin-pull-up', 'reps');
+  session.skillWarmup = {
+    status: 'in-progress',
+    currentIndex: 0,
+    phase: 'warm_up',
+    items: [{ exerciseId: exercise.id, stableKey, guidanceEn: '20 reps', guidanceHe: '20 חזרות' }],
+  };
+  useAppStore.setState({ ...initial, settings: { ...initial.settings, language }, activeWorkout: session, hydrated: true });
+  document.documentElement.dir = language === 'he' ? 'rtl' : 'ltr';
+  return render(<MemoryRouter><I18nProvider><WorkoutPage /></I18nProvider></MemoryRouter>);
+}
+
 describe('active workout previous performance and replacement UX', () => {
   afterEach(() => {
     cleanup();
@@ -125,6 +142,7 @@ describe('active workout previous performance and replacement UX', () => {
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();
+    clearExerciseVisualsForTests();
   });
 
   it('shows matching previous repetitions and copies without completing', async () => {
@@ -547,6 +565,52 @@ describe('active workout previous performance and replacement UX', () => {
     await user.click(screen.getByRole('button', { name: 'Done' }));
     expect(useAppStore.getState().restTimer.endsAt).toBeNull();
     expect(useAppStore.getState().activeWorkout?.exercises[0].sets).toHaveLength(0);
+  });
+
+  it('renders an uploaded preparation visual with the instructional contain layout and expanded viewer', async () => {
+    installExerciseVisuals([{ stableKey: 'jumping-jacks', src: '/jumping-jacks.svg', mimeType: 'image/svg+xml', format: 'svg', fileSizeBytes: 120 }]);
+    const user = userEvent.setup();
+    renderPreparation('jumping-jacks');
+    const visual = document.querySelector('[data-visual-variant="instructional"]');
+    expect(visual).toHaveAttribute('data-visual-source', 'uploaded');
+    const image = visual?.querySelector('img');
+    expect(image).toHaveAttribute('src', '/jumping-jacks.svg');
+    expect(image).toHaveClass('object-contain', 'max-h-[min(46dvh,32rem)]');
+    expect(screen.getByRole('button', { name: 'How to perform it' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Enlarge exercise visual: Jumping Jacks' }));
+    expect(screen.getByRole('dialog', { name: 'Exercise Visual: Jumping Jacks' })).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog', { name: 'Exercise Visual: Jumping Jacks' })).not.toBeInTheDocument();
+  });
+
+  it('resolves a built-in preparation visual and lets an uploaded visual override it', () => {
+    const first = renderPreparation('push-up');
+    expect(document.querySelector('[data-visual-variant="instructional"]')).toHaveAttribute('data-visual-source', 'built-in');
+    first.unmount();
+    installExerciseVisuals([{ stableKey: 'push-up', src: '/custom-push-up.svg', mimeType: 'image/svg+xml', format: 'svg', fileSizeBytes: 90 }]);
+    renderPreparation('push-up');
+    expect(document.querySelector('[data-visual-variant="instructional"]')).toHaveAttribute('data-visual-source', 'uploaded');
+  });
+
+  it('collapses the preparation visual area when no effective visual exists', () => {
+    renderPreparation('wrist-rolls');
+    expect(document.querySelector('[data-visual-variant="instructional"]')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Done' })).toBeInTheDocument();
+  });
+
+  it('keeps the compact workout visual treatment for a normal strength item', () => {
+    renderWorkout('builtin-pull-up', 'reps');
+    expect(document.querySelector('[data-visual-variant="workout"]')).toBeInTheDocument();
+    expect(document.querySelector('[data-visual-variant="instructional"]')).toBeNull();
+  });
+
+  it('renders preparation visuals in Hebrew RTL without requesting per-item metadata', () => {
+    installExerciseVisuals([{ stableKey: 'jumping-jacks', src: '/jumping-jacks.svg', mimeType: 'image/svg+xml', format: 'svg', fileSizeBytes: 120 }]);
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    renderPreparation('jumping-jacks', 'he');
+    expect(document.documentElement).toHaveAttribute('dir', 'rtl');
+    expect(document.querySelector('[data-visual-source="uploaded"]')).toBeInTheDocument();
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it('skips the whole warm-up into the official first work exercise', async () => {
