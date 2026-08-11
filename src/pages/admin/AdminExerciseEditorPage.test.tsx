@@ -14,6 +14,7 @@ const api = vi.hoisted(() => ({
 }));
 
 vi.mock('../../services/supabase', () => ({
+  supabaseConfigured: true,
   getAdminSession: () => ({ accessToken: 'token', userId: 'admin-1' }),
   supabaseRequest: api.request,
   uploadExerciseMedia: api.upload,
@@ -137,6 +138,36 @@ describe('administrator exercise media lifecycle', () => {
     expect(screen.getByRole('link', { name: 'Back to exercises' })).toHaveAttribute(
       'href',
       '/admin/exercises',
+    );
+  });
+
+  it('marks a merged source read-only and prevents republishing it', async () => {
+    api.request.mockImplementation((path: string) => {
+      if (path.includes('exercise_merge_redirects')) return Promise.resolve([{
+        id: 'redirect-1', source_exercise_id: 'exercise-1', source_stable_key: 'push-up', source_runtime_id: 'builtin-push-up',
+        target_exercise_id: 'target-id', target_stable_key: 'canonical-push-up', target_runtime_id: 'builtin-canonical-push-up',
+        audit_id: 'audit-1', status: 'active',
+      }]);
+      if (path.includes('global_exercises')) return Promise.resolve([{ ...exerciseRow, is_published: false }]);
+      return Promise.resolve([]);
+    });
+    render(
+      <MemoryRouter initialEntries={['/admin/exercises/exercise-1/edit']}>
+        <I18nProvider><Routes><Route path="/admin/exercises/:exerciseId/edit" element={<AdminExerciseEditorPage />} /></Routes></I18nProvider>
+      </MemoryRouter>,
+    );
+    await ready();
+    expect(await screen.findByText('Merged exercise')).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: 'Published' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Merged · Read-only' })).toBeDisabled();
+    expect(screen.getByRole('link', { name: /View canonical target/ })).toHaveAttribute(
+      'href',
+      '/admin/exercises/target-id/edit',
+    );
+    expect(api.request).not.toHaveBeenCalledWith(
+      expect.stringContaining('on_conflict=stable_key'),
+      expect.objectContaining({ method: 'POST' }),
+      expect.anything(),
     );
   });
 

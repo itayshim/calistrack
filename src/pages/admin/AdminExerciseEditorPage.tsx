@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { deleteExerciseMediaFile, getAdminSession, supabaseRequest, uploadExerciseMedia } from '../../services/supabase';
 import type { Exercise, ExerciseMedia } from '../../types';
 import { parseYouTubeVideoId, youtubeEmbedUrl } from '../../utils/youtube';
@@ -33,6 +33,12 @@ import {
 import { ensureBuiltInExerciseIdentity } from '../../services/adminExerciseIdentity';
 import { ExerciseVisual } from '../../components/ExerciseVisual';
 import { getExerciseVisual, removeExerciseVisual, saveExerciseVisual, useExerciseVisualRegistry } from '../../services/exerciseVisuals';
+import {
+  findActiveExerciseMergeRedirect,
+  installExerciseMergeRedirects,
+  loadExerciseMergeRedirects,
+  type ExerciseMergeRedirect,
+} from '../../services/exerciseMerges';
 
 const empty = {
   id: '',
@@ -75,6 +81,7 @@ export function AdminExerciseEditorPage() {
   const [pendingPrimary, setPendingPrimary] = useState<ExerciseMedia | null>(null);
   const [highlightedMediaId, setHighlightedMediaId] = useState('');
   const [visualSaving, setVisualSaving] = useState(false);
+  const [mergeRedirect, setMergeRedirect] = useState<ExerciseMergeRedirect>();
   useExerciseVisualRegistry();
   const token = getAdminSession()?.accessToken;
   const dirty = JSON.stringify(form) !== baseline || Boolean(youtube || externalUrl);
@@ -114,12 +121,20 @@ export function AdminExerciseEditorPage() {
       }));
       return;
     }
-    supabaseRequest<Array<Record<string, unknown>>>(
-      `/rest/v1/global_exercises?id=eq.${exerciseId}&select=*,exercise_translations(*),exercise_media(*)`,
-      {},
-      token,
-    ).then(([row]) => {
+    Promise.all([
+      supabaseRequest<Array<Record<string, unknown>>>(
+        `/rest/v1/global_exercises?id=eq.${exerciseId}&select=*,exercise_translations(*),exercise_media(*)`,
+        {},
+        token,
+      ),
+      loadExerciseMergeRedirects(),
+    ]).then(([[row], redirects]) => {
       if (!row) return;
+      installExerciseMergeRedirects(redirects);
+      setMergeRedirect(findActiveExerciseMergeRedirect([
+        String(row.id),
+        String(row.stable_key),
+      ]));
       const translations = row.exercise_translations as Array<Record<string, unknown>>;
       const en = translations.find((item) => item.locale === 'en');
       const he = translations.find((item) => item.locale === 'he');
@@ -169,6 +184,10 @@ export function AdminExerciseEditorPage() {
     return created;
   };
   const save = async () => {
+    if (mergeRedirect) {
+      setError(t('mergedExerciseReadOnly'));
+      return;
+    }
     const stableKey = normalizeStableKey(form.stable_key);
     const validDifficulty = ['beginner', 'intermediate', 'advanced'].includes(form.difficulty);
     const validMeasurement = ['reps', 'duration', 'weighted_reps'].includes(form.measurement_type);
@@ -586,7 +605,8 @@ export function AdminExerciseEditorPage() {
         </section>
       </div>
       {error && <p role="alert" className="mt-4 text-red-400">{error}</p>}
-      <div className="mt-5 flex items-center justify-between"><label className="flex min-h-12 items-center gap-3"><input type="checkbox" checked={form.is_published} onChange={(event) => set('is_published', event.target.checked)} />{t('published')}</label><button className="btn-primary" disabled={saving} onClick={save}>{saving ? t('saving') : t('saveExercise')}</button></div>
+      {mergeRedirect && <section className="mt-5 rounded-2xl border border-amber-400/40 bg-amber-400/10 p-4" role="status"><strong>{t('mergedExercise')}</strong><p className="mt-1 text-sm">{t('mergedExerciseReadOnly')}</p><Link className="mt-3 inline-flex font-bold text-brand" to={`/admin/exercises/${mergeRedirect.targetExerciseId}/edit`}>{t('viewCanonicalTarget')} · <bdi>{mergeRedirect.targetStableKey}</bdi></Link></section>}
+      <div className="mt-5 flex items-center justify-between"><label className="flex min-h-12 items-center gap-3"><input type="checkbox" checked={form.is_published} disabled={Boolean(mergeRedirect)} onChange={(event) => set('is_published', event.target.checked)} />{t('published')}</label><button className="btn-primary" disabled={saving || Boolean(mergeRedirect)} onClick={save}>{saving ? t('saving') : mergeRedirect ? t('mergedReadOnly') : t('saveExercise')}</button></div>
       {unsaved.dialog}
       <ConfirmDialog open={pendingPrimary !== null} title={t('replacePrimaryVideo')} description={t('replacePrimaryDescription')} confirmLabel={t('replace')} onClose={() => setPendingPrimary(null)} onConfirm={() => { if (pendingPrimary) void updateMedia(pendingPrimary, { isPrimary: true }); setPendingPrimary(null); }} />
     </main>

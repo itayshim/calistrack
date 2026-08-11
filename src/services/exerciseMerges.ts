@@ -93,6 +93,21 @@ export const subscribeExerciseMergeRedirects = (listener: () => void) => {
 };
 export const getExerciseMergeRevision = () => revision;
 
+export function getActiveExerciseMergeRedirect(reference: string): ExerciseMergeRedirect | undefined {
+  return redirectsByIdentity.get(reference);
+}
+
+export function findActiveExerciseMergeRedirect(
+  references: Array<string | undefined>,
+): ExerciseMergeRedirect | undefined {
+  for (const reference of references) {
+    if (!reference) continue;
+    const redirect = getActiveExerciseMergeRedirect(reference);
+    if (redirect) return redirect;
+  }
+  return undefined;
+}
+
 export function resolveMergedExerciseIdentity(reference: string): string {
   let current = reference;
   const visited = new Set<string>();

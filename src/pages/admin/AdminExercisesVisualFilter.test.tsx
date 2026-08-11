@@ -61,7 +61,9 @@ describe('Admin exercise visual completeness filter', () => {
     useAppStore.setState({ ...createInitialData(), hydrated: true });
     clearExerciseVisualsForTests();
     installExerciseVisuals([{ stableKey: 'test-uploaded', src: '/uploaded.svg', mimeType: 'image/svg+xml', format: 'svg', fileSizeBytes: 100 }]);
-    vi.mocked(supabaseRequest).mockReset().mockResolvedValue([uploadedExercise]);
+    vi.mocked(supabaseRequest).mockReset().mockImplementation((path) =>
+      Promise.resolve(path.includes('exercise_merge_redirects') ? [] : [uploadedExercise]),
+    );
   });
   afterEach(cleanup);
 
@@ -106,7 +108,9 @@ describe('Admin exercise visual completeness filter', () => {
     await user.click(screen.getByRole('option', { name: 'pull' }));
     expect(screen.getByText('Uploaded Row')).toBeInTheDocument();
     expect(screen.queryByText('Push-Up')).not.toBeInTheDocument();
-    expect(supabaseRequest).toHaveBeenCalledTimes(1);
+    expect(supabaseRequest).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(supabaseRequest).mock.calls.filter(([path]) => String(path).includes('exercise_merge_redirects'))).toHaveLength(1);
+    expect(vi.mocked(supabaseRequest).mock.calls.filter(([path]) => String(path).includes('global_exercises'))).toHaveLength(1);
   });
 
   it('does not classify rows as missing while remote visual metadata is loading', async () => {
