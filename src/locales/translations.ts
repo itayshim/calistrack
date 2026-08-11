@@ -716,6 +716,8 @@ const en = {
   mergeNoChangesPreview: 'Preview makes no changes.',
   references: 'References',
   mediaItems: 'Media items',
+  selectedAsSource: 'Selected as source',
+  selectedAsTarget: 'Selected as target',
 } as const;
 
 const he: Record<keyof typeof en, string> = {
@@ -1417,6 +1419,8 @@ const he: Record<keyof typeof en, string> = {
   mergeNoChangesPreview: 'התצוגה המקדימה אינה מבצעת שינויים.',
   references: 'הפניות',
   mediaItems: 'פריטי מדיה',
+  selectedAsSource: 'נבחר כמקור',
+  selectedAsTarget: 'נבחר כיעד',
 };
 
 export const translations = { en, he };

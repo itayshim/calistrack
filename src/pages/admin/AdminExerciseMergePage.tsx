@@ -1,5 +1,5 @@
 import { AlertTriangle, ArrowRight, CheckCircle2, GitMerge, ShieldAlert } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useI18n } from '../../hooks/useI18n';
 import { resolveAdminExerciseVisualSource } from '../../features/exercises/adminExerciseVisualStatus';
 import {
@@ -9,6 +9,8 @@ import {
 } from '../../services/exerciseMerges';
 import { getAdminSession, supabaseRequest } from '../../services/supabase';
 import { useAppStore } from '../../store/useAppStore';
+import { Select, type SelectOption } from '../../components/SelectMenu';
+import { normalizeSearchText } from '../../utils/exerciseSearch';
 
 interface AdminExerciseRow {
   id: string;
@@ -21,7 +23,7 @@ interface AdminExerciseRow {
   aliases: string[];
   keywords: string[];
   is_published: boolean;
-  exercise_translations: Array<{ locale: 'en' | 'he'; name: string; description?: string; instructions: string[] }>;
+  exercise_translations: Array<{ locale: 'en' | 'he'; name: string; description?: string; instructions: string[]; aliases?: string[]; keywords?: string[] }>;
   exercise_media: Array<{ id: string; title?: string; provider: string; youtube_video_id?: string; is_primary: boolean; is_published: boolean }>;
 }
 interface MergeAuditRow {
@@ -83,6 +85,34 @@ export function AdminExerciseMergePage() {
   }, [t]);
   const source = useMemo(() => items.find((item) => item.id === sourceId), [items, sourceId]);
   const target = useMemo(() => items.find((item) => item.id === targetId), [items, targetId]);
+  const exerciseById = useMemo(() => new Map(items.map((item) => [item.id, item])), [items]);
+  const baseOptions = useMemo<SelectOption[]>(() => items.map((item) => ({
+    value: item.id,
+    label: `${name(item, 'en')} · ${item.stable_key}`,
+    description: `${name(item, 'he')} · ${item.movement_family} · ${item.difficulty}`,
+  })), [items]);
+  const searchOptions = useCallback((options: SelectOption[], query: string) => {
+    const needle = normalizeSearchText(query);
+    if (!needle) return options;
+    return options.filter((option) => {
+      const item = exerciseById.get(option.value);
+      if (!item) return false;
+      const translations = item.exercise_translations.flatMap((entry) => [entry.name, entry.description ?? '', ...(entry.aliases ?? []), ...(entry.keywords ?? [])]);
+      return [item.stable_key, ...translations, ...item.aliases, ...item.keywords]
+        .map(normalizeSearchText)
+        .some((value) => value.includes(needle));
+    });
+  }, [exerciseById]);
+  const sourceOptions = useMemo(() => baseOptions.map((option) => option.value === targetId ? {
+    ...option, disabled: true,
+    description: `${option.description} · ${t('selectedAsTarget')}`,
+  } : option), [baseOptions, t, targetId]);
+  const targetOptions = useMemo(() => baseOptions.map((option) => option.value === sourceId ? {
+    ...option, disabled: true,
+    description: `${option.description} · ${t('selectedAsSource')}`,
+  } : option), [baseOptions, sourceId, t]);
+  const changeSource = (value: string) => { setSourceId(value); setPreview(null); setConfirmation(''); };
+  const changeTarget = (value: string) => { setTargetId(value); setPreview(null); setConfirmation(''); };
   const runPreview = async () => {
     if (!sourceId || !targetId) return;
     setBusy(true); setError(''); setPreview(null); setConfirmation('');
@@ -101,16 +131,15 @@ export function AdminExerciseMergePage() {
     } catch { setError(t('mergeFailed')); }
     finally { setBusy(false); }
   };
-  const options = items.map((item) => <option key={item.id} value={item.id}>{name(item, language)} · {item.stable_key}</option>);
   return <main className="mx-auto max-w-5xl pb-16">
     <div className="flex flex-wrap items-end justify-between gap-3">
       <div><p className="eyebrow">{t('exerciseManagement')}</p><h1 className="text-4xl font-black">{t('mergeExercises')}</h1><p className="mt-2 max-w-2xl text-slate-500">{t('mergeExercisesDescription')}</p></div>
       <span className="chip">{audits.length} {t('references')}</span>
     </div>
     <div className="mt-6 grid gap-4 md:grid-cols-[1fr_auto_1fr] md:items-end">
-      <label className="font-bold">{t('sourceExercise')}<select className="field mt-2" value={sourceId} onChange={(event) => { setSourceId(event.target.value); setPreview(null); }}><option value="">—</option>{options}</select></label>
+      <Select searchable searchLabel={`${t('search')} · ${t('sourceExercise')}`} label={t('sourceExercise')} value={sourceId} options={sourceOptions} onChange={changeSource} placeholder={t('sourceExercise')} filterOptions={searchOptions} testId="source-exercise-picker" />
       <ArrowRight className="directional-icon mx-auto hidden text-slate-400 md:block" aria-hidden="true" />
-      <label className="font-bold">{t('targetExercise')}<select className="field mt-2" value={targetId} onChange={(event) => { setTargetId(event.target.value); setPreview(null); }}><option value="">—</option>{options}</select></label>
+      <Select searchable searchLabel={`${t('search')} · ${t('targetExercise')}`} label={t('targetExercise')} value={targetId} options={targetOptions} onChange={changeTarget} placeholder={t('targetExercise')} filterOptions={searchOptions} testId="target-exercise-picker" />
     </div>
     <div className="mt-5 grid gap-4 md:grid-cols-2"><ComparisonCard item={source} label={t('sourceExercise')} language={language} /><ComparisonCard item={target} label={t('targetExercise')} language={language} /></div>
     <button className="btn-primary mt-5" disabled={busy || !sourceId || !targetId} onClick={() => void runPreview()}><GitMerge aria-hidden="true" size={18} />{busy ? t('loading') : t('previewMerge')}</button>

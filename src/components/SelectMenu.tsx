@@ -281,7 +281,7 @@ export function Select({
                 onPointerMove={() => setActiveIndex(index)}
                 onClick={() => choose(option)}
               >
-                <span className="min-w-0"><span dir="auto" className="block truncate">{option.label}</span>{option.description && <span className="block truncate text-xs text-slate-500">{option.description}</span>}</span>
+                <span className="min-w-0"><span dir="auto" className="block truncate">{option.label}</span>{option.description && <span dir="auto" className="block truncate text-xs text-slate-500">{option.description}</span>}</span>
                 {option.value === value && <Check size={18} aria-hidden="true" className="shrink-0" />}
               </button>
             ))}
