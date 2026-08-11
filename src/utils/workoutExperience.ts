@@ -7,6 +7,7 @@ import type {
   WorkoutSetInput,
 } from '../types';
 import { getSetAddedWeight, getSetDuration, getSetReps, isValidSetInput } from './performance';
+import { areCanonicalExerciseIdentitiesEqual } from '../services/exerciseMerges';
 
 export interface PreviousPerformance {
   completedAt: string;
@@ -46,12 +47,12 @@ export function getPreviousPerformance(
     .find((session) =>
       session.exercises.some(
         (exercise) =>
-          exercise.exerciseId === exerciseId && exercise.sets.some((set) => set.completed),
+          areCanonicalExerciseIdentitiesEqual(exercise.exerciseId, exerciseId) && exercise.sets.some((set) => set.completed),
       ),
     );
   if (!match) return null;
   const exercise = match.exercises.find(
-    (item) => item.exerciseId === exerciseId && item.sets.some((set) => set.completed),
+    (item) => areCanonicalExerciseIdentitiesEqual(item.exerciseId, exerciseId) && item.sets.some((set) => set.completed),
   );
   return exercise
     ? {
@@ -78,7 +79,7 @@ export function getBestPerformanceSet(
     )
     .flatMap((session) =>
       session.exercises
-        .filter((exercise) => exercise.exerciseId === exerciseId && !exercise.skipped)
+        .filter((exercise) => areCanonicalExerciseIdentitiesEqual(exercise.exerciseId, exerciseId) && !exercise.skipped)
         .flatMap((exercise) => exercise.sets.filter((set) => set.completed)),
     );
   return sets.sort((a, b) => comparePerformance(b, a, measurementType))[0] ?? null;

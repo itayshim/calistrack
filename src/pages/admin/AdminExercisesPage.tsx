@@ -90,7 +90,7 @@ export function AdminExercisesPage() {
     <main className="mx-auto max-w-5xl">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div><p className="eyebrow">{t('exerciseManagement')}</p><h1 className="text-4xl font-black">{t('exercises')}</h1></div>
-        <Link className="btn-primary" to="/admin/exercises/new">{t('newExercise')}</Link>
+        <div className="flex flex-wrap gap-2"><Link className="btn-secondary" to="/admin/exercises/merge">{t('mergeExercises')}</Link><Link className="btn-primary" to="/admin/exercises/new">{t('newExercise')}</Link></div>
       </div>
       <div className="my-5 grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
         <input aria-label={t('searchSharedExercises')} className="field" placeholder={t('search')} value={query} onChange={(event) => setQuery(event.target.value)} />

@@ -5,12 +5,13 @@ import { findExerciseByReference } from '../utils/exerciseLocalization';
 import { normalizeMeasurementType } from '../utils/performance';
 import { normalizeRestSoundId } from './restSounds';
 import { createFrontLeverWorkout, FRONT_LEVER_TEMPLATE_VERSION } from '../features/skills/frontLever';
+import { applyExerciseMergeRedirects, EXERCISE_MERGE_CLIENT_SCHEMA_VERSION } from './exerciseMerges';
 export const STORAGE_KEY = 'calistrack.app.v1';
 const valid = (v: unknown): v is AppData => {
   if (!v || typeof v !== 'object') return false;
   const d = v as Partial<AppData>;
   return (
-    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].includes(d.schemaVersion ?? 0) &&
+    Array.from({ length: EXERCISE_MERGE_CLIENT_SCHEMA_VERSION }, (_, index) => index + 1).includes(d.schemaVersion ?? 0) &&
     Array.isArray(d.exercises) &&
     Array.isArray(d.programs) &&
     Array.isArray(d.workoutSessions) &&
@@ -140,9 +141,9 @@ export function migrateAppData(data: AppData): AppData {
       return { ...workout, exercises: [...retained, ...generated.exercises.map((item, index) => ({ ...item, order: retained.length + index }))], skillWarmup: undefined, skillLink: { ...workout.skillLink, templateVersion: FRONT_LEVER_TEMPLATE_VERSION } };
     }),
   }));
-  return {
+  return applyExerciseMergeRedirects({
     ...data,
-    schemaVersion: 13,
+    schemaVersion: EXERCISE_MERGE_CLIENT_SCHEMA_VERSION,
     skillProgress: data.skillProgress ?? {},
     managedProgramEnrollments: data.managedProgramEnrollments ?? [],
     settings: {
@@ -205,6 +206,6 @@ export function migrateAppData(data: AppData): AppData {
     activeWorkout: data.activeWorkout
       ? migrateSession(data.activeWorkout)
       : null,
-  } as AppData;
+  } as AppData);
 }
 export const storageService = new LocalStorageService();

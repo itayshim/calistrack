@@ -15,6 +15,7 @@ import { installManagedSkillRecords, skillRegistry, validateRegisteredSkill } fr
 import { loadPublishedSkillDefinitions } from './services/skillDefinitions';
 import { installManagedPrograms, loadPublishedManagedPrograms } from './services/managedPrograms';
 import { loadBuiltInContentStates } from './services/builtinContentAvailability';
+import { installExerciseMergeRedirects, loadExerciseMergeRedirects } from './services/exerciseMerges';
 const notificationClientId = crypto.randomUUID();
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((module) => ({ default: module.DashboardPage })));
 const ExerciseDetailPage = lazy(() => import('./pages/ExerciseDetailPage').then((module) => ({ default: module.ExerciseDetailPage })));
@@ -36,6 +37,7 @@ const AdminLayout = lazy(() => import('./pages/admin/AdminLayout').then((module)
 const AdminDashboardPage = lazy(() => import('./pages/admin/AdminDashboardPage').then((module) => ({ default: module.AdminDashboardPage })));
 const AdminExercisesPage = lazy(() => import('./pages/admin/AdminExercisesPage').then((module) => ({ default: module.AdminExercisesPage })));
 const AdminExerciseEditorPage = lazy(() => import('./pages/admin/AdminExerciseEditorPage').then((module) => ({ default: module.AdminExerciseEditorPage })));
+const AdminExerciseMergePage = lazy(() => import('./pages/admin/AdminExerciseMergePage').then((module) => ({ default: module.AdminExerciseMergePage })));
 const AdminSkillQaPage = lazy(() => import('./pages/admin/AdminSkillQaPage').then((module) => ({ default: module.AdminSkillQaPage })));
 const AdminSkillBuilderListPage = lazy(() => import('./pages/admin/AdminSkillBuilderPage').then((module) => ({ default: module.AdminSkillBuilderListPage })));
 const AdminSkillEditorPage = lazy(() => import('./pages/admin/AdminSkillBuilderPage').then((module) => ({ default: module.AdminSkillEditorPage })));
@@ -192,7 +194,11 @@ export default function App() {
       loadPublishedManagedPrograms(),
       loadBuiltInContentStates('managed_program').catch(() => []),
     ]).then(([records, states]) => installManagedPrograms(records, states));
-    loadGlobalContent(useAppStore.getState().exercises).then(({ exercises, stale }) => {
+    void loadExerciseMergeRedirects().then((redirects) => {
+      installExerciseMergeRedirects(redirects);
+      useAppStore.getState().applyExerciseMergeRedirects();
+      return loadGlobalContent(useAppStore.getState().exercises);
+    }).then(({ exercises, stale }) => {
       if (import.meta.env.DEV) {
         skillRegistry.forEach((skill) => {
           const validation = validateRegisteredSkill(skill.key, exercises);
@@ -217,6 +223,7 @@ export default function App() {
             <Route path="exercises" element={<AdminExercisesPage />} />
             <Route path="exercises/new" element={<AdminExerciseEditorPage />} />
             <Route path="exercises/:exerciseId/edit" element={<AdminExerciseEditorPage />} />
+            <Route path="exercises/merge" element={<AdminExerciseMergePage />} />
             <Route path="media" element={<Navigate to="/admin/exercises" replace />} />
             <Route path="skills" element={<AdminSkillBuilderListPage />} />
             <Route path="skills/new" element={<AdminSkillEditorPage />} />

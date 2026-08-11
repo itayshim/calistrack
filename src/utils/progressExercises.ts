@@ -1,5 +1,6 @@
 import type { Exercise, MeasurementType, WorkoutSession } from '../types';
 import { findExerciseByReference } from './exerciseLocalization';
+import { canonicalExerciseIdentity } from '../services/exerciseMerges';
 import {
   getSetAddedWeight,
   getSetDuration,
@@ -19,8 +20,7 @@ export interface ProgressExerciseSummary {
   measurementType: MeasurementType;
 }
 
-const canonicalKey = (exercise: Exercise) =>
-  exercise.stableKey ?? exercise.canonicalExerciseId ?? exercise.id;
+const canonicalKey = canonicalExerciseIdentity;
 
 export function uniqueCanonicalExercises(exercises: Exercise[]): Exercise[] {
   const unique = new Map<string, Exercise>();

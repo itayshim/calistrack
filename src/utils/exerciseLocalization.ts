@@ -1,4 +1,5 @@
 import type { Exercise } from '../types';
+import { resolveMergedExerciseIdentity } from '../services/exerciseMerges';
 
 export type AppLanguage = 'en' | 'he';
 
@@ -14,11 +15,12 @@ export function findExerciseByReference(
   reference: string | undefined,
 ): Exercise | undefined {
   if (!reference) return undefined;
+  const canonicalReference = resolveMergedExerciseIdentity(reference);
   const direct = exercises.find(
     (exercise) =>
-      exercise.id === reference ||
-      exercise.stableKey === reference ||
-      exercise.canonicalExerciseId === reference,
+      [exercise.id, exercise.stableKey, exercise.canonicalExerciseId]
+        .filter((value): value is string => Boolean(value))
+        .some((value) => resolveMergedExerciseIdentity(value) === canonicalReference),
   );
   if (direct) return direct;
 

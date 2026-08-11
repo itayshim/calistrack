@@ -1,5 +1,6 @@
 import { builtInExercises, findBuiltIn } from './exercises';
 import type { AppData, Program, WorkoutExercise, WorkoutTemplate } from '../types';
+import { EXERCISE_MERGE_CLIENT_SCHEMA_VERSION } from '../services/exerciseMerges';
 const now = new Date().toISOString();
 const config = (name: string, order: number): WorkoutExercise => {
   const e = findBuiltIn(name);
@@ -58,7 +59,7 @@ export const beginnerProgram: Program = {
   ],
 };
 export const createInitialData = (): AppData => ({
-  schemaVersion: 13,
+  schemaVersion: EXERCISE_MERGE_CLIENT_SCHEMA_VERSION,
   exercises: builtInExercises,
   programs: [],
   activeProgramId: null,

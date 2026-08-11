@@ -131,6 +131,8 @@ export interface WorkoutSet {
 export interface ExerciseSession {
   id: string;
   exerciseId: string;
+  /** Original identity retained when a canonical merge redirect migrates this session. */
+  mergedFromExerciseId?: string;
   workoutExerciseId?: string;
   target?: WorkoutExercise;
   sets: WorkoutSet[];

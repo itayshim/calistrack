@@ -27,6 +27,7 @@ import {
 import { evaluateSkillSession } from '../features/skills/skillEngine';
 import { getDefaultSkillProgress, getNextSkillLevel } from '../features/skills/registry';
 import { getResolvedManagedProgram } from '../services/managedPrograms';
+import { applyExerciseMergeRedirects } from '../services/exerciseMerges';
 interface Store extends AppData {
   hydrated: boolean;
   toast: string | null;
@@ -34,6 +35,7 @@ interface Store extends AppData {
   persist: () => void;
   setToast: (v: string | null) => void;
   setSharedExercises: (exercises: Exercise[]) => void;
+  applyExerciseMergeRedirects: () => void;
   addExercise: (e: Exercise) => void;
   updateExercise: (e: Exercise) => void;
   deleteExercise: (id: string) => void;
@@ -119,6 +121,10 @@ export const useAppStore = create<Store>((set, get) => ({
     }),
   setToast: (v) => set({ toast: v }),
   setSharedExercises: (exercises) => set({ exercises }),
+  applyExerciseMergeRedirects: () => {
+    set(applyExerciseMergeRedirects(get()));
+    get().persist();
+  },
   addExercise: (e) => {
     set((s) => ({ exercises: [...s.exercises, e] }));
     get().persist();

@@ -2,6 +2,7 @@ import { builtInExercises } from '../data/exercises';
 import type { Exercise, ExerciseMedia } from '../types';
 import { supabaseConfigured, supabaseRequest } from './supabase';
 import { normalizeMeasurementType } from '../utils/performance';
+import { canonicalExerciseIdentity } from './exerciseMerges';
 
 const CACHE_KEY = 'calistrack.global-content.v1';
 
@@ -91,7 +92,9 @@ function toExercise(row: GlobalRow): Exercise {
 export function mergeExerciseSources(global: Exercise[], local: Exercise[]): Exercise[] {
   const personal = local.filter((exercise) => exercise.isCustom);
   const merged = new Map(builtInExercises.map((exercise) => [exercise.stableKey ?? exercise.id, exercise]));
-  global.forEach((exercise) => merged.set(exercise.stableKey ?? exercise.id, exercise));
+  global
+    .filter((exercise) => canonicalExerciseIdentity(exercise) === (exercise.stableKey ?? exercise.id))
+    .forEach((exercise) => merged.set(exercise.stableKey ?? exercise.id, exercise));
   return [...merged.values(), ...personal.map((exercise) => ({ ...exercise, source: 'personal' as const }))];
 }
 

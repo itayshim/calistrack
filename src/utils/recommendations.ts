@@ -1,5 +1,6 @@
 import type { WorkoutSession } from '../types';
 import { getSetReps } from './performance';
+import { areCanonicalExerciseIdentitiesEqual } from '../services/exerciseMerges';
 export interface Recommendation {
   kind: 'progress' | 'regress';
   message: string;
@@ -13,12 +14,12 @@ export const getRecommendation = (
   targetSets: number,
 ): Recommendation | null => {
   const recent = sessions
-    .filter((s) => s.status === 'completed' && s.exercises.some((e) => e.exerciseId === exerciseId))
+    .filter((s) => s.status === 'completed' && s.exercises.some((e) => areCanonicalExerciseIdentitiesEqual(e.exerciseId, exerciseId)))
     .sort((a, b) => (b.completedAt ?? b.startedAt).localeCompare(a.completedAt ?? a.startedAt))
     .slice(0, 3)
     .map((s) =>
       s.exercises
-        .find((e) => e.exerciseId === exerciseId)!
+        .find((e) => areCanonicalExerciseIdentitiesEqual(e.exerciseId, exerciseId))!
         .sets.filter((x) => x.completed)
         .map((x) => getSetReps(x, 'reps') ?? 0),
     );
