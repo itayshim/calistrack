@@ -70,6 +70,20 @@ describe('navigation route matching', () => {
     expect(screen.queryByRole('navigation', { name: 'Main navigation' })).not.toBeInTheDocument();
   });
 
+  it('portals the mobile navigation to the document body outside the scrolling app shell', () => {
+    const initial = createInitialData();
+    useAppStore.setState({ ...initial, hydrated: true, activeWorkout: null });
+    const view = render(createElement(MemoryRouter, { initialEntries: ['/settings'] }, createElement(I18nProvider, null,
+      createElement(Routes, null, createElement(Route, { element: createElement(AppLayout) },
+        createElement(Route, { path: '/settings', element: createElement('div', null, 'Settings') }),
+      )),
+    )));
+    const navigation = screen.getByTestId('mobile-bottom-navigation');
+    expect(navigation.parentElement).toBe(document.body);
+    expect(navigation).toHaveClass('mobile-bottom-nav');
+    expect(view.container.querySelector('.mobile-bottom-nav')).not.toBeInTheDocument();
+  });
+
   it('rejects preview and stale active-session pointers', () => {
     const initial = createInitialData();
     const base = { id: 'preview', workoutName: 'Preview', startedAt: '2026-08-04T10:00:00Z', status: 'active' as const, currentExerciseIndex: 0,

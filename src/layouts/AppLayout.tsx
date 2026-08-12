@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useAppStore } from '../store/useAppStore';
 import { isTabActive } from '../utils/navigation';
 import { useI18n } from '../hooks/useI18n';
@@ -35,7 +36,7 @@ export function AppLayout() {
   const workoutPath = active ? `/workout/${active.id}` : '/program';
   const isWorkoutRunner = /^\/workout\/[^/]+\/?$/.test(location.pathname);
   return (
-    <div className="min-h-screen md:flex" dir={direction}>
+    <div className="app-shell-root md:flex" dir={direction}>
       <aside className="fixed inset-y-0 start-0 z-30 hidden w-[17rem] border-e border-slate-200/80 bg-white/95 px-5 py-7 text-slate-950 backdrop-blur-xl dark:border-white/[.06] dark:bg-ink/95 dark:text-white md:flex md:flex-col">
         <button onClick={() => nav('/')} className="mb-10 flex items-center gap-3 px-2 text-start">
           <BrandLogo variant="wordmark" className="h-14 w-[13.5rem]" />
@@ -95,9 +96,11 @@ export function AppLayout() {
         )}
         <Outlet />
       </main>
-      {!isWorkoutRunner && <nav
+      {!isWorkoutRunner && createPortal(<nav
         aria-label={t('mainNavigation')}
-        className="mobile-bottom-nav fixed z-30 grid grid-cols-5 border-t border-slate-200/80 bg-white shadow-[0_-4px_16px_rgba(15,23,42,0.06)] dark:border-white/[.08] dark:bg-panel dark:shadow-[0_-4px_18px_rgba(0,0,0,0.24)] md:hidden"
+        dir={direction}
+        data-testid="mobile-bottom-navigation"
+        className="mobile-bottom-nav grid grid-cols-5 border-t border-slate-200/80 bg-white shadow-[0_-4px_16px_rgba(15,23,42,0.06)] dark:border-white/[.08] dark:bg-panel dark:shadow-[0_-4px_18px_rgba(0,0,0,0.24)] md:hidden"
       >
         {mobileTabs.map(([to, labelKey, Icon]) => {
           const destination = to;
@@ -119,7 +122,7 @@ export function AppLayout() {
             </Link>
           );
         })}
-      </nav>}
+      </nav>, document.body)}
       <OnboardingExperience />
     </div>
   );
