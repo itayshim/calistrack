@@ -70,8 +70,24 @@ export interface ManagedProgramLink {
   weekKey: string;
   workoutKey: string;
   enrollmentId?: string;
+  stageAttemptId?: string;
   source: 'managed_program';
   preview?: boolean;
+}
+export type ManagedStageReadinessRecommendation = 'advance' | 'repeat' | 'review' | 'unknown';
+export interface ManagedProgramStageAttempt {
+  id: string;
+  weekKey: string;
+  attemptNumber: number;
+  startedAt: string;
+  completedAt?: string;
+  completedWorkoutKeys: string[];
+  successfulWorkoutKeys: string[];
+  skippedWorkoutKeys: string[];
+  assessedWorkoutKeys?: string[];
+  recommendation?: ManagedStageReadinessRecommendation;
+  decision?: 'advanced' | 'repeated' | 'program_finished';
+  decidedAt?: string;
 }
 export interface SkillWorkoutLink {
   skillKey: string;
@@ -173,10 +189,13 @@ export interface ManagedProgramEnrollment {
   currentWeekKey: string;
   completedWorkoutKeys: string[];
   successfulWorkoutKeys?: string[];
+  assessedWorkoutKeys?: string[];
   skippedWorkoutKeys: string[];
   preferredWeekdays: number[];
   status: 'active' | 'completed' | 'cancelled';
   detached: boolean;
+  stageAttempts?: ManagedProgramStageAttempt[];
+  currentStageAttemptId?: string;
 }
 export interface SkillAssessmentRecord {
   id: string;

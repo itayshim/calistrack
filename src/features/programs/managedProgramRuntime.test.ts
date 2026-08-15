@@ -143,7 +143,7 @@ describe('managed Program runtime', () => {
     useAppStore.getState().finishWorkout();
     expect(useAppStore.getState().workoutSessions[0].managedProgramLink?.version).toBe(3);
     expect(useAppStore.getState().managedProgramEnrollments[0]).toMatchObject({
-      status: 'completed',
+      status: 'active',
       completedWorkoutKeys: ['week-1:day-a'],
       successfulWorkoutKeys: ['week-1:day-a'],
     });
@@ -157,7 +157,7 @@ describe('managed Program runtime', () => {
     useAppStore.getState().skipSkillWarmup();
     useAppStore.getState().finishWorkout();
     expect(useAppStore.getState().workoutSessions).toHaveLength(1);
-    expect(useAppStore.getState().managedProgramEnrollments[0]).toMatchObject({status:'completed',currentWeekKey:'week-1',completedWorkoutKeys:['week-1:day-a'],successfulWorkoutKeys:[]});
+    expect(useAppStore.getState().managedProgramEnrollments[0]).toMatchObject({status:'active',currentWeekKey:'week-1',completedWorkoutKeys:['week-1:day-a'],successfulWorkoutKeys:[]});
   });
   it('keeps warm-up and cooldown lightweight and out of normal exercise history', () => {
     const template = compileManagedWorkout(program, 'week-1', 'day-a', useAppStore.getState().exercises);

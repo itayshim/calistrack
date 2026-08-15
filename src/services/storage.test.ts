@@ -37,7 +37,7 @@ describe('storage', () => {
   it('rejects invalid imports', () => expect(() => service.importData('{"hello":1}')).toThrow());
   it('handles malformed local storage safely', () => {
     localStorage.setItem(STORAGE_KEY, 'broken');
-    expect(service.loadAppData().schemaVersion).toBe(14);
+    expect(service.loadAppData().schemaVersion).toBe(15);
   });
   it('migrates schema 1 exercises and preserves their IDs and saved data', () => {
     const current = createInitialData();
@@ -63,7 +63,7 @@ describe('storage', () => {
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(legacy));
     const migrated = service.loadAppData();
-    expect(migrated.schemaVersion).toBe(14);
+    expect(migrated.schemaVersion).toBe(15);
     expect(migrated.settings.onboardingCompleted).toBe(true);
     expect(migrated.settings.allowEmptyNumericFields).toBe(false);
     expect(migrated.settings.language).toBe('en');
@@ -80,6 +80,15 @@ describe('storage', () => {
     current.settings.onboardingCompleted = true;
     const imported = service.importData(service.exportData(current));
     expect(imported.settings.onboardingCompleted).toBe(true);
+  });
+  it('migrates legacy Managed Program progress into a first stage attempt without losing keys', () => {
+    const data = createInitialData();
+    data.schemaVersion = 14;
+    data.managedProgramEnrollments = [{ id: 'enrollment', programKey: 'program', programVersion: 1, startDate: '2026-08-01', currentWeekKey: 'week-1', completedWorkoutKeys: ['week-1:a'], successfulWorkoutKeys: ['week-1:a'], skippedWorkoutKeys: ['week-1:b'], preferredWeekdays: [], status: 'active', detached: false }];
+    const migrated = service.importData(service.exportData(data));
+    expect(migrated.schemaVersion).toBe(15);
+    expect(migrated.managedProgramEnrollments[0]).toMatchObject({ currentStageAttemptId: 'legacy:enrollment:week-1:1' });
+    expect(migrated.managedProgramEnrollments[0].stageAttempts?.[0]).toMatchObject({ completedWorkoutKeys: ['week-1:a'], successfulWorkoutKeys: ['week-1:a'], skippedWorkoutKeys: ['week-1:b'] });
   });
   it('repairs old linked skill templates while preserving detached templates and history', () => {
     const data = createInitialData();
@@ -106,7 +115,7 @@ describe('storage', () => {
 
     const migrated = service.importData(service.exportData(data));
 
-    expect(migrated.schemaVersion).toBe(14);
+    expect(migrated.schemaVersion).toBe(15);
     expect(migrated.settings.timerReactionAdjustmentSeconds).toBe(2);
     expect(migrated.settings.timedExerciseStartCountdownSeconds).toBe(3);
     expect(migrated.settings.weeklyWorkoutGoal).toBe(6);

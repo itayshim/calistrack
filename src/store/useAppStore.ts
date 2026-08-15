@@ -561,11 +561,24 @@ export const useAppStore = create<Store>((set, get) => ({
             const successfulWorkoutKeys = meetsMinimum && !enrollment.successfulWorkoutKeys?.includes(completionKey)
               ? [...(enrollment.successfulWorkoutKeys ?? []), completionKey]
               : (enrollment.successfulWorkoutKeys ?? []);
+            const assessedWorkoutKeys = enrollment.assessedWorkoutKeys?.includes(completionKey)
+              ? enrollment.assessedWorkoutKeys
+              : [...(enrollment.assessedWorkoutKeys ?? []), completionKey];
+            const stageAttemptId = a.managedProgramLink.stageAttemptId ?? enrollment.currentStageAttemptId;
+            const stageAttempts = enrollment.stageAttempts?.map((attempt) => attempt.id !== stageAttemptId ? attempt : ({
+              ...attempt,
+              completedWorkoutKeys: attempt.completedWorkoutKeys.includes(completionKey) ? attempt.completedWorkoutKeys : [...attempt.completedWorkoutKeys, completionKey],
+              successfulWorkoutKeys: meetsMinimum && !attempt.successfulWorkoutKeys.includes(completionKey) ? [...attempt.successfulWorkoutKeys, completionKey] : attempt.successfulWorkoutKeys,
+              assessedWorkoutKeys: attempt.assessedWorkoutKeys?.includes(completionKey) ? attempt.assessedWorkoutKeys : [...(attempt.assessedWorkoutKeys ?? []), completionKey],
+              skippedWorkoutKeys: attempt.skippedWorkoutKeys.filter((key) => key !== completionKey),
+            }));
             const definition = getResolvedManagedProgram(a.managedProgramLink.programKey)?.definition;
             const updated = {
               ...enrollment,
               completedWorkoutKeys,
               successfulWorkoutKeys,
+              assessedWorkoutKeys,
+              stageAttempts,
               skippedWorkoutKeys: enrollment.skippedWorkoutKeys.filter((key) => key !== completionKey),
             };
             return definition

@@ -6,6 +6,7 @@ import { I18nProvider } from '../app/I18nProvider';
 import { createInitialData } from '../data/seed';
 import { beginnerCalisthenics12Week } from '../features/programs/beginnerCalisthenics12Week';
 import { installManagedPrograms } from '../services/managedPrograms';
+import { storageService } from '../services/storage';
 import { useAppStore } from '../store/useAppStore';
 import type { ManagedProgramEnrollment } from '../types';
 import { ManagedProgramPage } from './ManagedProgramPage';
@@ -74,5 +75,30 @@ describe('Managed Program progression UX', () => {
     expect((await screen.findAllByText(/כדי לפתוח/)).length).toBeGreaterThan(0);
     expect(screen.getAllByText('נעול').length).toBeGreaterThan(0);
     expect(document.documentElement.dir).toBe('rtl');
+  });
+
+  it('shows a Repeat decision and preserves the completed attempt', async () => {
+    const user = userEvent.setup();
+    const keys = program.weeks[0].workouts.filter((workout) => workout.required !== false).map((workout) => `${program.weeks[0].key}:${workout.key}`);
+    useAppStore.setState({ managedProgramEnrollments: [{ ...enrollment(), completedWorkoutKeys: keys, assessedWorkoutKeys: keys }] });
+    renderPage();
+    expect(await screen.findByText('Repeating this stage may be useful')).toBeInTheDocument();
+    expect(screen.getAllByText('Completed below target')).toHaveLength(keys.length);
+    await user.click(screen.getByRole('button', { name: 'Repeat Week 1' }));
+    const stored = useAppStore.getState().managedProgramEnrollments[0];
+    expect(stored.currentWeekKey).toBe(program.weeks[0].key);
+    expect(stored.stageAttempts).toHaveLength(2);
+    expect(stored.stageAttempts?.[0]).toMatchObject({ decision: 'repeated', completedWorkoutKeys: keys });
+    expect(storageService.loadAppData().managedProgramEnrollments[0].stageAttempts).toHaveLength(2);
+  });
+
+  it('continues to the next stage after an Advance recommendation', async () => {
+    const user = userEvent.setup();
+    const keys = program.weeks[0].workouts.filter((workout) => workout.required !== false).map((workout) => `${program.weeks[0].key}:${workout.key}`);
+    useAppStore.setState({ managedProgramEnrollments: [{ ...enrollment(), completedWorkoutKeys: keys, successfulWorkoutKeys: keys, assessedWorkoutKeys: keys }] });
+    renderPage();
+    expect(await screen.findByText('Ready for the next stage')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Continue to Week 2' }));
+    expect(useAppStore.getState().managedProgramEnrollments[0].currentWeekKey).toBe(program.weeks[1].key);
   });
 });

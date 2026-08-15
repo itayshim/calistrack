@@ -344,6 +344,7 @@ export function compileManagedWorkout(
   exercises: Exercise[],
   enrollmentId?: string,
   language: 'en' | 'he' = 'en',
+  stageAttemptId?: string,
 ): WorkoutTemplate {
   const week = definition.weeks.find((x) => x.key === weekKey);
   const day = week?.workouts.find((x) => x.key === workoutKey);
@@ -434,6 +435,7 @@ export function compileManagedWorkout(
       weekKey: week.key,
       workoutKey: day.key,
       enrollmentId,
+      stageAttemptId,
       source: 'managed_program',
     },
     createdAt: new Date().toISOString(),

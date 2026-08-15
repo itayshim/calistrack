@@ -6,8 +6,12 @@ import { Badge } from '../components/ui';
 import { compileManagedWorkout } from '../features/programs/managedProgram';
 import {
   getManagedProgramProgress,
+  advanceManagedProgramStage,
   managedEnrollmentChanged,
   managedWorkoutKey,
+  repeatManagedProgramStage,
+  type ManagedStageReadiness,
+  type ManagedWorkoutPerformanceState,
   type ManagedWorkoutProgressState,
 } from '../features/programs/managedProgramProgress';
 import { isManagedMilestoneComplete } from '../features/programs/managedProgression';
@@ -60,10 +64,14 @@ export function ManagedProgramPage() {
 
   const enroll = () => {
     if (enrollment || !publiclyAvailable) return;
+    const id = createId();
+    const attemptId = createId();
     const item = {
-      id: createId(), programKey: d.key, programVersion: d.version, startDate,
+      id, programKey: d.key, programVersion: d.version, startDate,
       currentWeekKey: d.weeks[0].key, completedWorkoutKeys: [], successfulWorkoutKeys: [], skippedWorkoutKeys: [],
-      preferredWeekdays: [], status: 'active' as const, detached: false,
+      assessedWorkoutKeys: [], preferredWeekdays: [], status: 'active' as const, detached: false,
+      currentStageAttemptId: attemptId,
+      stageAttempts: [{ id: attemptId, weekKey: d.weeks[0].key, attemptNumber: 1, startedAt: new Date().toISOString(), completedWorkoutKeys: [], successfulWorkoutKeys: [], skippedWorkoutKeys: [], assessedWorkoutKeys: [] }],
     };
     useAppStore.setState((state) => ({ managedProgramEnrollments: [...state.managedProgramEnrollments, item] }));
     useAppStore.getState().persist();
@@ -73,7 +81,7 @@ export function ManagedProgramPage() {
     if (store.activeWorkout) { nav(`/workout/${store.activeWorkout.id}`); return; }
     const current = progress?.enrollment ?? enrollment;
     if (!current) return;
-    const workout = compileManagedWorkout(d, weekKey, workoutKey, store.exercises, current.id, language);
+    const workout = compileManagedWorkout(d, weekKey, workoutKey, store.exercises, current.id, language, current.currentStageAttemptId);
     if (store.startWorkout(workout)) nav(`/workout/${useAppStore.getState().activeWorkout?.id}`);
   };
   const setSkipped = (weekKey: string, workoutKey: string, skipped: boolean) => {
@@ -81,18 +89,20 @@ export function ManagedProgramPage() {
     const key = managedWorkoutKey(weekKey, workoutKey);
     useAppStore.setState((state) => ({ managedProgramEnrollments: state.managedProgramEnrollments.map((item) => {
       if (item.id !== enrollment.id || item.completedWorkoutKeys.includes(key)) return item;
-      const updated = { ...item, skippedWorkoutKeys: skipped ? [...new Set([...item.skippedWorkoutKeys, key])] : item.skippedWorkoutKeys.filter((entry) => entry !== key) };
+      const skippedWorkoutKeys = skipped ? [...new Set([...item.skippedWorkoutKeys, key])] : item.skippedWorkoutKeys.filter((entry) => entry !== key);
+      const stageAttempts = item.stageAttempts?.map((attempt) => attempt.id !== item.currentStageAttemptId ? attempt : ({ ...attempt, skippedWorkoutKeys: skipped ? [...new Set([...attempt.skippedWorkoutKeys, key])] : attempt.skippedWorkoutKeys.filter((entry) => entry !== key) }));
+      const updated = { ...item, skippedWorkoutKeys, stageAttempts };
       return getManagedProgramProgress(d, updated, state.workoutSessions).enrollment;
     }) }));
     useAppStore.getState().persist();
   };
-  const advanceExplicitly = () => {
-    if (!progress || !enrollment || !publiclyAvailable) return;
-    const index = d.weeks.findIndex((week) => week.key === progress.currentWeekKey);
-    const week = d.weeks[index];
-    const next = d.weeks[index + 1];
-    if (!next || !progress.weekProgress[week.key].terminal || week.advancementPolicy === 'required_complete') return;
-    useAppStore.setState((state) => ({ managedProgramEnrollments: state.managedProgramEnrollments.map((item) => item.id === enrollment.id ? { ...item, currentWeekKey: next.key } : item) }));
+  const decideStage = (decision: 'repeat' | 'advance') => {
+    if (!progress || !enrollment || !publiclyAvailable || !progress.weekProgress[progress.currentWeekKey].terminal) return;
+    const now = new Date().toISOString();
+    const updated = decision === 'repeat'
+      ? repeatManagedProgramStage(enrollment, progress, now, createId())
+      : advanceManagedProgramStage(progress, now, createId());
+    useAppStore.setState((state) => ({ managedProgramEnrollments: state.managedProgramEnrollments.map((item) => item.id === enrollment.id ? updated : item) }));
     useAppStore.getState().persist();
   };
   const previewWeek = preview ? d.weeks.find((week) => week.key === preview.weekKey) : undefined;
@@ -111,7 +121,9 @@ export function ManagedProgramPage() {
     {progress && currentWeek && <section className="card mt-6 border-brand/40" data-testid="current-week-summary">
       <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="eyebrow">{l('Current stage', 'השלב הנוכחי')}</p><h2 className="mt-1 text-3xl font-black">{l('Week', 'שבוע')} {d.weeks.findIndex((week) => week.key === currentWeek.key) + 1}</h2><p className="mt-2 font-bold"><bdi>{progress.weekProgress[currentWeek.key].completedRequiredCount}</bdi> {l(`of ${progress.weekProgress[currentWeek.key].requiredCount} required workouts completed`, `מתוך ${progress.weekProgress[currentWeek.key].requiredCount} אימוני חובה הושלמו`)}</p>{progress.weekProgress[currentWeek.key].skippedRequiredCount > 0 && <p className="mt-1 text-sm text-amber-600 dark:text-amber-300"><bdi>{progress.weekProgress[currentWeek.key].skippedRequiredCount}</bdi> {l('required workout skipped', 'אימון חובה דולג')}</p>}</div><Badge tone="brand"><bdi>{progress.overall.percent}%</bdi></Badge></div>
       <p className="mt-4 text-sm text-slate-500">{l('Follow the session order when practical. There is no one-session-per-day restriction; use the prescribed rest guidance and recover as needed.', 'מומלץ לפעול לפי סדר האימונים. אין מגבלה של אימון אחד ביום; פעלו לפי הנחיות המנוחה והתאוששו לפי הצורך.')}</p>
-      {nextWorkout ? <div className="surface-subtle mt-4 rounded-2xl p-4"><span className="label">{l('Next workout', 'האימון הבא')}</span><strong className="block text-lg" dir="auto">{language === 'he' ? nextWorkout.nameHe : nextWorkout.nameEn}</strong><div className="mt-3 flex flex-wrap gap-2">{publiclyAvailable && <button className="btn-primary" onClick={() => start(currentWeek.key, nextWorkout.key)}><Play size={18} fill="currentColor" />{l('Start workout', 'התחלת אימון')}</button>}<button className="btn-secondary" onClick={() => setPreview({ weekKey: currentWeek.key, workoutKey: nextWorkout.key })}><Eye size={18} />{l('Preview', 'תצוגה')}</button></div></div> : <p className="mt-4 font-bold text-emerald-600">{l('All required sessions in this stage are resolved.', 'כל אימוני החובה בשלב זה טופלו.')}</p>}
+      {progress.weekProgress[currentWeek.key].terminal
+        ? <StageDecision language={language} weekNumber={d.weeks.findIndex((week) => week.key === currentWeek.key) + 1} isFinal={!progress.nextStageKey} readiness={progress.weekProgress[currentWeek.key].readiness!} workouts={currentWeek.workouts.filter((workout) => workout.required !== false).map((workout) => ({ name: language === 'he' ? workout.nameHe : workout.nameEn, status: progress.workoutPerformance[managedWorkoutKey(currentWeek.key, workout.key)] }))} canMutate={publiclyAvailable} onRepeat={() => decideStage('repeat')} onAdvance={() => decideStage('advance')} />
+        : nextWorkout ? <div className="surface-subtle mt-4 rounded-2xl p-4"><span className="label">{l('Next workout', 'האימון הבא')}</span><strong className="block text-lg" dir="auto">{language === 'he' ? nextWorkout.nameHe : nextWorkout.nameEn}</strong><div className="mt-3 flex flex-wrap gap-2">{publiclyAvailable && <button className="btn-primary" onClick={() => start(currentWeek.key, nextWorkout.key)}><Play size={18} fill="currentColor" />{l('Start workout', 'התחלת אימון')}</button>}<button className="btn-secondary" onClick={() => setPreview({ weekKey: currentWeek.key, workoutKey: nextWorkout.key })}><Eye size={18} />{l('Preview', 'תצוגה')}</button></div></div> : null}
     </section>}
 
     <section className="mt-7 grid gap-4">{d.weeks.map((week, weekIndex) => {
@@ -124,17 +136,55 @@ export function ManagedProgramPage() {
         <div className="mt-4 grid gap-3">{week.workouts.map((workout) => {
           const key = managedWorkoutKey(week.key, workout.key);
           const state = progress?.workoutStates[key] ?? 'available';
-          const lastSession = completedProgramSessions.find((session) => session.managedProgramLink?.weekKey === week.key && session.managedProgramLink.workoutKey === workout.key);
+          const displayedAttempt = progress?.enrollment.stageAttempts?.filter((attempt) => attempt.weekKey === week.key).sort((a, b) => b.attemptNumber - a.attemptNumber)[0];
+          const lastSession = completedProgramSessions.find((session) => session.managedProgramLink?.weekKey === week.key && session.managedProgramLink.workoutKey === workout.key && (session.managedProgramLink.stageAttemptId ? session.managedProgramLink.stageAttemptId === displayedAttempt?.id : !displayedAttempt || displayedAttempt.attemptNumber === 1));
           return <WorkoutRow key={workout.key} state={state} name={language === 'he' ? workout.nameHe : workout.nameEn} exerciseCount={workout.sections.reduce((count, section) => count + section.exercises.length, 0)} required={workout.required !== false} completedAt={lastSession?.completedAt} language={language} onPreview={() => setPreview({ weekKey: week.key, workoutKey: workout.key })} onStart={() => start(week.key, workout.key)} onSkip={() => setSkipped(week.key, workout.key, true)} onRestore={() => setSkipped(week.key, workout.key, false)} canMutate={Boolean(enrollment && publiclyAvailable)} />;
         })}</div>
-        {progress && week.key === progress.currentWeekKey && week.advancementPolicy !== 'required_complete' && weekState?.terminal && d.weeks[weekIndex + 1] && <button className="btn-secondary mt-4" onClick={advanceExplicitly}>{l('Advance to next stage', 'מעבר לשלב הבא')}</button>}
       </article>;
     })}</section>
+
+    {progress && (progress.enrollment.stageAttempts ?? []).some((attempt) => attempt.decision) && <section className="card mt-7"><h2 className="text-xl font-black">{l('Stage history', 'היסטוריית שלבים')}</h2><div className="mt-3 grid gap-3">{(progress.enrollment.stageAttempts ?? []).filter((attempt) => attempt.decision).map((attempt) => {
+      const index = d.weeks.findIndex((week) => week.key === attempt.weekKey);
+      const recommendation = attempt.recommendation === 'advance' ? l('Ready to advance', 'מוכנים להתקדם') : attempt.recommendation === 'repeat' ? l('Repeat recommended', 'מומלץ לחזור') : attempt.recommendation === 'review' ? l('Review recommended', 'מומלץ לבדוק') : l('Assessment unavailable', 'אין נתונים להערכה');
+      return <div key={attempt.id} className="surface-subtle rounded-xl p-3"><div className="flex flex-wrap items-center justify-between gap-2"><strong>{l(`Week ${index + 1} · Attempt ${attempt.attemptNumber}`, `שבוע ${index + 1} · ניסיון ${attempt.attemptNumber}`)}</strong><Badge>{attempt.decision === 'repeated' ? l('Repeated', 'בוצעה חזרה') : attempt.decision === 'program_finished' ? l('Program finished', 'התוכנית הסתיימה') : l('Advanced', 'בוצעה התקדמות')}</Badge></div>{attempt.completedAt && <p className="mt-1 text-sm text-slate-500"><bdi>{new Date(attempt.completedAt).toLocaleDateString(language === 'he' ? 'he-IL' : 'en-US')}</bdi>{attempt.recommendation ? ` · ${l('Recommendation', 'המלצה')}: ${recommendation}` : ''}</p>}</div>;
+    })}</div></section>}
 
     {d.phases.length > 0 && <section className="mt-7 grid gap-4 md:grid-cols-3">{d.phases.map((phase) => <article className="card" key={phase.key}><p className="label">{l('Phase', 'שלב')} {phase.order + 1}</p><h2 className="mt-1 text-xl font-black">{language === 'he' ? phase.nameHe : phase.nameEn}</h2><p className="mt-2 text-sm text-slate-500">{language === 'he' ? phase.descriptionHe : phase.descriptionEn}</p></article>)}</section>}
     {milestoneProgress.length > 0 && <section className="card mt-5"><div className="flex items-center justify-between"><h2 className="text-xl font-black">{l('Program milestones', 'אבני דרך בתוכנית')}</h2><Badge tone="brand">{milestoneProgress.filter((item) => item.complete).length}/{milestoneProgress.length}</Badge></div></section>}
     {previewWeek && previewWorkout && <ManagedWorkoutPreviewDialog week={previewWeek} workout={previewWorkout} exercises={store.exercises} language={language} onClose={() => setPreview(undefined)} />}
   </main>;
+}
+
+function StageDecision({ language, weekNumber, isFinal, readiness, workouts, canMutate, onRepeat, onAdvance }: {
+  language: 'en' | 'he'; weekNumber: number; isFinal: boolean; readiness: ManagedStageReadiness;
+  workouts: { name: string; status: ManagedWorkoutPerformanceState }[]; canMutate: boolean; onRepeat: () => void; onAdvance: () => void;
+}) {
+  const l = (en: string, he: string) => language === 'he' ? he : en;
+  const heading = readiness.recommendation === 'advance' ? l('Ready for the next stage', 'מוכנים לשלב הבא')
+    : readiness.recommendation === 'repeat' ? l('Repeating this stage may be useful', 'ייתכן שכדאי לחזור על השלב')
+      : readiness.recommendation === 'unknown' ? l('Stage complete — assessment unavailable', 'השלב הושלם — אין מספיק נתונים להערכה')
+        : l('Review before progressing', 'כדאי לבדוק לפני שמתקדמים');
+  const reason = readiness.reason === 'all_met'
+    ? l(`You met the target in all ${readiness.metCount} assessed sessions.`, `עמדתם ביעד בכל ${readiness.metCount} האימונים שנבדקו.`)
+    : readiness.reason === 'mostly_met'
+      ? l(`You met ${readiness.metCount} targets; ${readiness.partialCount} session was below target${readiness.skippedCount ? ` and ${readiness.skippedCount} was skipped` : ''}.`, `עמדתם ב־${readiness.metCount} יעדים; ${readiness.partialCount} אימון היה מתחת ליעד${readiness.skippedCount ? ` ו־${readiness.skippedCount} דולג` : ''}.`)
+      : readiness.reason === 'multiple_partial'
+        ? l(`${readiness.partialCount} completed sessions were below the prescribed target range.`, `${readiness.partialCount} אימונים שהושלמו היו מתחת לטווח היעד שנקבע.`)
+        : readiness.reason === 'mostly_skipped'
+          ? l(`${readiness.skippedCount} required sessions were skipped, so there is not enough performance evidence for a confident recommendation.`, `${readiness.skippedCount} אימוני חובה דולגו, ולכן אין מספיק נתוני ביצוע להמלצה בטוחה.`)
+          : readiness.reason === 'replacement_limited'
+            ? l('A replacement materially changed the prescription, so compare the result before progressing.', 'תחליף שינה באופן מהותי את המרשם, ולכן כדאי לבדוק את התוצאה לפני ההתקדמות.')
+            : l(`${readiness.unknownCount} completed session${readiness.unknownCount === 1 ? '' : 's'} lack comparable performance data.`, `ל־${readiness.unknownCount} אימונים שהושלמו חסרים נתוני ביצוע בני השוואה.`);
+  const statusLabel = (status: ManagedWorkoutPerformanceState) => status === 'met' ? l('Target met', 'היעד הושג') : status === 'partial' ? l('Completed below target', 'הושלם מתחת ליעד') : status === 'skipped' ? l('Skipped', 'דולג') : l('Assessment unavailable', 'אין נתונים להערכה');
+  const primaryAdvance = readiness.recommendation === 'advance';
+  return <div className="mt-4 rounded-2xl border border-brand/30 bg-brand/5 p-4" data-testid="stage-decision">
+    <p className="eyebrow">{isFinal ? l('Program complete', 'התוכנית הושלמה') : l(`Week ${weekNumber} complete`, `שבוע ${weekNumber} הושלם`)}</p>
+    <h3 className="mt-1 text-xl font-black">{heading}</h3><p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{reason}</p>
+    <details className="mt-3"><summary className="cursor-pointer font-bold">{l('View performance', 'הצגת ביצועים')}</summary><div className="mt-2 grid gap-2">{workouts.map((workout) => <div key={workout.name} className="flex items-center justify-between gap-3 rounded-xl bg-white/60 p-3 text-sm dark:bg-black/15"><span dir="auto">{workout.name}</span><strong>{statusLabel(workout.status)}</strong></div>)}</div></details>
+    {canMutate && <div className="mt-4 flex flex-wrap gap-2">{primaryAdvance
+      ? <><button className="btn-primary" onClick={onAdvance}>{isFinal ? l('Finish Program', 'סיום התוכנית') : l(`Continue to Week ${weekNumber + 1}`, `המשך לשבוע ${weekNumber + 1}`)}</button><button className="btn-secondary" onClick={onRepeat}>{l('Repeat week', 'חזרה על השבוע')}</button></>
+      : <><button className="btn-primary" onClick={onRepeat}>{readiness.recommendation === 'repeat' ? l(`Repeat Week ${weekNumber}`, `חזרה על שבוע ${weekNumber}`) : l('Review options / repeat', 'בדיקת אפשרויות או חזרה')}</button><button className="btn-secondary" onClick={onAdvance}>{isFinal ? l('Finish anyway', 'סיום בכל זאת') : l('Continue anyway', 'המשך בכל זאת')}</button></>}</div>}
+  </div>;
 }
 
 function WorkoutRow({ state, name, exerciseCount, required, completedAt, language, onPreview, onStart, onSkip, onRestore, canMutate }: {
