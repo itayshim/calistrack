@@ -27,6 +27,7 @@ import {
 import { evaluateSkillSession } from '../features/skills/skillEngine';
 import { getDefaultSkillProgress, getNextSkillLevel } from '../features/skills/registry';
 import { getResolvedManagedProgram } from '../services/managedPrograms';
+import { getManagedProgramProgress, managedWorkoutKey } from '../features/programs/managedProgramProgress';
 import { applyExerciseMergeRedirects } from '../services/exerciseMerges';
 interface Store extends AppData {
   hydrated: boolean;
@@ -544,7 +545,7 @@ export const useAppStore = create<Store>((set, get) => ({
       managedProgramEnrollments: a.managedProgramLink?.enrollmentId
         ? s.managedProgramEnrollments.map((enrollment) => {
             if (enrollment.id !== a.managedProgramLink?.enrollmentId) return enrollment;
-            const completionKey = `${a.managedProgramLink.weekKey}:${a.managedProgramLink.workoutKey}`;
+            const completionKey = managedWorkoutKey(a.managedProgramLink.weekKey, a.managedProgramLink.workoutKey);
             const completedWorkoutKeys = enrollment.completedWorkoutKeys.includes(completionKey)
               ? enrollment.completedWorkoutKeys
               : [...enrollment.completedWorkoutKeys, completionKey];
@@ -561,12 +562,15 @@ export const useAppStore = create<Store>((set, get) => ({
               ? [...(enrollment.successfulWorkoutKeys ?? []), completionKey]
               : (enrollment.successfulWorkoutKeys ?? []);
             const definition = getResolvedManagedProgram(a.managedProgramLink.programKey)?.definition;
-            const week = definition?.weeks.find((item) => item.key === enrollment.currentWeekKey);
-            const requiredComplete = week?.workouts
-              .filter((item) => item.required !== false)
-              .every((item) => successfulWorkoutKeys.includes(`${week.key}:${item.key}`));
-            const nextWeek = requiredComplete ? definition?.weeks[definition.weeks.findIndex((item) => item.key === week?.key) + 1] : undefined;
-            return { ...enrollment, completedWorkoutKeys, successfulWorkoutKeys, currentWeekKey: nextWeek?.key ?? enrollment.currentWeekKey, status: requiredComplete && !nextWeek ? 'completed' as const : enrollment.status };
+            const updated = {
+              ...enrollment,
+              completedWorkoutKeys,
+              successfulWorkoutKeys,
+              skippedWorkoutKeys: enrollment.skippedWorkoutKeys.filter((key) => key !== completionKey),
+            };
+            return definition
+              ? getManagedProgramProgress(definition, updated, [a, ...s.workoutSessions]).enrollment
+              : updated;
           })
         : s.managedProgramEnrollments,
     }));

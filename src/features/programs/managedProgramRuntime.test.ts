@@ -148,7 +148,7 @@ describe('managed Program runtime', () => {
       successfulWorkoutKeys: ['week-1:day-a'],
     });
   });
-  it('preserves a completed session but does not auto-advance after missing the authored minimum', () => {
+  it('preserves a below-target completion as terminal without labelling it successful', () => {
     useAppStore.setState({ managedProgramEnrollments: [{ id:'enrollment', programKey:program.key, programVersion:3, startDate:'2026-08-04', currentWeekKey:'week-1', completedWorkoutKeys:[], skippedWorkoutKeys:[], preferredWeekdays:[], status:'active', detached:false }] });
     const store=useAppStore.getState();
     store.startWorkout(compileManagedWorkout(program,'week-1','day-a',store.exercises,'enrollment'));
@@ -157,7 +157,7 @@ describe('managed Program runtime', () => {
     useAppStore.getState().skipSkillWarmup();
     useAppStore.getState().finishWorkout();
     expect(useAppStore.getState().workoutSessions).toHaveLength(1);
-    expect(useAppStore.getState().managedProgramEnrollments[0]).toMatchObject({status:'active',currentWeekKey:'week-1',completedWorkoutKeys:['week-1:day-a'],successfulWorkoutKeys:[]});
+    expect(useAppStore.getState().managedProgramEnrollments[0]).toMatchObject({status:'completed',currentWeekKey:'week-1',completedWorkoutKeys:['week-1:day-a'],successfulWorkoutKeys:[]});
   });
   it('keeps warm-up and cooldown lightweight and out of normal exercise history', () => {
     const template = compileManagedWorkout(program, 'week-1', 'day-a', useAppStore.getState().exercises);
